@@ -1,0 +1,32 @@
+import SwiftUI
+import UIKit
+
+extension Color {
+    init(hex: UInt, alpha: Double = 1) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: alpha
+        )
+    }
+}
+
+/// MoSCoW 우선순위 4단계와 앱 전반의 배경/텍스트 톤 팔레트.
+/// 채도를 낮춘 톤(Toss/Apple 계열)으로, 색은 강조가 아니라 상태 구분용으로만 쓴다.
+enum MoscoPalette {
+    static let must = Color(hex: 0xD9484E)
+    static let should = Color(hex: 0xC98A2E)
+    static let could = Color(hex: 0x3182F6)
+    static let wont = Color(hex: 0x8B95A1)
+
+    /// 브랜드 액센트. 우선순위 색과 분리해 버튼 등 액션에만 사용.
+    static let accent = Color(hex: 0x3182F6)
+
+    static let background = Color(uiColor: .systemGroupedBackground)
+    static let surface = Color(uiColor: .secondarySystemBackground)
+    static let border = Color(uiColor: .separator)
+    static let textPrimary = Color.primary
+    static let textSecondary = Color.secondary
+}
