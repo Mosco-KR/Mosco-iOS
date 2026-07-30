@@ -54,7 +54,7 @@ struct StyleGuideView: View {
         SectionContainer(title: "우선순위 태그 (탭으로 수정 가능)") {
             SurfaceCard {
                 HStack(spacing: Metrics.spacingSM) {
-                    ForEach(DemoPriority.allCases) { priority in
+                    ForEach(Priority.allCases) { priority in
                         PriorityTag(priority: priority)
                     }
                 }
@@ -66,7 +66,7 @@ struct StyleGuideView: View {
     private var colorSection: some View {
         SectionContainer(title: "컬러 팔레트") {
             HStack(spacing: Metrics.spacingSM) {
-                ForEach(DemoPriority.allCases) { priority in
+                ForEach(Priority.allCases) { priority in
                     VStack(spacing: 6) {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(priority.color)
