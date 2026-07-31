@@ -36,9 +36,9 @@ struct MonthGridView: View, Equatable {
     private let blockRowHeight: CGFloat = 32
     /// 블록이 없어도 최소 한 줄 자리는 확보해서, 주 사이 간격이 완전히 붙지 않게.
     private let minBlockRows = 1
-    /// DayCell의 minHeight(44, iOS 권장 최소 탭 영역)와 짝을 맞춘 값 — 날짜 칸
-    /// 하나의 터치·눌림 하이라이트 범위를 계산할 때 이 숫자로 통일해서 쓴다.
-    private let numberRowHeight: CGFloat = 44
+    /// 지금 누르고 있는 날짜 — 배경 버튼(터치 인식)과 DayCell(눌림 애니메이션)이
+    /// 서로 다른 뷰라 상태를 공유해야 둘 다 같은 순간에 반응한다.
+    @State private var pressedDate: Date?
 
     private struct WeekRow {
         let dates: [Date]
@@ -102,55 +102,53 @@ struct MonthGridView: View, Equatable {
         let isCompact = selectedRowIndex != nil
         let isSelectedRow = selectedRowIndex == index
         let rowVisible = !isCompact || isSelectedRow
-        // 날짜 칸 하나의 "전체 사각형" 높이 — 숫자 줄부터 그 아래 블록 영역까지,
-        // 다음 주 바로 위까지 전부 포함한다. 압축 행에선 블록이 없으니 44 그대로.
-        let cellHeight = isCompact ? numberRowHeight : numberRowHeight + 2 + blockAreaHeight(for: week)
 
         return VStack(spacing: 0) {
             // 날짜 숫자 + 그 블록들은 하나의 뭉치로 맨 위에 붙인다 — 행이 화면을
             // 채우려 늘어나도, 늘어난 여백은 이 뭉치 "아래"(Spacer)로 가야
             // 블록이 항상 자기 날짜 바로 밑에 붙어 보인다. 예전엔 숫자 칸 자체가
             // 늘어나서 블록이 다음 줄처럼 멀리 떨어져 보였다.
-            ZStack(alignment: .top) {
-                // 터치 인식과 눌림 하이라이트를 맡는 배경 레이어 — 열마다 숫자
-                // 줄부터 블록 영역 끝까지(23과 25 사이, 31 바로 위까지) 하나의
-                // 사각형으로 통째로 깔아서, 실제 탭 범위와 눌렀을 때 보이는 박스가
-                // 항상 정확히 같은 크기가 되게 한다. 위에 그려지는 숫자는
-                // allowsHitTesting(false)로 손을 떼서 터치가 이 레이어까지
-                // 그대로 통과하고, 블록 막대는 같은 ZStack의 형제로 그 위에
-                // 그려지므로(WeekBlockBarsView 내부와 같은 원리) 블록을 직접
-                // 누르면 그쪽 제스처가 우선한다.
+            VStack(spacing: 2) {
                 HStack(spacing: 0) {
                     ForEach(0..<7, id: \.self) { col in
+                        dayCell(week: week, col: col, isCompact: isCompact)
+                    }
+                }
+                .allowsHitTesting(false)
+
+                if !isCompact {
+                    WeekBlockBarsView(
+                        weekStart: week.dates[0],
+                        weekDates: week.dates,
+                        positionedBlocks: positionedBlocks,
+                        inMonth: week.inMonth,
+                        totalRows: blockRows(for: week),
+                        onSelect: onSelect
+                    )
+                    .equatable()
+                    .frame(height: blockAreaHeight(for: week))
+                }
+            }
+            // 터치 인식과 눌림 하이라이트를 맡는 배경 버튼 — .background()는
+            // 앞(위 VStack)의 콘텐츠와 정확히 같은 크기로 저절로 맞춰지므로,
+            // 공휴일 라벨 유무 등으로 숫자 줄 실제 높이가 미묘하게 달라져도
+            // 높이를 따로 계산해서 어긋나는 일(바닥이 비는 것)이 없다 — 항상
+            // 실제 렌더 크기 그대로 딱 맞는다. 위에 그려지는 숫자는
+            // allowsHitTesting(false)로 손을 떼서 터치가 이 배경까지 그대로
+            // 통과하고, 블록 막대는 같은 자리에서 앞쪽에 그려지므로 블록을
+            // 직접 누르면 그쪽 제스처가 우선한다.
+            .background(alignment: .top) {
+                HStack(spacing: 0) {
+                    ForEach(0..<7, id: \.self) { col in
+                        let date = week.dates[col]
                         Button {
-                            onSelect(week.dates[col])
+                            onSelect(date)
                         } label: {
                             Color.clear
                         }
-                        .buttonStyle(CellPressHighlightStyle())
-                    }
-                }
-                .frame(height: cellHeight)
-
-                VStack(spacing: 2) {
-                    HStack(spacing: 0) {
-                        ForEach(0..<7, id: \.self) { col in
-                            dayCell(week: week, col: col, isCompact: isCompact)
-                        }
-                    }
-                    .allowsHitTesting(false)
-
-                    if !isCompact {
-                        WeekBlockBarsView(
-                            weekStart: week.dates[0],
-                            weekDates: week.dates,
-                            positionedBlocks: positionedBlocks,
-                            inMonth: week.inMonth,
-                            totalRows: blockRows(for: week),
-                            onSelect: onSelect
-                        )
-                        .equatable()
-                        .frame(height: blockAreaHeight(for: week))
+                        .buttonStyle(CellPressHighlightStyle(onPressingChanged: { isPressed in
+                            pressedDate = isPressed ? date : (pressedDate == date ? nil : pressedDate)
+                        }))
                     }
                 }
             }
@@ -179,7 +177,8 @@ struct MonthGridView: View, Equatable {
             isDimmed: !week.inMonth[col],
             weekendKind: weekendKind(for: date),
             holidayName: KoreanHoliday.name(for: date),
-            showsHolidayLabel: !isCompact
+            showsHolidayLabel: !isCompact,
+            isPressed: pressedDate == date
         )
         .frame(maxWidth: .infinity)
     }
@@ -194,8 +193,12 @@ struct MonthGridView: View, Equatable {
 }
 
 /// 날짜 칸 배경 버튼(위 weekRowView) 전용 눌림 효과 — 칸 전체(숫자+블록 영역)에
-/// 옅은 액센트 배경을 깔아서, 어디를 누르든 "이 칸 전체가 눌렸다"는 게 보이게 한다.
+/// 옅은 액센트 배경을 깔아서, 어디를 누르든 "이 칸 전체가 눌렸다"는 게 보이게
+/// 한다. 눌림 상태를 onPressingChanged로 밖에도 알려서, 숫자 자체의 축소·페이드
+/// 애니메이션(DayCell.isPressed)이 이 배경과 같은 타이밍에 같이 움직인다.
 private struct CellPressHighlightStyle: ButtonStyle {
+    var onPressingChanged: (Bool) -> Void = { _ in }
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -205,5 +208,8 @@ private struct CellPressHighlightStyle: ButtonStyle {
                     .fill(MoscoPalette.accent.opacity(configuration.isPressed ? 0.08 : 0))
             )
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, newValue in
+                onPressingChanged(newValue)
+            }
     }
 }

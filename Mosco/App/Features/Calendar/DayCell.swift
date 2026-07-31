@@ -3,10 +3,11 @@ import SwiftUI
 /// 날짜 숫자만 담당한다. 그날의 일정(블록)은 셀 안이 아니라 주(week) 단위
 /// 오버레이(WeekBlockBarsView)에서 여러 셀에 걸쳐 그려진다.
 ///
-/// 이 뷰 자체는 순전히 그림만 그린다 — 탭 인식과 눌림 하이라이트는
-/// MonthGridView가 숫자 줄부터 그 아래 블록 영역까지를 하나의 사각형으로 묶어
-/// 대신 맡는다(그래야 숫자 바로 아래 빈 자리를 눌러도 같은 날짜로 잡힌다).
-/// 그래서 여기엔 Button도, action도 없다.
+/// 탭 인식과 눌림 배경(박스)은 MonthGridView가 숫자 줄부터 그 아래 블록
+/// 영역까지를 하나의 사각형으로 묶어 대신 맡는다(그래야 숫자 바로 아래 빈
+/// 자리를 눌러도 같은 날짜로 잡힌다) — 그래서 여기엔 Button이 없다. 다만
+/// 숫자 자체의 축소·페이드 애니메이션은 그 배경 버튼의 눌림 상태를
+/// `isPressed`로 그대로 전달받아 같은 타이밍에 재생한다.
 struct DayCell: View {
     enum WeekendKind {
         case sunday
@@ -24,6 +25,8 @@ struct DayCell: View {
     var holidayName: String? = nil
     /// 압축된 한 줄(주간 스트립)일 땐 자리가 없어 공휴일 이름을 생략한다.
     var showsHolidayLabel: Bool = true
+    /// MonthGridView의 배경 버튼이 지금 눌리고 있는 날짜면 true.
+    var isPressed: Bool = false
 
     private var dayNumber: String {
         String(Calendar.current.component(.day, from: date))
@@ -63,8 +66,8 @@ struct DayCell: View {
         // 늘어나 버려서, 같은 주(週) VStack 안에 있는 블록 바(WeekBlockBarsView)가
         // 늘어난 만큼 아래로 밀려난다 — 블록 수가 적은 주(특히 탭바 바로 위
         // 마지막 줄)일수록 그 밀림이 커져, 블록이 화면 밖으로 밀려나거나
-        // 잘려 보였다. 그래서 maxHeight는 여전히 안 주지만, minHeight는
-        // MonthGridView.numberRowHeight(44)와 맞춘다.
+        // 잘려 보였다. 그래서 maxHeight는 여전히 안 주지만, minHeight는 44(iOS
+        // 권장 최소 탭 영역)로 맞춘다.
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .top)
         // 선택된 날짜는 채움이 아니라 칸 전체를 감싸는 빈 사각형(테두리만)으로
         // 표시한다 — 숫자 둘레의 작은 동그라미 대신, 실제 탭 영역과 같은
@@ -74,5 +77,11 @@ struct DayCell: View {
                 .strokeBorder(MoscoPalette.accent, lineWidth: 1.5)
                 .opacity(isSelected && !isToday ? 1 : 0)
         )
+        // 예전엔 이 축소·페이드가 DayCell 자신의 버튼 눌림에서 나왔지만, 지금은
+        // 탭을 배경 버튼이 대신 받으므로 그 눌림 상태를 isPressed로 전달받아
+        // 같은 느낌을 그대로 재현한다.
+        .scaleEffect(isPressed ? 0.88 : 1)
+        .opacity(isPressed ? 0.7 : 1)
+        .animation(.easeOut(duration: 0.12), value: isPressed)
     }
 }
