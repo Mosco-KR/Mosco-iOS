@@ -2,59 +2,85 @@ import SwiftUI
 import SwiftData
 import UIKit
 
-/// 전체 할 일을 날짜와 무관하게 우선순위(Must/Should/Could/Won't)별로 묶어서 보여준다.
-/// 완료된 항목은 여기선 흐리게 두지 않고 아예 목록에서 치운다 — 이 화면은 앞으로 할
-/// 일들을 보는 백로그라, 캘린더의 하루치 목록과 달리 끝난 건 남겨둘 이유가 없다.
-struct PriorityListScreen: View {
-    @Query(sort: \TodoItem.date) private var todos: [TodoItem]
+/// 오늘 할 일만 모아서 카테고리별로 묶어 보여준다. 날짜 없는 백로그 항목도
+/// "언제든 해도 되는 일"로 취급해 여기 포함한다 — 날짜가 정해진 다른 날짜의
+/// 할 일은 캘린더 탭에서 그 날짜를 눌러 따로 본다.
+/// 완료된 항목은 여기선 흐리게 두지 않고 아예 목록에서 치운다 — 이 화면은 오늘
+/// 처리할 일들을 보는 곳이라, 끝난 건 접어둔 섹션에서만 다시 볼 수 있으면 된다.
+struct TodayTodoScreen: View {
+    @Query(sort: \TodoCategory.sortOrder) private var categories: [TodoCategory]
+    @Query private var allTodos: [TodoItem]
     @Environment(\.modelContext) private var modelContext
     /// 기존 항목을 누르면 여기 채워지고, 하단 입력창이 새로 만들기 대신 그 항목을
     /// 고치는 채팅형 입력창으로 바뀐다(DayTodosContentView와 같은 패턴).
     @State private var editingTodo: TodoItem?
-    /// 접어둔 우선순위 섹션들 — 헤더를 탭해서 접고 편다.
-    @State private var collapsedPriorities: Set<Priority> = []
+    /// 접어둔 카테고리 섹션들(nil = 미분류) — 헤더를 탭해서 접고 편다.
+    @State private var collapsedCategoryKeys: Set<UUID?> = []
     /// 완료 섹션은 기본으로 접혀 있다 — 평소엔 안 보이지만, 잘못 체크했거나
     /// 되돌리고 싶을 때 펼쳐서 체크를 풀 수 있어야 한다(안 그러면 완료 즉시
     /// 목록에서 사라져서 되돌릴 방법이 없어진다).
     @State private var showsCompleted = false
 
+    private let calendar = Calendar.current
+    private var today: Date { calendar.startOfDay(for: .now) }
+
+    /// 반복 인스턴스는 저장소에 없고 규칙으로 계산되므로 #Predicate로는 못 거른다.
+    /// 개인용 앱 규모에선 전체를 메모리에서 거르는 게 단순하고 충분히 빠르다.
+    /// 날짜 없는 백로그 항목도 "오늘 해도 되는 일"로 포함시킨다.
+    private var todosForToday: [TodoItem] {
+        allTodos.filter { $0.date == nil || $0.occurs(on: today) }
+    }
+
+    private func isDone(_ todo: TodoItem) -> Bool {
+        todo.isCompleted(on: today)
+    }
+
     private var incompleteTodos: [TodoItem] {
-        todos.filter { !$0.isCompleted }
+        todosForToday.filter { !isDone($0) }
     }
 
     private var completedTodos: [TodoItem] {
-        todos.filter(\.isCompleted)
+        todosForToday.filter(isDone)
     }
 
-    private var groupedByPriority: [Priority: [TodoItem]] {
-        Dictionary(grouping: incompleteTodos, by: \.priority)
+    /// 사용자가 만든 카테고리 순서대로 먼저, 그다음 미분류(nil) 묶음.
+    private var groupedByCategory: [(category: TodoCategory?, items: [TodoItem])] {
+        var buckets: [UUID?: [TodoItem]] = [:]
+        for todo in incompleteTodos {
+            buckets[todo.category?.id, default: []].append(todo)
+        }
+        var result: [(TodoCategory?, [TodoItem])] = categories.compactMap { category in
+            guard let items = buckets[category.id] else { return nil }
+            return (category, items)
+        }
+        if let uncategorized = buckets[nil] {
+            result.append((nil, uncategorized))
+        }
+        return result
     }
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(Priority.allCases) { priority in
-                    let items = groupedByPriority[priority] ?? []
-                    if !items.isEmpty {
-                        Section {
-                            if !collapsedPriorities.contains(priority) {
-                                ForEach(items) { todo in
-                                    TodoRow(todo: todo, showsDate: true, onTap: { editingTodo = todo })
-                                        .listRowBackground(Color.clear)
-                                        .listRowSeparator(.hidden)
-                                        .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
-                                }
-                                .onDelete { offsets in delete(items: items, at: offsets) }
+                ForEach(groupedByCategory, id: \.category?.id) { group in
+                    Section {
+                        if !collapsedCategoryKeys.contains(group.category?.id) {
+                            ForEach(group.items) { todo in
+                                TodoRow(todo: todo, occurrenceDate: today, onTap: { editingTodo = todo })
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
                             }
-                        } header: {
-                            sectionHeader(for: priority, count: items.count)
+                            .onDelete { offsets in delete(items: group.items, at: offsets) }
                         }
+                    } header: {
+                        sectionHeader(for: group.category, count: group.items.count)
                     }
                 }
 
                 if incompleteTodos.isEmpty {
                     ContentUnavailableView(
-                        "할 일이 없어요",
+                        "오늘 할 일이 없어요",
                         systemImage: "checkmark.circle",
                         description: Text("아래에서 바로 추가해보세요")
                     )
@@ -66,7 +92,7 @@ struct PriorityListScreen: View {
                     Section {
                         if showsCompleted {
                             ForEach(completedTodos) { todo in
-                                TodoRow(todo: todo, showsDate: true, onTap: { editingTodo = todo })
+                                TodoRow(todo: todo, occurrenceDate: today, onTap: { editingTodo = todo })
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
                                     .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
@@ -92,7 +118,7 @@ struct PriorityListScreen: View {
                 }
             )
             .safeAreaInset(edge: .bottom) {
-                // "할 일" 탭에서 바로 만드는 항목은 날짜/시간 기본값이 없다 —
+                // "오늘 할 일" 탭에서 바로 만드는 항목은 날짜/시간 기본값이 없다 —
                 // 캘린더 쪽(그 날짜의 리스트)에서 만들 때만 그 날짜가 기본이다.
                 QuickAddView(date: nil, editingTodo: $editingTodo)
             }
@@ -100,23 +126,24 @@ struct PriorityListScreen: View {
     }
 
     /// 탭하면 섹션이 접히고 펴진다 — 접힌 동안엔 개수만 남아 상태를 알 수 있다.
-    private func sectionHeader(for priority: Priority, count: Int) -> some View {
-        Button {
+    private func sectionHeader(for category: TodoCategory?, count: Int) -> some View {
+        let key = category?.id
+        return Button {
             withAnimation(.easeInOut(duration: 0.25)) {
-                if collapsedPriorities.contains(priority) {
-                    collapsedPriorities.remove(priority)
+                if collapsedCategoryKeys.contains(key) {
+                    collapsedCategoryKeys.remove(key)
                 } else {
-                    collapsedPriorities.insert(priority)
+                    collapsedCategoryKeys.insert(key)
                 }
             }
         } label: {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(priority.color)
+                    .fill(category?.color ?? MoscoPalette.textSecondary)
                     .frame(width: 7, height: 7)
-                Text(priority.fullLabel)
+                Text(category?.name ?? "미분류")
 
-                if collapsedPriorities.contains(priority) {
+                if collapsedCategoryKeys.contains(key) {
                     Text("\(count)")
                         .foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
                 }
@@ -125,7 +152,7 @@ struct PriorityListScreen: View {
 
                 Image(systemName: "chevron.down")
                     .font(.system(size: 11, weight: .semibold))
-                    .rotationEffect(.degrees(collapsedPriorities.contains(priority) ? -90 : 0))
+                    .rotationEffect(.degrees(collapsedCategoryKeys.contains(key) ? -90 : 0))
             }
             .font(.moscoCaption())
             .foregroundStyle(MoscoPalette.textSecondary)

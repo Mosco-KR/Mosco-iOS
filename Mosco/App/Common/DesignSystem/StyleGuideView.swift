@@ -42,7 +42,7 @@ struct StyleGuideView: View {
 
                     HStack(spacing: Metrics.spacingSM) {
                         TagChip(label: "오후 3:00", tint: MoscoPalette.textSecondary)
-                        PriorityTag(priority: .should)
+                        CategoryTag(category: nil)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -51,11 +51,13 @@ struct StyleGuideView: View {
     }
 
     private var prioritySection: some View {
-        SectionContainer(title: "우선순위 태그 (탭으로 수정 가능)") {
+        SectionContainer(title: "카테고리 색상 팔레트 (사용자가 직접 고른다)") {
             SurfaceCard {
-                HStack(spacing: Metrics.spacingSM) {
-                    ForEach(Priority.allCases) { priority in
-                        PriorityTag(priority: priority)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: Metrics.spacingSM) {
+                    ForEach(CategoryColorPalette.hexValues, id: \.self) { hex in
+                        Circle()
+                            .fill(CategoryColorPalette.color(forHex: hex))
+                            .frame(width: 28, height: 28)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -64,24 +66,7 @@ struct StyleGuideView: View {
     }
 
     private var colorSection: some View {
-        SectionContainer(title: "컬러 팔레트") {
-            HStack(spacing: Metrics.spacingSM) {
-                ForEach(Priority.allCases) { priority in
-                    VStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(priority.color)
-                            .frame(width: 44, height: 44)
-                        Text(priority.rawValue.capitalized)
-                            .font(.moscoCaption())
-                            .foregroundStyle(MoscoPalette.textPrimary)
-                        Text(priority.hex)
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(MoscoPalette.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
+        EmptyView()
     }
 
     private var typographySection: some View {

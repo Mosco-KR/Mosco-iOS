@@ -9,7 +9,7 @@ import SwiftUI
 /// `totalRows`는 이 페이지(월) 전체에서 실제로 쓰이는 행 수 그대로다 — 예전처럼
 /// 2줄로 자르지 않고 전부 그린다. 바깥(MonthGridView)에서 이 값 기준으로 높이를
 /// 잡고, 너무 많으면 스크롤 가능한 영역으로 감싼다.
-struct WeekBlockBarsView: View {
+struct WeekBlockBarsView: View, Equatable {
     let weekStart: Date
     let weekDates: [Date]
     let positionedBlocks: [PositionedBlock]
@@ -19,13 +19,27 @@ struct WeekBlockBarsView: View {
     /// 스와이프 중 같은 일정이 두 번 보이는 것처럼 어색해진다.
     let inMonth: [Bool]
     let totalRows: Int
+    /// 블록을 탭하면 그 블록이 시작하는 날짜로 선택 진입한다 — DayCell을 탭한
+    /// 것과 같은 콜백을 그대로 재사용해서, 드래그 중 탭 억제 등도 자동으로 따라온다.
+    let onSelect: (Date) -> Void
+
+    // 날짜 선택으로 다른 주(週)만 압축/복원돼도 MonthGridView 전체가 다시 그려지는데,
+    // 클로저(onSelect)는 비교할 수 없으니 나머지 값만 보고 "바뀐 게 없으면 다시 안
+    // 그린다" — 안 그러면 매번 이 주의 세그먼트를 다시 계산하게 된다.
+    static func == (lhs: WeekBlockBarsView, rhs: WeekBlockBarsView) -> Bool {
+        lhs.weekStart == rhs.weekStart
+            && lhs.weekDates == rhs.weekDates
+            && lhs.positionedBlocks == rhs.positionedBlocks
+            && lhs.inMonth == rhs.inMonth
+            && lhs.totalRows == rhs.totalRows
+    }
 
     private let calendar = Calendar.current
 
     private struct Segment: Identifiable {
         let id: String
         let title: String
-        let priority: Priority
+        let category: TodoCategory?
         let isCompleted: Bool
         let row: Int
         let startColumn: Int
@@ -56,7 +70,7 @@ struct WeekBlockBarsView: View {
             return Segment(
                 id: block.id,
                 title: block.title,
-                priority: block.priority,
+                category: block.category,
                 isCompleted: block.isCompleted,
                 row: positioned.row,
                 startColumn: startColumn,
@@ -77,7 +91,7 @@ struct WeekBlockBarsView: View {
             Segment(
                 id: segment.id,
                 title: segment.title,
-                priority: segment.priority,
+                category: segment.category,
                 isCompleted: segment.isCompleted,
                 row: rowMap[segment.row] ?? segment.row,
                 startColumn: segment.startColumn,
@@ -104,34 +118,72 @@ struct WeekBlockBarsView: View {
                         ForEach(segments.filter { $0.row == row }) { segment in
                             barView(segment: segment, columnWidth: columnWidth)
                                 .offset(x: columnWidth * CGFloat(segment.startColumn))
+                                // 블록이 여러 날에 걸쳐 있으면 시작일이 아니라
+                                // 실제로 손가락이 닿은 칸의 날짜로 가야 한다 —
+                                // 그래서 탭 위치(x)를 열 너비로 나눠 어느 날짜
+                                // 칸인지 계산한다.
+                                .gesture(
+                                    SpatialTapGesture()
+                                        .onEnded { value in
+                                            let offsetColumns = Int(value.location.x / columnWidth)
+                                            let column = min(
+                                                max(segment.startColumn + offsetColumns, segment.startColumn),
+                                                segment.endColumn
+                                            )
+                                            onSelect(weekDates[column])
+                                        }
+                                )
                         }
                     }
-                    .frame(height: 14)
+                    // MonthGridView.blockRowHeight(32)와 짝 맞는 값 — VStack spacing(2)까지
+                    // 합쳐 총 높이가 정확히 rows*32-2가 되도록: 30n + 2(n-1) = 32n-2.
+                    .frame(height: 30)
                 }
             }
         }
     }
 
+    /// 이 앱의 캘린더 블록 — 배경을 통째로 색으로 칠하는 대신, 인용문처럼 맨
+    /// 앞에만 카테고리 색 세로 바를 두고 나머지는 진짜 리퀴드 글래스(moscoGlass)로
+    /// 처리한다. 색이 "칠해진" 느낌 대신 유리 위에 "살짝 비치는" 느낌을 노려서,
+    /// 저채도 배경 위에서도 싸구려로 안 보이게 한다. 제목이 길면 말줄임표로
+    /// 자르는 대신 두 줄까지 그대로 보여준다. 이어지는 블록의 중간/끝 조각
+    /// (continuesBefore)엔 이미 앞 주에서 색 바를 보여줬으니 다시 그리지 않는다.
     private func barView(segment: Segment, columnWidth: CGFloat) -> some View {
         let spanWidth = columnWidth * CGFloat(segment.endColumn - segment.startColumn + 1)
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: segment.continuesBefore ? 0 : 7,
+            bottomLeadingRadius: segment.continuesBefore ? 0 : 7,
+            bottomTrailingRadius: segment.continuesAfter ? 0 : 7,
+            topTrailingRadius: segment.continuesAfter ? 0 : 7
+        )
+        let color = segment.category?.color ?? MoscoPalette.textSecondary
 
-        return Text(segment.title)
-            .font(.system(size: 9, weight: .medium))
-            .strikethrough(segment.isCompleted)
-            .foregroundStyle(.white)
-            .lineLimit(1)
-            .padding(.horizontal, 4)
-            .frame(width: max(spanWidth - 2, 0), height: 14, alignment: .leading)
-            .background(
-                UnevenRoundedRectangle(
-                    topLeadingRadius: segment.continuesBefore ? 0 : 4,
-                    bottomLeadingRadius: segment.continuesBefore ? 0 : 4,
-                    bottomTrailingRadius: segment.continuesAfter ? 0 : 4,
-                    topTrailingRadius: segment.continuesAfter ? 0 : 4
-                )
-                .fill(segment.priority.color)
-            )
-            // 완료된 항목은 TodoRow와 같은 방식(톤 낮춤)으로 구분한다.
-            .opacity(segment.isCompleted ? 0.45 : 1)
+        return HStack(spacing: 5) {
+            if !segment.continuesBefore {
+                Capsule()
+                    .fill(color)
+                    .frame(width: 2.5)
+                    .padding(.vertical, 4)
+            }
+            Text(segment.title)
+                .font(.system(size: 9, weight: .semibold))
+                .strikethrough(segment.isCompleted)
+                .foregroundStyle(MoscoPalette.textPrimary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .frame(width: max(spanWidth - 2, 0), height: 30, alignment: .leading)
+        // moscoGlass는 배경만 유리로 깔 뿐 색을 안 입혀서, 그 "밑"에 아주 옅은
+        // 카테고리 톤을 먼저 깔아둔다 — 유리를 통해 은은하게 비치는 정도로만.
+        .background(color.opacity(0.12))
+        .moscoGlass(in: shape)
+        .overlay(shape.strokeBorder(color.opacity(0.28), lineWidth: 0.75))
+        .clipShape(shape)
+        // 완료된 항목은 TodoRow와 같은 방식(톤 낮춤)으로 구분한다.
+        .opacity(segment.isCompleted ? 0.45 : 1)
     }
 }

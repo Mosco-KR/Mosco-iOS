@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct CalendarScreen: View {
+    @Environment(TutorialManager.self) private var tutorialManager
     @Query(sort: \TodoItem.date) private var todos: [TodoItem]
     @State private var displayedMonth = Date()
     @State private var selectedDate: Date?
@@ -13,6 +14,7 @@ struct CalendarScreen: View {
     /// 밑으로 밀려 들어가 일부가 가려지는 경우가 있었다 — 그래서 이 화면
     /// 전체(GeometryReader)에서 헤더 높이만 빼는 방식으로 바꿨다.)
     @State private var topChromeHeight: CGFloat = 0
+    @State private var showsSettings = false
 
     private let calendar = Calendar.current
 
@@ -41,10 +43,11 @@ struct CalendarScreen: View {
             CalendarBlock(
                 id: "\(todo.id.uuidString)-base",
                 title: todo.title,
-                priority: todo.priority,
+                category: todo.category,
                 start: baseStart,
                 end: baseEnd,
-                isCompleted: todo.isCompleted(on: baseStart)
+                isCompleted: todo.isCompleted(on: baseStart),
+                createdAt: todo.createdAt
             )
         ]
 
@@ -64,11 +67,12 @@ struct CalendarScreen: View {
                     CalendarBlock(
                         id: "\(todo.id.uuidString)-\(cursor.dayKey)",
                         title: todo.title,
-                        priority: todo.priority,
+                        category: todo.category,
                         start: cursor,
                         end: end,
                         // 반복은 날짜별로 완료 상태가 다르다 — 그 인스턴스의 기록만 본다.
-                        isCompleted: todo.isCompleted(on: cursor)
+                        isCompleted: todo.isCompleted(on: cursor),
+                        createdAt: todo.createdAt
                     )
                 )
             }
@@ -121,7 +125,7 @@ struct CalendarScreen: View {
                 // 넣으면 가로 스와이프를 스크롤뷰가 가로채 인식이 나빠지고, 달을
                 // 넘길 때 페이지별 스크롤 위치가 제각각이라 툭툭 튀어 보인다.
                 ScrollViewReader { proxy in
-                    ScrollView(showsIndicators: false) {
+                    ScrollView {
                         MonthCarouselView(
                             width: geometry.size.width - Metrics.spacingSM * 2,
                             displayedMonth: displayedMonth,
@@ -172,6 +176,9 @@ struct CalendarScreen: View {
             .animation(.spring(response: 0.4, dampingFraction: 0.88), value: selectedDate)
         }
         .background(MoscoPalette.canvas.ignoresSafeArea(edges: .top))
+        .sheet(isPresented: $showsSettings) {
+            SettingsScreen()
+        }
     }
 
     private func select(_ day: Date) {
@@ -180,6 +187,7 @@ struct CalendarScreen: View {
             displayedMonth = day
         }
         selectedDate = day
+        tutorialManager.userDidSelectDate()
     }
 
     private func collapse() {
@@ -236,8 +244,21 @@ struct CalendarScreen: View {
 
             Spacer()
 
+            settingsButton
             todayButton
         }
+    }
+
+    private var settingsButton: some View {
+        Button {
+            showsSettings = true
+        } label: {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(MoscoPalette.accent)
+                .frame(width: 34, height: 34)
+        }
+        .moscoGlass(in: Circle())
     }
 
     /// 항상 상단 오른쪽에 고정 — 압축 여부/현재 달 여부와 무관하게 항상 눌러서
@@ -246,12 +267,13 @@ struct CalendarScreen: View {
         Button {
             goToToday()
         } label: {
-            Image(systemName: "smallcircle.filled.circle")
-                .font(.system(size: 16, weight: .semibold))
+            Text("오늘")
+                .font(.moscoCaption().weight(.semibold))
                 .foregroundStyle(MoscoPalette.accent)
-                .frame(width: 34, height: 34)
+                .padding(.horizontal, 14)
+                .frame(height: 34)
         }
-        .moscoGlass(in: Circle())
+        .moscoGlass(in: Capsule())
     }
 
     private var weekdayHeader: some View {

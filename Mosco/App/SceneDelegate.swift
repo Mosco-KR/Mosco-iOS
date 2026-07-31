@@ -18,7 +18,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         let rootView = RootTabView()
-            .modelContainer(for: TodoItem.self)
+            .modelContainer(for: [TodoItem.self, TodoCategory.self])
 
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = UIHostingController(rootView: rootView)

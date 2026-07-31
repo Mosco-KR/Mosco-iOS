@@ -11,6 +11,7 @@ struct DayTodosContentView: View {
 
     @Query(sort: [SortDescriptor(\TodoItem.startTime)]) private var allTodos: [TodoItem]
     @Environment(\.modelContext) private var modelContext
+    @Environment(TutorialManager.self) private var tutorialManager
     /// 기존 항목을 누르면 여기 채워지고, 하단 QuickAddView가 새로 만들기 대신
     /// 이 항목을 고치는 채팅형 입력창으로 바뀐다.
     @State private var editingTodo: TodoItem?
@@ -67,5 +68,6 @@ struct DayTodosContentView: View {
         for index in offsets {
             modelContext.delete(todosForDay[index])
         }
+        tutorialManager.userDidDeleteTodo()
     }
 }

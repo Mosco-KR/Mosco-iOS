@@ -1,0 +1,120 @@
+{
+  "activityEntities" : [
+    "dataSourceCreated",
+    [
+      {
+        "createdDate" : "2026-07-30T16:23:23Z",
+        "event" : "dataSourceCreated",
+        "id" : "149037E8-D0A5-4552-8651-2AB4DABDBAF1",
+        "subtitle" : "priority-training-data.csv",
+        "title" : "Data Source Created"
+      }
+    ],
+    "dataSourceTrainingStarted",
+    [
+      {
+        "createdDate" : "2026-07-30T16:27:58Z",
+        "event" : "dataSourceTrainingStarted",
+        "id" : "E6379956-DD18-4DB5-8989-0CA614D72E84",
+        "subtitle" : "MoscoML 1",
+        "title" : "Used By"
+      },
+      {
+        "createdDate" : "2026-07-30T16:32:15Z",
+        "event" : "dataSourceTrainingStarted",
+        "id" : "1D88429F-659C-4569-9887-BA15F9023295",
+        "subtitle" : "MoscoML 1",
+        "title" : "Used By"
+      },
+      {
+        "createdDate" : "2026-07-30T16:33:47Z",
+        "event" : "dataSourceTrainingStarted",
+        "id" : "2CE162EF-933C-4DCD-A8BC-5244BC3EFE50",
+        "subtitle" : "MoscoML 2",
+        "title" : "Used By"
+      }
+    ],
+    "dataSourceMetrics",
+    [
+      {
+        "createdDate" : "2026-07-30T16:27:58Z",
+        "event" : "dataSourceMetrics",
+        "id" : "01380D34-7B69-47B1-98B4-F31D34FA5659",
+        "subtitle" : "4 Classes, 269 Items",
+        "title" : "Data Summary"
+      },
+      {
+        "createdDate" : "2026-07-30T16:32:15Z",
+        "event" : "dataSourceMetrics",
+        "id" : "097E2A7D-C310-4BDC-9770-58E4E7A44B37",
+        "subtitle" : "4 Classes, 340 Items",
+        "title" : "Data Summary"
+      },
+      {
+        "createdDate" : "2026-07-30T16:33:47Z",
+        "event" : "dataSourceMetrics",
+        "id" : "2A90880C-64CC-4140-AC48-96D403D6BC5D",
+        "subtitle" : "4 Classes, 354 Items",
+        "title" : "Data Summary"
+      }
+    ]
+  ],
+  "createdDate" : "2026-07-30T16:23:23Z",
+  "dataPathRelativeToProjectURL" : "../MLTraining/priority-training-data.csv/",
+  "dataResult" : {
+    "classesCount" : 4,
+    "createdDate" : "2026-07-30T16:23:23Z",
+    "dataAnalysis" : {
+      "classifierAnalysis" : {
+        "labelStats" : {
+          "could" : 85,
+          "must" : 86,
+          "should" : 86,
+          "wont" : 97
+        }
+      },
+      "issues" : [
+        {
+          "description" : "4 classes found, including wont, should, must",
+          "severity" : "debug"
+        },
+        {
+          "description" : "354 texts found, automatically creating validation set",
+          "severity" : "good"
+        },
+        {
+          "description" : "Smallest class is \"could\" with 85 texts",
+          "severity" : "debug"
+        },
+        {
+          "description" : "Largest class is \"wont\" with 97 text",
+          "severity" : "debug"
+        }
+      ],
+      "objectDetectorAnalysis" : {
+        "details" : {
+
+        }
+      },
+      "summary" : {
+        "canUseValidation" : 1,
+        "classCount" : 4,
+        "sampleCount" : 354
+      }
+    },
+    "dataSourceID" : "1D6E3E1C-3DC8-44C3-8931-A9B9B3F7ADCB",
+    "dataURL" : "file:///Users/junyoung/development/iOS/project/Mosco/MLTraining/priority-training-data.csv",
+    "itemsCount" : 354
+  },
+  "dataURL" : "file:///Users/junyoung/development/iOS/project/Mosco/MLTraining/priority-training-data.csv",
+  "experimentIDs" : [
+    "051139B5-87C8-4DAC-956D-5FA35F3238F5",
+    "69AE1145-40D1-4060-954A-B2D6C3665EC3"
+  ],
+  "id" : "1D6E3E1C-3DC8-44C3-8931-A9B9B3F7ADCB",
+  "modifiedDate" : "2026-07-30T16:34:37Z",
+  "pathType" : 0,
+  "preferredFilename" : "priority-training-data.csv",
+  "title" : "priority-training-data.csv",
+  "version" : "1.0"
+}

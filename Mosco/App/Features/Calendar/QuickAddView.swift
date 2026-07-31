@@ -13,11 +13,16 @@ struct QuickAddView: View {
     @Binding var editingTodo: TodoItem?
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(TutorialManager.self) private var tutorialManager
+    @Query(sort: \TodoCategory.sortOrder) private var categories: [TodoCategory]
+    @Query private var allTodos: [TodoItem]
     @State private var title = ""
-    @State private var priority: Priority = .should
+    @State private var category: TodoCategory?
     /// 시스템 Menu는 safeAreaInset 안에서 열릴 때 컴포즈 바 자체가 사라지는
     /// 버그가 있어서, 완전히 커스텀 오버레이로 대체했다.
-    @State private var showPriorityOptions = false
+    @State private var showCategoryOptions = false
+    @State private var categoryBeingEdited: TodoCategory?
+    @State private var showNewCategorySheet = false
     @State private var showScheduleSheet = false
     @State private var startDate: Date?
     @State private var endDate: Date?
@@ -29,12 +34,15 @@ struct QuickAddView: View {
     @State private var repeatInterval = 2
     @FocusState private var isTitleFocused: Bool
 
-    /// 제목을 보고 우선순위를 자동으로 추천하는 동안 true — 그 사이엔 우선순위
-    /// 점이 색을 섞어가며 판별 중임을 보여주고, 전송은 막는다(판별 결과가
-    /// 반영되기 전에 보내버리는 걸 막기 위해).
+    /// 제목을 보고 카테고리를 자동으로 추천하는 동안 true — 그 사이엔 카테고리
+    /// 점이 로딩 표시를 보여주고, 전송은 막는다(판별 결과가 반영되기 전에
+    /// 보내버리는 걸 막기 위해).
     @State private var isClassifying = false
     @State private var classifyTask: Task<Void, Never>?
-    private let classifier: PriorityClassifying = KeywordPriorityClassifier()
+    private let classifier: CategoryClassifying = EmbeddingCategoryClassifier()
+    /// 입력창(글래스 캡슐) 자체의 실측 크기 — 시간 추천 팝업의 높이와 최대 너비를
+    /// 여기에 맞춰서, 옵션이 많아도 입력창과 같은 크기 안에서 가로 스크롤되게 한다.
+    @State private var composeBarSize: CGSize = .zero
 
     private let calendar = Calendar.current
     private var isEditing: Bool { editingTodo != nil }
@@ -66,17 +74,24 @@ struct QuickAddView: View {
                 .submitLabel(.send)
                 .onSubmit(save)
 
-            priorityButton
+            categoryButton
             sendButton
         }
         .animation(.easeOut(duration: 0.2), value: isEditing)
+        .onAppear {
+            // "미분류"로 시작하는 대신, 사용자가 아직 카테고리를 하나도 안
+            // 골랐으면 앱 테마 색으로 seed된 기본 카테고리("할 일")부터 담는다.
+            if category == nil, !isEditing, let firstCategory = categories.first {
+                category = firstCategory
+            }
+        }
         .onChange(of: title) { _, newValue in
             scheduleClassification(for: newValue)
         }
         .onChange(of: editingTodo?.id) { _, _ in
             guard let todo = editingTodo else { return }
             title = todo.title
-            priority = todo.priority
+            category = todo.category
             startDate = todo.date
             endDate = todo.effectiveEndDate
             startTime = todo.startTime
@@ -90,9 +105,16 @@ struct QuickAddView: View {
         .padding(.horizontal, Metrics.spacingMD)
         .padding(.vertical, Metrics.spacingSM)
         .moscoGlass(in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { composeBarSize = proxy.size }
+                    .onChange(of: proxy.size) { _, newValue in composeBarSize = newValue }
+            }
+        )
         .overlay(alignment: .bottomTrailing) {
-            if showPriorityOptions {
-                priorityOptionsPopup
+            if showCategoryOptions {
+                categoryOptionsPopup
                     .offset(y: -54)
                     .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomTrailing)))
             }
@@ -118,6 +140,32 @@ struct QuickAddView: View {
                 repeatEndDate: $repeatEndDate,
                 repeatWeekdays: $repeatWeekdays,
                 repeatInterval: $repeatInterval
+            )
+        }
+        .sheet(isPresented: $showNewCategorySheet) {
+            CategoryEditorSheet(
+                existing: nil,
+                usedColorHexValues: categories.map(\.colorHex),
+                onSave: { name, colorHex in
+                    let newCategory = TodoCategory(name: name, colorHex: colorHex, sortOrder: categories.count)
+                    modelContext.insert(newCategory)
+                    category = newCategory
+                }
+            )
+        }
+        .sheet(item: $categoryBeingEdited) { editing in
+            CategoryEditorSheet(
+                existing: editing,
+                usedColorHexValues: categories.map(\.colorHex),
+                onSave: { name, colorHex in
+                    editing.name = name
+                    editing.colorHex = colorHex
+                },
+                onDelete: {
+                    guard let defaultCategory = categories.first(where: \.isDefault) else { return }
+                    if category?.id == editing.id { category = defaultCategory }
+                    TodoCategory.delete(editing, reassigningTodosTo: defaultCategory, in: modelContext)
+                }
             )
         }
     }
@@ -160,22 +208,24 @@ struct QuickAddView: View {
             return "매월"
         case .everyNDays:
             return "\(repeatInterval)일마다"
+        case .yearly:
+            return "매년"
         }
     }
 
-    /// 팔레트 점 형태 — 탭하면 위로 4단계 옵션이 뜬다. 판별 중엔 색이 후보들
-    /// 사이를 빠르게 오가며 "지금 고르는 중"임을 보여준다.
-    private var priorityButton: some View {
+    /// 팔레트 점 형태 — 탭하면 위로 카테고리 옵션이 뜬다. 판별 중엔 로딩 표시로
+    /// "지금 고르는 중"임을 보여준다.
+    private var categoryButton: some View {
         Button {
             withAnimation(.easeInOut(duration: 0.15)) {
-                showPriorityOptions.toggle()
+                showCategoryOptions.toggle()
             }
         } label: {
             ZStack {
                 if isClassifying {
-                    ShufflingPriorityDot()
+                    ClassifyingDot()
                 } else {
-                    Circle().fill(priority.color)
+                    Circle().fill(category?.color ?? MoscoPalette.textSecondary.opacity(0.5))
                 }
             }
             .frame(width: 22, height: 22)
@@ -188,22 +238,33 @@ struct QuickAddView: View {
         .animation(.easeOut(duration: 0.15), value: isClassifying)
     }
 
-    private var priorityOptionsPopup: some View {
+    private var categoryOptionsPopup: some View {
         HStack(spacing: 10) {
-            ForEach(Priority.allCases) { candidate in
+            ForEach(categories) { candidate in
                 Circle()
                     .fill(candidate.color)
                     .frame(width: 22, height: 22)
                     .overlay(
                         Circle()
-                            .strokeBorder(.white, lineWidth: priority == candidate ? 2 : 0)
+                            .strokeBorder(.white, lineWidth: category?.id == candidate.id ? 2 : 0)
                     )
                     .onTapGesture {
-                        priority = candidate
+                        category = candidate
                         withAnimation(.easeInOut(duration: 0.15)) {
-                            showPriorityOptions = false
+                            showCategoryOptions = false
                         }
                     }
+                    .onLongPressGesture {
+                        categoryBeingEdited = candidate
+                    }
+            }
+
+            Button {
+                showNewCategorySheet = true
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(MoscoPalette.textSecondary)
             }
         }
         .padding(.horizontal, Metrics.spacingMD)
@@ -243,10 +304,10 @@ struct QuickAddView: View {
             try? await Task.sleep(nanoseconds: 200_000_000)
             guard !Task.isCancelled else { return }
             isClassifying = true
-            let result = await classifier.classify(text)
+            let result = await classifier.classify(text, categories: categories, existingTodos: allTodos)
             guard !Task.isCancelled else { return }
             if let result {
-                priority = result
+                category = result
             }
             isClassifying = false
         }
@@ -376,19 +437,31 @@ struct QuickAddView: View {
     /// 입력창(TagChip/dateButton)과 같은 언어로 — 캡슐 안에 톤온톤 칩이 나열되는
     /// 모양을 그대로 재사용해서 붕 떠 보이지 않게 한다.
     private func timeSuggestionPopup(_ suggestion: TimeSuggestion) -> some View {
-        HStack(spacing: 6) {
-            ForEach(Array(suggestionOptions(suggestion).enumerated()), id: \.offset) { _, option in
-                Button {
-                    apply(option, suggestion: suggestion)
-                } label: {
-                    TagChip(label: option.label, tint: MoscoPalette.accent)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(Array(suggestionOptions(suggestion).enumerated()), id: \.offset) { _, option in
+                    Button {
+                        apply(option, suggestion: suggestion)
+                    } label: {
+                        TagChip(label: option.label, tint: MoscoPalette.accent)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, Metrics.spacingSM)
-        .padding(.vertical, Metrics.spacingXS)
+        // 입력창 본체와 같은 inset(가로 spacingMD·세로 spacingSM)을 써야 이질감이
+        // 없다 — 이 패딩은 스크롤뷰 "바깥"에 둬서, 스크롤해도 여백 자체는 안 움직이고
+        // 그 안쪽 영역만 스크롤되게 한다.
+        .padding(.horizontal, Metrics.spacingMD)
+        .padding(.vertical, Metrics.spacingSM)
+        // 옵션이 늘어나 칩이 축약되는 대신, 입력창과 같은 크기 안에서 가로로
+        // 스크롤되게 한다 — 폭도 입력창을 넘지 않게 맞춰야 스크롤이 실제로 걸린다.
+        .frame(maxWidth: composeBarSize.width, minHeight: composeBarSize.height, maxHeight: composeBarSize.height)
         .moscoGlass(in: Capsule())
+        // moscoGlass는 배경만 캡슐 모양으로 깔 뿐 내용물을 잘라내진 않아서,
+        // 스크롤 중인 칩이 캡슐 배경 밖으로 삐져나와 보였다 — 내용물도 같은
+        // 모양으로 직접 잘라내야 캡슐 안쪽에서만 스크롤되는 것처럼 보인다.
+        .clipShape(Capsule())
     }
 
     private struct SuggestionOption {
@@ -475,6 +548,7 @@ struct QuickAddView: View {
             title = title.replacingOccurrences(of: "  ", with: " ")
         }
         title = title.trimmingCharacters(in: .whitespaces)
+        tutorialManager.userDidApplyTimeSuggestion()
     }
 
     private func save() {
@@ -491,7 +565,7 @@ struct QuickAddView: View {
             todo.endDate = resolvedEndDate
             todo.startTime = startDate == nil ? nil : startTime
             todo.endTime = startDate == nil ? nil : endTime
-            todo.priority = priority
+            todo.category = category
             todo.repeatRule = startDate == nil ? .none : repeatRule
             todo.repeatEndDate = startDate == nil ? nil : repeatEndDate
             todo.repeatWeekdays = startDate == nil ? [] : Array(repeatWeekdays)
@@ -503,15 +577,19 @@ struct QuickAddView: View {
                 endDate: resolvedEndDate,
                 startTime: startDate == nil ? nil : startTime,
                 endTime: startDate == nil ? nil : endTime,
-                priority: priority,
+                category: category,
                 repeatRule: startDate == nil ? .none : repeatRule,
                 repeatEndDate: startDate == nil ? nil : repeatEndDate,
                 repeatWeekdays: startDate == nil ? [] : Array(repeatWeekdays),
                 repeatInterval: (startDate != nil && repeatRule == .everyNDays) ? repeatInterval : nil
             )
             modelContext.insert(todo)
+            tutorialManager.userDidAddTodo()
         }
 
+        // 여기서 별도 학습/피드백 기록은 필요 없다 — 카테고리에 방금 이 제목이
+        // 들어갔다는 사실 자체가 다음 classify() 호출에서 곧바로 centroid에
+        // 반영된다(EmbeddingCategoryClassifier가 매번 existingTodos에서 다시 계산).
         resetFields()
     }
 

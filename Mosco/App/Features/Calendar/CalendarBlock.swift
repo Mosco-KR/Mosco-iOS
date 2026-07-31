@@ -7,10 +7,13 @@ import Foundation
 struct CalendarBlock: Equatable, Identifiable {
     let id: String
     let title: String
-    let priority: Priority
+    let category: TodoCategory?
     /// 시작/종료일(하루 단위, startOfDay 기준). 하루짜리면 start == end.
     let start: Date
     let end: Date
     /// 완료된 항목은 그리드에서도 흐리게 + 취소선으로 구분한다(TodoRow와 같은 표현).
     let isCompleted: Bool
+    /// 같은 날 새 할 일이 끼어들 때 행 배정의 최종 타이브레이커로 쓴다 — 먼저
+    /// 만든 할 일이 원래 자리(행)를 지키고, 나중에 추가된 쪽이 새 행으로 밀리게.
+    let createdAt: Date
 }

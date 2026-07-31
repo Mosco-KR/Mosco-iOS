@@ -1,0 +1,838 @@
+{
+  "activityEntities" : [
+    "trainingFinished",
+    [
+      {
+        "createdDate" : "2026-07-30T16:34:01Z",
+        "event" : "trainingFinished",
+        "id" : "36F88709-CAD3-4A28-A9A9-552DBD64B07D",
+        "subtitle" : "10 iterations",
+        "title" : "Training Completed"
+      }
+    ],
+    "trainingDataAdded",
+    [
+      {
+        "createdDate" : "2026-07-30T16:33:41Z",
+        "event" : "trainingDataAdded",
+        "id" : "08116BDA-A97D-40F7-B504-B3FAF0FBE88F",
+        "subtitle" : "priority-training-data.csv",
+        "title" : "Training Data Added"
+      }
+    ],
+    "experimentCreated",
+    [
+      {
+        "createdDate" : "2026-07-30T16:33:35Z",
+        "event" : "experimentCreated",
+        "id" : "836B4949-D367-4621-9631-ED00B063E596",
+        "subtitle" : "MoscoML",
+        "title" : "Model Source Created"
+      }
+    ],
+    "trainingStarted",
+    [
+      {
+        "createdDate" : "2026-07-30T16:33:47Z",
+        "event" : "trainingStarted",
+        "id" : "B95E2292-1481-4004-94EF-0758D99EDDCB",
+        "subtitle" : "10 iterations",
+        "title" : "Training Started"
+      }
+    ]
+  ],
+  "contentDataResult" : {
+    "createdDate" : "2026-07-30T16:33:35Z"
+  },
+  "createdDate" : "2026-07-30T16:33:35Z",
+  "evaluationContainerEntity" : {
+    "createdDate" : "2026-07-30T16:36:20Z",
+    "evaluationEntities" : [
+      {
+        "analysedDataType" : "none",
+        "createdDate" : "2026-07-30T16:34:01Z",
+        "dataResult" : {
+          "createdDate" : "2026-07-30T16:35:17Z"
+        },
+        "id" : "91f1d866-761c-40d6-a8cf-c8282b4d0578"
+      }
+    ],
+    "id" : "9eb5044c-0963-4755-9c5f-d4f1a4240707",
+    "modifiedDate" : "2026-07-30T16:36:20Z",
+    "previewType" : "textClassifier",
+    "testingEvaluationEntity" : {
+      "analysedDataType" : "none",
+      "createdDate" : "2026-07-30T16:33:35Z",
+      "dataResult" : {
+        "createdDate" : "2026-07-30T16:33:35Z"
+      },
+      "id" : "877c143a-9a02-482a-8b8a-c180d8a54b1a"
+    },
+    "trainingEvaluationEntity" : {
+      "analysedDataType" : "none",
+      "createdDate" : "2026-07-30T16:33:35Z",
+      "dataResult" : {
+        "classesCount" : 4,
+        "createdDate" : "2026-07-30T16:33:35Z",
+        "dataAnalysis" : {
+          "classifierAnalysis" : {
+            "labelStats" : {
+              "could" : 85,
+              "must" : 86,
+              "should" : 86,
+              "wont" : 97
+            }
+          },
+          "issues" : [
+            {
+              "description" : "4 classes found, including wont, should, must",
+              "severity" : "debug"
+            },
+            {
+              "description" : "354 texts found, automatically creating validation set",
+              "severity" : "good"
+            },
+            {
+              "description" : "Smallest class is \"could\" with 85 texts",
+              "severity" : "debug"
+            },
+            {
+              "description" : "Largest class is \"wont\" with 97 text",
+              "severity" : "debug"
+            }
+          ],
+          "objectDetectorAnalysis" : {
+            "details" : {
+
+            }
+          },
+          "summary" : {
+            "canUseValidation" : 1,
+            "classCount" : 4,
+            "sampleCount" : 354
+          }
+        },
+        "dataSourceID" : "1D6E3E1C-3DC8-44C3-8931-A9B9B3F7ADCB",
+        "dataURL" : "file:///Users/junyoung/development/iOS/project/Mosco/MLTraining/priority-training-data.csv",
+        "itemsCount" : 354
+      },
+      "dataSourceID" : "1D6E3E1C-3DC8-44C3-8931-A9B9B3F7ADCB",
+      "evaluationResult" : {
+        "textClassifier" : {
+          "accuracy" : 0.8902077151335311,
+          "confusionMatrix" : [
+            {
+              "actual" : "could",
+              "count" : 71,
+              "expected" : "could"
+            },
+            {
+              "actual" : "could",
+              "count" : 8,
+              "expected" : "should"
+            },
+            {
+              "actual" : "could",
+              "count" : 2,
+              "expected" : "wont"
+            },
+            {
+              "actual" : "must",
+              "count" : 79,
+              "expected" : "must"
+            },
+            {
+              "actual" : "must",
+              "count" : 2,
+              "expected" : "should"
+            },
+            {
+              "actual" : "must",
+              "count" : 1,
+              "expected" : "wont"
+            },
+            {
+              "actual" : "should",
+              "count" : 5,
+              "expected" : "could"
+            },
+            {
+              "actual" : "should",
+              "count" : 18,
+              "expected" : "must"
+            },
+            {
+              "actual" : "should",
+              "count" : 59,
+              "expected" : "should"
+            },
+            {
+              "actual" : "wont",
+              "count" : 1,
+              "expected" : "must"
+            },
+            {
+              "actual" : "wont",
+              "count" : 91,
+              "expected" : "wont"
+            }
+          ],
+          "statsByLabel" : {
+            "could" : {
+              "count" : 81,
+              "precisionRecall" : {
+                "success" : {
+                  "precision" : 0.9342105263157895,
+                  "recall" : 0.8765432098765432
+                }
+              }
+            },
+            "must" : {
+              "count" : 82,
+              "precisionRecall" : {
+                "success" : {
+                  "precision" : 0.8061224489795918,
+                  "recall" : 0.9634146341463414
+                }
+              }
+            },
+            "should" : {
+              "count" : 82,
+              "precisionRecall" : {
+                "success" : {
+                  "precision" : 0.855072463768116,
+                  "recall" : 0.7195121951219512
+                }
+              }
+            },
+            "wont" : {
+              "count" : 92,
+              "precisionRecall" : {
+                "success" : {
+                  "precision" : 0.9680851063829787,
+                  "recall" : 0.9891304347826086
+                }
+              }
+            }
+          }
+        }
+      },
+      "id" : "4163051d-97d1-4bd4-80a9-f066ba432490"
+    },
+    "validationEvaluationEntity" : {
+      "analysedDataType" : "auto",
+      "createdDate" : "2026-07-30T16:33:35Z",
+      "dataResult" : {
+        "createdDate" : "2026-07-30T16:33:35Z"
+      },
+      "evaluationResult" : {
+        "textClassifier" : {
+          "accuracy" : 1,
+          "confusionMatrix" : [
+            {
+              "actual" : "could",
+              "count" : 4,
+              "expected" : "could"
+            },
+            {
+              "actual" : "must",
+              "count" : 4,
+              "expected" : "must"
+            },
+            {
+              "actual" : "should",
+              "count" : 4,
+              "expected" : "should"
+            },
+            {
+              "actual" : "wont",
+              "count" : 5,
+              "expected" : "wont"
+            }
+          ],
+          "statsByLabel" : {
+            "could" : {
+              "count" : 4,
+              "precisionRecall" : {
+                "success" : {
+                  "precision" : 1,
+                  "recall" : 1
+                }
+              }
+            },
+            "must" : {
+              "count" : 4,
+              "precisionRecall" : {
+                "success" : {
+                  "precision" : 1,
+                  "recall" : 1
+                }
+              }
+            },
+            "should" : {
+              "count" : 4,
+              "precisionRecall" : {
+                "success" : {
+                  "precision" : 1,
+                  "recall" : 1
+                }
+              }
+            },
+            "wont" : {
+              "count" : 5,
+              "precisionRecall" : {
+                "success" : {
+                  "precision" : 1,
+                  "recall" : 1
+                }
+              }
+            }
+          }
+        }
+      },
+      "id" : "b45e8df4-1359-4c59-8a84-a3fff6c89f6c"
+    }
+  },
+  "evaluationEntity" : {
+    "analysedDataType" : "none",
+    "dataResult" : {
+
+    },
+    "id" : "97cf9233-0d3b-4fc2-ba16-26ae7bc38d63"
+  },
+  "evaluationState" : "uninitialized",
+  "id" : "69AE1145-40D1-4060-954A-B2D6C3665EC3",
+  "modelEntity" : {
+    "createdDate" : "2026-07-30T16:33:35Z",
+    "experimentID" : "69AE1145-40D1-4060-954A-B2D6C3665EC3",
+    "id" : "8B0916EB-8720-4BEA-B17F-060122BAC4F4",
+    "modelURL" : "Models/MoscoML.mlmodel/",
+    "modifiedDate" : "2026-07-30T16:33:35Z",
+    "title" : "",
+    "version" : "1.0"
+  },
+  "modifiedDate" : "2026-07-30T16:36:20Z",
+  "preferredFilename" : "MoscoML",
+  "settingEntity" : {
+    "algorithmType" : "transferLearning",
+    "augmentations" : [
+
+    ],
+    "featureNames" : [
+
+    ],
+    "handActionClassifierAugmentations" : [
+
+    ],
+    "handPoseClassifierAugmentations" : [
+
+    ],
+    "harVideoAugmentations" : 0,
+    "iterationCount" : 10,
+    "seedType" : "default",
+    "styleTransferAlgorithmType" : "image",
+    "taskType" : "textClassifier",
+    "textClassifierArabicLanguage" : "automatic",
+    "textClassifierCJKLanguage" : "automatic",
+    "textClassifierCyrillicLanguage" : "automatic",
+    "textClassifierIndicLanguage" : "automatic",
+    "textClassifierLatin" : "automatic",
+    "textClassifierScript" : "cjk",
+    "textClassifierThaiLanguage" : "automatic",
+    "transferLearningEmbeddingType" : "bert"
+  },
+  "snapshotRole" : {
+    "withoutSnapshots" : 0
+  },
+  "state" : "trained",
+  "title" : "MoscoML 2",
+  "trainingEntity" : {
+    "analysedDataType" : "datasource",
+    "checkpointMetrics" : {
+
+    },
+    "dataResult" : {
+      "classesCount" : 4,
+      "createdDate" : "2026-07-30T16:33:35Z",
+      "dataAnalysis" : {
+        "classifierAnalysis" : {
+          "labelStats" : {
+            "could" : 85,
+            "must" : 86,
+            "should" : 86,
+            "wont" : 97
+          }
+        },
+        "issues" : [
+          {
+            "description" : "4 classes found, including wont, should, must",
+            "severity" : "debug"
+          },
+          {
+            "description" : "354 texts found, automatically creating validation set",
+            "severity" : "good"
+          },
+          {
+            "description" : "Smallest class is \"could\" with 85 texts",
+            "severity" : "debug"
+          },
+          {
+            "description" : "Largest class is \"wont\" with 97 text",
+            "severity" : "debug"
+          }
+        ],
+        "objectDetectorAnalysis" : {
+          "details" : {
+
+          }
+        },
+        "summary" : {
+          "canUseValidation" : 1,
+          "classCount" : 4,
+          "sampleCount" : 354
+        }
+      },
+      "dataSourceID" : "1D6E3E1C-3DC8-44C3-8931-A9B9B3F7ADCB",
+      "dataURL" : "file:///Users/junyoung/development/iOS/project/Mosco/MLTraining/priority-training-data.csv",
+      "itemsCount" : 354
+    },
+    "dataSourceID" : "1D6E3E1C-3DC8-44C3-8931-A9B9B3F7ADCB",
+    "featureExtractionCheckpointMayBeAvailable" : false,
+    "finishTime" : "2026-07-30T16:34:01Z",
+    "progress" : [
+      {
+        "count" : 1,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 10,
+          "trainingAccuracy" : 0.43916912078857423,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 2,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 9,
+          "trainingAccuracy" : 0.43916912078857423,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 3,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 8,
+          "trainingAccuracy" : 0.43916912078857423,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 4,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 7,
+          "trainingAccuracy" : 0.7359050750732422,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 5,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 6,
+          "trainingAccuracy" : 0.8189910888671875,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 6,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 5,
+          "trainingAccuracy" : 0.8189910888671875,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 7,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 4,
+          "trainingAccuracy" : 0.8902077484130859,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 8,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 3,
+          "trainingAccuracy" : 0.8902077484130859,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 9,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 2,
+          "trainingAccuracy" : 0.8902077484130859,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 10,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : true,
+        "tableIndex" : 1,
+        "tcTrainingColumnHeader" : {
+          "elapsedTime" : 0,
+          "hasTraining" : true,
+          "hasValidation" : false,
+          "remainingIterationCount" : 1,
+          "trainingAccuracy" : 0.8902077484130859,
+          "validationAccuracy" : 0
+        }
+      },
+      {
+        "count" : 37,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 67,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 97,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 127,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 157,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 187,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 217,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 247,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 277,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 307,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : false,
+        "tableIndex" : 0
+      },
+      {
+        "count" : 337,
+        "currentRowIndex" : 0,
+        "isLast" : false,
+        "percentComplete" : 0,
+        "tableDone" : true,
+        "tableIndex" : 0
+      }
+    ],
+    "snapshottableCheckpoints" : {
+
+    },
+    "startTime" : "2026-07-30T16:33:47Z",
+    "trainingAccuracy" : 0.8902077151335311,
+    "trainingResults" : {
+      "textClassifier" : {
+        "accuracy" : 0.8902077151335311,
+        "confusionMatrix" : [
+          {
+            "actual" : "could",
+            "count" : 71,
+            "expected" : "could"
+          },
+          {
+            "actual" : "could",
+            "count" : 8,
+            "expected" : "should"
+          },
+          {
+            "actual" : "could",
+            "count" : 2,
+            "expected" : "wont"
+          },
+          {
+            "actual" : "must",
+            "count" : 79,
+            "expected" : "must"
+          },
+          {
+            "actual" : "must",
+            "count" : 2,
+            "expected" : "should"
+          },
+          {
+            "actual" : "must",
+            "count" : 1,
+            "expected" : "wont"
+          },
+          {
+            "actual" : "should",
+            "count" : 5,
+            "expected" : "could"
+          },
+          {
+            "actual" : "should",
+            "count" : 18,
+            "expected" : "must"
+          },
+          {
+            "actual" : "should",
+            "count" : 59,
+            "expected" : "should"
+          },
+          {
+            "actual" : "wont",
+            "count" : 1,
+            "expected" : "must"
+          },
+          {
+            "actual" : "wont",
+            "count" : 91,
+            "expected" : "wont"
+          }
+        ],
+        "statsByLabel" : {
+          "could" : {
+            "count" : 81,
+            "precisionRecall" : {
+              "success" : {
+                "precision" : 0.9342105263157895,
+                "recall" : 0.8765432098765432
+              }
+            }
+          },
+          "must" : {
+            "count" : 82,
+            "precisionRecall" : {
+              "success" : {
+                "precision" : 0.8061224489795918,
+                "recall" : 0.9634146341463414
+              }
+            }
+          },
+          "should" : {
+            "count" : 82,
+            "precisionRecall" : {
+              "success" : {
+                "precision" : 0.855072463768116,
+                "recall" : 0.7195121951219512
+              }
+            }
+          },
+          "wont" : {
+            "count" : 92,
+            "precisionRecall" : {
+              "success" : {
+                "precision" : 0.9680851063829787,
+                "recall" : 0.9891304347826086
+              }
+            }
+          }
+        }
+      }
+    },
+    "validationAccuracy" : 1,
+    "validationResults" : {
+      "textClassifier" : {
+        "accuracy" : 1,
+        "confusionMatrix" : [
+          {
+            "actual" : "could",
+            "count" : 4,
+            "expected" : "could"
+          },
+          {
+            "actual" : "must",
+            "count" : 4,
+            "expected" : "must"
+          },
+          {
+            "actual" : "should",
+            "count" : 4,
+            "expected" : "should"
+          },
+          {
+            "actual" : "wont",
+            "count" : 5,
+            "expected" : "wont"
+          }
+        ],
+        "statsByLabel" : {
+          "could" : {
+            "count" : 4,
+            "precisionRecall" : {
+              "success" : {
+                "precision" : 1,
+                "recall" : 1
+              }
+            }
+          },
+          "must" : {
+            "count" : 4,
+            "precisionRecall" : {
+              "success" : {
+                "precision" : 1,
+                "recall" : 1
+              }
+            }
+          },
+          "should" : {
+            "count" : 4,
+            "precisionRecall" : {
+              "success" : {
+                "precision" : 1,
+                "recall" : 1
+              }
+            }
+          },
+          "wont" : {
+            "count" : 5,
+            "precisionRecall" : {
+              "success" : {
+                "precision" : 1,
+                "recall" : 1
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "validationEntity" : {
+    "analysedDataType" : "auto",
+    "dataResult" : {
+      "createdDate" : "2026-07-30T16:33:35Z"
+    },
+    "splitOptions" : {
+      "strategy" : {
+        "automatic" : {
+
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

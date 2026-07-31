@@ -79,6 +79,13 @@ private struct DayCellButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.88 : 1)
             .opacity(configuration.isPressed ? 0.7 : 1)
+            // 숫자 원 하나만 눌린 티가 나면, 실제로 눌러지는 영역(칸 전체)이
+            // 어디까지인지 알기 어렵다 — 칸 전체에도 은은한 배경을 깔아서
+            // "여기까지가 탭 영역"이라는 걸 눈으로 보이게 한다.
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(MoscoPalette.accent.opacity(configuration.isPressed ? 0.08 : 0))
+            )
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

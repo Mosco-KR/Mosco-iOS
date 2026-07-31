@@ -1,0 +1,39 @@
+import SwiftUI
+
+/// 카테고리를 만들 때 고르는 기본 16색. 채도 있는 트렌디한 톤으로, 서로
+/// 구별이 잘 되도록 색상환을 고르게 훑는다. 색은 hex로 저장해서 Category가
+/// SwiftUI를 몰라도 되게 한다(모델은 순수 데이터로 유지).
+enum CategoryColorPalette {
+    static let hexValues: [String] = [
+        "F43F5E", // 로즈
+        "FB923C", // 오렌지
+        "FBBF24", // 앰버
+        "EAB308", // 옐로
+        "A3E635", // 라임
+        "34D399", // 그린
+        "10B981", // 에메랄드
+        "2DD4BF", // 틸
+        "22D3EE", // 시안
+        "38BDF8", // 스카이
+        "60A5FA", // 블루
+        "818CF8", // 인디고
+        "A78BFA", // 바이올렛
+        "C084FC", // 퍼플
+        "F472B6", // 핑크
+        "94A3B8"  // 슬레이트(중립)
+    ]
+
+    static var colors: [Color] {
+        hexValues.map { Color(hex: UInt($0, radix: 16) ?? 0x94A3B8) }
+    }
+
+    static func color(forHex hex: String) -> Color {
+        Color(hex: UInt(hex, radix: 16) ?? 0x94A3B8)
+    }
+
+    /// 새 카테고리를 만들 때 기본으로 내미는 색 — 이미 쓰인 색과 겹치지 않게
+    /// 순환시켜서, 연달아 만들어도 색이 다양하게 나온다.
+    static func nextDefault(avoiding usedHexValues: [String]) -> String {
+        hexValues.first { !usedHexValues.contains($0) } ?? hexValues[usedHexValues.count % hexValues.count]
+    }
+}

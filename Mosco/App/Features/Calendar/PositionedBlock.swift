@@ -13,18 +13,23 @@ struct PositionedBlock: Identifiable, Equatable {
 
 enum BlockLayout {
     static func position(_ blocks: [CalendarBlock]) -> [PositionedBlock] {
-        // 여러 날에 걸친 블록을 먼저 배정해서 항상 위쪽 행을 먼저 차지하게 한다 —
-        // 이어지는 굵은 막대가 위에서 안정적으로 자리 잡고, 하루짜리 블록들이
-        // 그 아래로 채워지는 게 실제 캘린더 앱들의 관례와도 맞고 더 읽기 쉽다.
-        // 같은 성격(다일/하루) 안에서는 시작일 → 우선순위 순으로 처리해, 먼저
-        // 시작한(또는 더 중요한) 일정이 그 안에서 낮은(위쪽) 행을 먼저 차지한다.
+        // 시작일 순으로 처리하는 게 먼저다 — 다일 일정을 무조건 먼저 배정해버리면,
+        // 그 일정이 시작하기 "전"에 이미 끝난 하루짜리 블록의 자리까지 통째로
+        // 예약해버려서, 정작 겹치지도 않는 그 하루짜리 블록이 애먼 아래 행으로
+        // 밀려나고 원래 행엔 빈 공간만 남았다(예: 다일 일정이 7/31~8/3인데,
+        // 7/30에 끝나는 하루짜리 블록도 그 위 행을 못 쓰게 됨).
+        // 같은 시작일 안에서만 다일 일정이 하루짜리보다 낮은(위쪽) 행을 먼저
+        // 차지하게 해서, 그날 처음 등장할 땐 여전히 안정적으로 위 자리를 잡는다.
         let sorted = blocks.sorted { lhs, rhs in
+            if lhs.start != rhs.start { return lhs.start < rhs.start }
             let lhsMultiDay = lhs.start != lhs.end
             let rhsMultiDay = rhs.start != rhs.end
             if lhsMultiDay != rhsMultiDay { return lhsMultiDay }
-            if lhs.start != rhs.start { return lhs.start < rhs.start }
-            if lhs.priority != rhs.priority { return lhs.priority < rhs.priority }
-            return lhs.end < rhs.end
+            if lhs.end != rhs.end { return lhs.end < rhs.end }
+            // 나머지가 전부 같으면(흔히 같은 날 새 할 일이 끼어드는 경우) 먼저
+            // 만든 쪽이 앞선다 — 안 그러면 어느 게 이길지 배열 순서에 우연히
+            // 맡겨져서, 원래 그 행에 있던 반복 일정이 새 할 일한테 밀려나 보였다.
+            return lhs.createdAt < rhs.createdAt
         }
 
         var rowEnds: [Date] = [] // rowEnds[i] = 그 행에 마지막으로 들어간 블록의 종료일

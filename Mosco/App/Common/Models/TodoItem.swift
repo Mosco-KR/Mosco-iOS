@@ -14,8 +14,11 @@ final class TodoItem {
     var startTime: Date?
     /// 종료 시간(선택). startTime 없이는 의미 없음.
     var endTime: Date?
+    /// 카테고리가 삭제되면 그 안의 할 일들은 기본 카테고리로 먼저 옮겨진다
+    /// (TodoCategory.delete 참고). deleteRule .nullify는 혹시 못 옮긴 경우를
+    /// 위한 안전망일 뿐, 정상 경로에서는 category가 nil이 되는 일이 없다.
+    @Relationship(deleteRule: .nullify) var category: TodoCategory?
     /// enum을 raw String으로 저장 (순서/정수 기반 저장 금지 원칙)
-    private var priorityRawValue: String
     private var repeatRuleRawValue: String
     /// 반복이 끝나는 날짜. nil이면 무기한 반복(반복 안 함이면 의미 없음).
     var repeatEndDate: Date?
@@ -35,7 +38,7 @@ final class TodoItem {
         endDate: Date? = nil,
         startTime: Date? = nil,
         endTime: Date? = nil,
-        priority: Priority = .should,
+        category: TodoCategory? = nil,
         repeatRule: RepeatRule = .none,
         repeatEndDate: Date? = nil,
         repeatWeekdays: [Int] = [],
@@ -47,18 +50,13 @@ final class TodoItem {
         self.endDate = endDate
         self.startTime = startTime
         self.endTime = endTime
-        self.priorityRawValue = priority.rawValue
+        self.category = category
         self.repeatRuleRawValue = repeatRule.rawValue
         self.repeatEndDate = repeatEndDate
         self.repeatWeekdays = repeatWeekdays
         self.repeatInterval = repeatInterval
         self.isCompleted = false
         self.createdAt = .now
-    }
-
-    var priority: Priority {
-        get { Priority(rawValue: priorityRawValue) ?? .should }
-        set { priorityRawValue = newValue.rawValue }
     }
 
     var repeatRule: RepeatRule {

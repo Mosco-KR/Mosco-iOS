@@ -83,6 +83,10 @@ extension TodoItem {
             return repeatWeekdays.contains(weekday)
         case .monthly:
             return calendar.component(.day, from: dayStart) == calendar.component(.day, from: baseStart)
+        case .yearly:
+            let dayComponents = calendar.dateComponents([.month, .day], from: dayStart)
+            let baseComponents = calendar.dateComponents([.month, .day], from: baseStart)
+            return dayComponents.month == baseComponents.month && dayComponents.day == baseComponents.day
         case .everyNDays:
             let interval = max(repeatInterval ?? 2, 1)
             let days = calendar.dateComponents([.day], from: baseStart, to: dayStart).day ?? 0

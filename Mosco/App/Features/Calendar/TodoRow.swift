@@ -18,34 +18,27 @@ struct TodoRow: View {
         return todo.isCompleted
     }
 
-    var body: some View {
-        HStack(alignment: .top, spacing: Metrics.spacingSM) {
-            Button {
-                withAnimation(.easeOut(duration: 0.15)) {
-                    if let occurrenceDate {
-                        todo.setCompleted(!isDone, on: occurrenceDate)
-                    } else {
-                        todo.isCompleted.toggle()
-                    }
-                }
-            } label: {
-                Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
-                    .foregroundStyle(isDone ? MoscoPalette.accent : MoscoPalette.textSecondary)
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 1)
+    private var accentColor: Color {
+        todo.category?.color ?? MoscoPalette.textSecondary
+    }
 
-            // 1행: 제목 그대로, 2행: 우선순위(항상 맨 앞) + 날짜/시간을 하나로 합친 태그.
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+
+        HStack(alignment: .center, spacing: 12) {
+            checkButton
+
+            // 1행: 제목 그대로, 2행: 카테고리(항상 맨 앞) + 날짜/시간을 하나로 합친 태그.
             VStack(alignment: .leading, spacing: 6) {
                 Text(todo.title)
-                    .font(.moscoBody())
+                    .font(.moscoBody().weight(.semibold))
                     .strikethrough(isDone)
                     .foregroundStyle(isDone ? MoscoPalette.textSecondary : MoscoPalette.textPrimary)
+                    .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(spacing: 6) {
-                    PriorityTag(priority: todo.priority)
+                    CategoryTag(category: todo.category)
 
                     if let scheduleLabel {
                         TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary)
@@ -55,21 +48,60 @@ struct TodoRow: View {
                 }
             }
         }
-        .padding(Metrics.spacingSM)
+        .padding(.vertical, 13)
+        .padding(.horizontal, 14)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
-        .moscoGlass(in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+        // 카테고리 색은 체크박스 자체가 이미 나타내니, 카드 배경은 아주 옅은
+        // 톤만 얹어서 유리 위에 은은하게 비치는 정도로만 — 색이 "칠해진"
+        // 느낌이 아니라 "비치는" 느낌이 되게 한다.
+        .background(accentColor.opacity(isDone ? 0.02 : 0.06))
+        .moscoGlass(in: shape)
+        .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.4), lineWidth: 0.5))
+        .clipShape(shape)
         // 완료된 항목은 카드 전체를 눌러서 확실히 구분되게 — 다만 이미 반투명한
         // 글래스 위에 opacity를 또 낮추면(이중 투명) 얼룩진 것처럼 보여서, 대신
         // 불투명한 스크림을 얹어 톤만 죽인다. allowsHitTesting(false)가 없으면
         // 이 스크림(반투명해도 실제 뷰라 터치를 가로챈다)이 체크박스를 덮어서,
         // 완료 후엔 다시 눌러도 해제가 안 되는 버그가 있었다.
         .overlay(
-            RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                .fill(MoscoPalette.canvas.opacity(isDone ? 0.55 : 0))
+            shape
+                .fill(MoscoPalette.canvas.opacity(isDone ? 0.5 : 0))
                 .allowsHitTesting(false)
         )
-        .animation(.easeOut(duration: 0.15), value: isDone)
+        .shadow(color: .black.opacity(isDone ? 0.02 : 0.06), radius: 12, y: 5)
+        .scaleEffect(isDone ? 0.985 : 1)
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isDone)
+    }
+
+    /// 체크박스가 완료 컨트롤이면서 동시에 카테고리 색 표시도 겸한다 —
+    /// 미완료일 땐 카테고리 색 테두리만 있는 빈 원(그 카테고리라는 걸 미리 보여줌),
+    /// 완료하면 그 색으로 꽉 채워지고 흰 체크가 팝 인 되는 스프링 애니메이션.
+    private var checkButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+                if let occurrenceDate {
+                    todo.setCompleted(!isDone, on: occurrenceDate)
+                } else {
+                    todo.isCompleted.toggle()
+                }
+            }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(isDone ? accentColor : Color.clear)
+                Circle()
+                    .strokeBorder(accentColor, lineWidth: isDone ? 0 : 1.75)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.white)
+                    .opacity(isDone ? 1 : 0)
+                    .scaleEffect(isDone ? 1 : 0.4)
+            }
+            .frame(width: 26, height: 26)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
     }
 
     /// 날짜/시간 관련 정보를 태그 하나로 합치는 정책:

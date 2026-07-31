@@ -30,7 +30,10 @@ struct MonthGridView: View, Equatable {
     }
 
     private let calendar = Calendar.current
-    private let blockRowHeight: CGFloat = 16
+    // 제목이 길면 말줄임표 대신 두 줄로 끊어서 보여주기로 해서, 한 줄(16pt)보다
+    // 훨씬 넉넉하게 잡는다 — 9pt 텍스트 두 줄(~22~24pt) + 위아래 여백이 실제로
+    // 들어가려면 32는 돼야 한다(WeekBlockBarsView의 행 높이 계산과 맞물려 있다).
+    private let blockRowHeight: CGFloat = 32
     /// 블록이 없어도 최소 한 줄 자리는 확보해서, 주 사이 간격이 완전히 붙지 않게.
     private let minBlockRows = 1
 
@@ -115,8 +118,10 @@ struct MonthGridView: View, Equatable {
                         weekDates: week.dates,
                         positionedBlocks: positionedBlocks,
                         inMonth: week.inMonth,
-                        totalRows: blockRows(for: week)
+                        totalRows: blockRows(for: week),
+                        onSelect: onSelect
                     )
+                    .equatable()
                     .frame(height: blockAreaHeight(for: week))
                 }
             }
