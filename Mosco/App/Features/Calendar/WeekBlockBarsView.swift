@@ -110,11 +110,15 @@ struct WeekBlockBarsView: View, Equatable {
             // 어긋나지 않게 한다. 같은 행이라도 날짜가 안 겹치는 블록 여러 개가
             // 나란히 있을 수 있으므로, 행마다 전부 그린다 — 예전엔 first(where:)로
             // 하나만 그려서 나머지가 통째로 안 보이는 버그가 있었다.
+            //
+            // 블록이 없는 빈 자리는 여기서 아무 것도 그리지 않는다 — 일부러다.
+            // 탭은 MonthGridView가 숫자 줄부터 이 영역 끝까지 통째로 깔아둔
+            // 배경 버튼이 받는다. 블록(barView)만 자기 자리에 직접
+            // SpatialTapGesture를 붙여서, 블록을 정확히 누르면 그 블록이
+            // 시작하는 날짜로 가는 동작이 배경 버튼보다 우선하게 한다.
             VStack(spacing: 2) {
                 ForEach(0..<totalRows, id: \.self) { row in
                     ZStack(alignment: .leading) {
-                        Color.clear
-
                         ForEach(segments.filter { $0.row == row }) { segment in
                             barView(segment: segment, columnWidth: columnWidth)
                                 .offset(x: columnWidth * CGFloat(segment.startColumn))
