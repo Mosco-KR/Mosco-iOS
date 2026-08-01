@@ -116,7 +116,7 @@ struct WeekBlockBarsView: View, Equatable {
             // 배경 버튼이 받는다. 블록(barView)만 자기 자리에 직접
             // SpatialTapGesture를 붙여서, 블록을 정확히 누르면 그 블록이
             // 시작하는 날짜로 가는 동작이 배경 버튼보다 우선하게 한다.
-            VStack(spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
                 ForEach(0..<totalRows, id: \.self) { row in
                     ZStack(alignment: .leading) {
                         ForEach(segments.filter { $0.row == row }) { segment in
@@ -139,9 +139,17 @@ struct WeekBlockBarsView: View, Equatable {
                                 )
                         }
                     }
-                    // MonthGridView.blockRowHeight(32)와 짝 맞는 값 — VStack spacing(2)까지
-                    // 합쳐 총 높이가 정확히 rows*32-2가 되도록: 30n + 2(n-1) = 32n-2.
+                    // 높이: MonthGridView.blockRowHeight(32)와 짝 맞는 값 — VStack
+                    // spacing(2)까지 합쳐 총 높이가 정확히 rows*32-2가 되도록:
+                    // 30n + 2(n-1) = 32n-2.
+                    //
+                    // 너비를 .infinity로 강제하는 게 중요하다 — .offset은 렌더 시점
+                    // 변환이라 레이아웃 크기에 안 잡히므로, 그냥 두면 ZStack 너비가
+                    // "그 줄에서 가장 넓은 블록"만큼만 된다. 그러면 2일짜리 블록이
+                    // 있는 줄만 넓어지고 1일짜리뿐인 줄은 좁아져서, 부모 VStack
+                    // 정렬에 따라 좁은 줄이 통째로 반 칸씩 오른쪽으로 밀린다.
                     .frame(height: 30)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
