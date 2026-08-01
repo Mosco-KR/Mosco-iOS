@@ -6,14 +6,38 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA0000013000000000000001 /* MoscoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA0000012000000000000001 /* MoscoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA000001D000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08208EA6301A72B900C965BF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA0000011000000000000001;
+			remoteInfo = MoscoWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AA0000018000000000000001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				AA0000013000000000000001 /* MoscoWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		08208ECA301A72D600C965BF /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000012000000000000001 /* MoscoWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MoscoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
-
-/* Begin PBXBuildFile section */
-		AA0000013000000000000001 /* MoscoWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA0000012000000000000001 /* MoscoWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-/* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		08208EDB301A72D700C965BF /* Exceptions for "App" folder in "App" target */ = {
@@ -134,8 +158,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				AA0000016000000000000001 /* MoscoWidget */,
 				AA0000015000000000000001 /* Shared */,
+				AA0000016000000000000001 /* MoscoWidget */,
 			);
 			name = MoscoWidget;
 			packageProductDependencies = (
@@ -178,30 +202,6 @@
 			);
 		};
 /* End PBXProject section */
-
-/* Begin PBXContainerItemProxy section */
-		AA000001D000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08208EA6301A72B900C965BF /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = AA0000011000000000000001;
-			remoteInfo = MoscoWidget;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		AA0000018000000000000001 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				AA0000013000000000000001 /* MoscoWidget.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
 		08208EC8301A72D600C965BF /* Resources */ = {

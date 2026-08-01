@@ -7,7 +7,12 @@ import Foundation
 struct CalendarBlock: Equatable, Identifiable {
     let id: String
     let title: String
-    let category: TodoCategory?
+    /// 카테고리 객체가 아니라 색만 값으로 들고 온다. 예전엔 `TodoCategory?`를
+    /// 그대로 담았는데, 그러면 이 구조체의 == 가 SwiftData @Model 동등성 비교가
+    /// 된다 — 달을 스와이프하는 동안 매 프레임마다 세 페이지 × 블록 수만큼
+    /// 그 비교가 돌아서 프레임이 떨어졌다. 값 타입만 담으면 비교가 그냥
+    /// 문자열 비교라 사실상 공짜다.
+    let categoryColorHex: String?
     /// 반복 일정에서 나온 블록인지(원본 포함) — 캘린더에서 한 번짜리와 구분해
     /// 표시하는 데 쓴다.
     var isRepeating: Bool = false

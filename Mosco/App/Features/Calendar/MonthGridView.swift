@@ -13,6 +13,10 @@ import SwiftUI
 struct MonthGridView: View, Equatable {
     let month: Date
     let positionedBlocks: [PositionedBlock]
+    /// 블록이 다시 계산될 때마다 1씩 오르는 번호. `==`에서 배열을 통째로 비교하는
+    /// 대신 이 값만 본다 — 드래그 중에는 매 프레임 이 비교가 페이지 수만큼 도는데,
+    /// 배열 비교는 블록 수에 비례해서(O(N)) 그게 그대로 프레임 예산을 먹었다.
+    let blocksRevision: Int
     /// 지금 선택된 날짜 — 압축된 행에서 그 날짜 셀에 빈 동그라미 표시를 넣는 용도.
     /// "현재" 페이지가 아니면 항상 nil로 넘어온다(다른 페이지엔 선택 표시가 없다).
     let selectedDate: Date?
@@ -24,7 +28,7 @@ struct MonthGridView: View, Equatable {
 
     static func == (lhs: MonthGridView, rhs: MonthGridView) -> Bool {
         lhs.month == rhs.month
-            && lhs.positionedBlocks == rhs.positionedBlocks
+            && lhs.blocksRevision == rhs.blocksRevision
             && lhs.selectedDate == rhs.selectedDate
             && lhs.selectedRowIndex == rhs.selectedRowIndex
     }
@@ -71,35 +75,26 @@ struct MonthGridView: View, Equatable {
         return rows
     }
 
-    /// 이 주(週)에 실제로 쓰이는 블록 행 수 — 달 전체 최대에 맞춰 모든 주를
-    /// 늘리지 않고, 주마다 자기 블록 수만큼만 높이를 가진다.
-    /// 이전/다음 달의 흐린 칸에 걸치는 블록도 이제 그대로 그리므로, 이번 달 칸만이
-    /// 아니라 이 주 전체(일~토)를 기준으로 센다. 전역 행 번호가 아니라 "서로 다른
-    /// 행의 개수"를 세야 하는데, WeekBlockBarsView가 주 안에서 행을 촘촘하게 다시
-    /// 매기는 것과 같은 기준이라야 다른 주의 긴 반복 일정 때문에 빈 행이 예약되지 않는다.
-    private func blockRows(for week: WeekRow) -> Int {
-        guard let weekStart = week.dates.first, let weekEnd = week.dates.last else { return minBlockRows }
-        let usedRows = Set(
-            positionedBlocks
-                .filter { $0.block.start <= weekEnd && $0.block.end >= weekStart }
-                .map(\.row)
-        )
-        return max(usedRows.count, minBlockRows)
-    }
-
-    private func blockAreaHeight(for week: WeekRow) -> CGFloat {
-        CGFloat(blockRows(for: week)) * blockRowHeight - 2
-    }
-
     var body: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(weekRows.enumerated()), id: \.offset) { index, week in
-                weekRowView(week, index: index)
+        // 주별 블록 슬라이스를 여기서 한 번만 만든다. 예전엔 같은 필터링이 주마다
+        // 세 번씩(행 수 계산, 높이 계산, WeekBlockBarsView 안에서) 돌아서, 달을
+        // 넘길 때 블록 수 × 주 수 × 3만큼 헛일이 생겼다.
+        let weeks = weekRows.map { week in (week: week, blocks: blocks(in: week)) }
+
+        return VStack(spacing: 0) {
+            ForEach(Array(weeks.enumerated()), id: \.offset) { index, entry in
+                weekRowView(entry.week, index: index, blocks: entry.blocks)
             }
         }
     }
 
-    private func weekRowView(_ week: WeekRow, index: Int) -> some View {
+    /// 이 주에 걸치는 블록만 추린다.
+    private func blocks(in week: WeekRow) -> [PositionedBlock] {
+        guard let weekStart = week.dates.first, let weekEnd = week.dates.last else { return [] }
+        return positionedBlocks.filter { $0.block.start <= weekEnd && $0.block.end >= weekStart }
+    }
+
+    private func weekRowView(_ week: WeekRow, index: Int, blocks: [PositionedBlock]) -> some View {
         let isCompact = selectedRowIndex != nil
         let isSelectedRow = selectedRowIndex == index
         let rowVisible = !isCompact || isSelectedRow
@@ -118,16 +113,18 @@ struct MonthGridView: View, Equatable {
                 .allowsHitTesting(false)
 
                 if !isCompact {
+                    let rows = max(Set(blocks.map(\.row)).count, minBlockRows)
                     WeekBlockBarsView(
                         weekStart: week.dates[0],
                         weekDates: week.dates,
-                        positionedBlocks: positionedBlocks,
+                        positionedBlocks: blocks,
+                        blocksRevision: blocksRevision,
                         inMonth: week.inMonth,
-                        totalRows: blockRows(for: week),
+                        totalRows: rows,
                         onSelect: onSelect
                     )
                     .equatable()
-                    .frame(height: blockAreaHeight(for: week))
+                    .frame(height: CGFloat(rows) * blockRowHeight - 2)
                 }
             }
             // 터치 인식과 눌림 하이라이트를 맡는 배경 버튼 — .background()는

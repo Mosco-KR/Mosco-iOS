@@ -13,6 +13,8 @@ struct WeekBlockBarsView: View, Equatable {
     let weekStart: Date
     let weekDates: [Date]
     let positionedBlocks: [PositionedBlock]
+    /// 배열을 통째로 비교하지 않고 이 번호만 본다(MonthGridView와 같은 이유).
+    let blocksRevision: Int
     /// 이번 달에 속하는 칸인지(7개, weekDates와 대응) — 이전/다음 달 칸에도 막대는
     /// 똑같이 그리되(달 경계에서 일정이 뚝 끊겨 보이면 오히려 불편하다), 날짜 숫자가
     /// 흐린 것과 같은 톤으로 막대도 흐리게 해서 이번 달이 아니라는 건 유지한다.
@@ -27,9 +29,7 @@ struct WeekBlockBarsView: View, Equatable {
     // 그린다" — 안 그러면 매번 이 주의 세그먼트를 다시 계산하게 된다.
     static func == (lhs: WeekBlockBarsView, rhs: WeekBlockBarsView) -> Bool {
         lhs.weekStart == rhs.weekStart
-            && lhs.weekDates == rhs.weekDates
-            && lhs.positionedBlocks == rhs.positionedBlocks
-            && lhs.inMonth == rhs.inMonth
+            && lhs.blocksRevision == rhs.blocksRevision
             && lhs.totalRows == rhs.totalRows
     }
 
@@ -41,7 +41,7 @@ struct WeekBlockBarsView: View, Equatable {
     private struct Segment: Identifiable {
         let id: String
         let title: String
-        let category: TodoCategory?
+        let categoryColorHex: String?
         let isCompleted: Bool
         let isRepeating: Bool
         let row: Int
@@ -69,7 +69,7 @@ struct WeekBlockBarsView: View, Equatable {
             return Segment(
                 id: block.id,
                 title: block.title,
-                category: block.category,
+                categoryColorHex: block.categoryColorHex,
                 isCompleted: block.isCompleted,
                 isRepeating: block.isRepeating,
                 row: positioned.row,
@@ -94,7 +94,7 @@ struct WeekBlockBarsView: View, Equatable {
             Segment(
                 id: segment.id,
                 title: segment.title,
-                category: segment.category,
+                categoryColorHex: segment.categoryColorHex,
                 isCompleted: segment.isCompleted,
                 isRepeating: segment.isRepeating,
                 row: rowMap[segment.row] ?? segment.row,
@@ -159,7 +159,7 @@ struct WeekBlockBarsView: View, Equatable {
             bottomTrailingRadius: segment.continuesAfter ? 0 : 7,
             topTrailingRadius: segment.continuesAfter ? 0 : 7
         )
-        let color = segment.category?.color ?? MoscoPalette.textSecondary
+        let color = segment.categoryColorHex.map(CategoryColorPalette.color(forHex:)) ?? MoscoPalette.textSecondary
 
         return HStack(spacing: 5) {
             if !segment.continuesBefore {

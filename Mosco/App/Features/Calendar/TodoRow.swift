@@ -62,7 +62,7 @@ struct TodoRow: View {
                 }
             }
 
-            actionMenu
+            detailButton
         }
         .padding(.vertical, 13)
         .padding(.horizontal, 14)
@@ -88,34 +88,9 @@ struct TodoRow: View {
         .shadow(color: .black.opacity(isDone ? 0.02 : 0.06), radius: 12, y: 5)
         .scaleEffect(isDone ? 0.985 : 1)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isDone)
-        .sheet(isPresented: $showsMemoEditor) {
-            TodoDetailSheet(todo: todo)
-        }
-        // 반복 일정은 하나를 지우면 모든 날짜의 인스턴스가 같이 사라지므로,
-        // 확인 문구에서 그걸 먼저 알려준다.
-        .confirmationDialog(
-            todo.repeatRule == .none ? "이 할 일을 삭제할까요?" : "반복 일정 전체를 삭제할까요?",
-            isPresented: $showsDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("삭제", role: .destructive) { onDelete?() }
-            Button("취소", role: .cancel) {}
-        } message: {
-            if todo.repeatRule != .none {
-                Text("이 일정은 반복 일정이라 모든 날짜에서 함께 삭제돼요.")
-            }
-        }
-    }
-
-    private var hasMemo: Bool { todo.memo != nil }
-
-    /// 메모·삭제를 모으는 메뉴. 스와이프로 두 동작을 나눠 갖고 있었는데, 리스트
-    /// 좌우 스와이프가 날짜 넘기기와 같은 방향이라 서로 먹히는 문제가 있었다.
-    /// 버튼 두 개를 나란히 두면 행이 다시 복잡해지므로, 상시 버튼 하나에 모은다.
-    /// 메모가 있으면 아이콘이 카테고리 색으로 또렷해져서, 열어보지 않아도 메모
-    /// 유무가 구분된다.
-    private var actionMenu: some View {
-        Menu {
+        // 목록에서 바로 지우고 싶을 때를 위한 지름길. 길게 누르기라 좌우 스와이프
+        // (날짜 넘기기)와 안 겹친다. 평소엔 안 보이니 행도 복잡해지지 않는다.
+        .contextMenu {
             Button {
                 showsMemoEditor = true
             } label: {
@@ -124,13 +99,47 @@ struct TodoRow: View {
 
             if onDelete != nil {
                 Button(role: .destructive) {
-                    showsDeleteConfirmation = true
+                    if todo.repeatRule == .none {
+                        onDelete?()
+                    } else {
+                        showsDeleteConfirmation = true
+                    }
                 } label: {
                     Label("삭제", systemImage: "trash")
                 }
             }
+        }
+        .sheet(isPresented: $showsMemoEditor) {
+            TodoDetailSheet(todo: todo)
+        }
+        // 반복 일정은 하나를 지우면 모든 날짜의 인스턴스가 같이 사라지므로,
+        // 확인 문구에서 그걸 먼저 알려준다. 한 번짜리는 확인 없이 바로 지운다.
+        .confirmationDialog(
+            "반복 일정 전체를 삭제할까요?",
+            isPresented: $showsDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("삭제", role: .destructive) { onDelete?() }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("이 일정은 반복 일정이라 모든 날짜에서 함께 삭제돼요.")
+        }
+    }
+
+    private var hasMemo: Bool { todo.memo != nil }
+
+    /// 누르면 곧바로 상세 화면(메모)을 연다. 예전엔 메뉴를 띄웠는데, 메모 아이콘을
+    /// 눌렀더니 메뉴가 나오는 게 아이콘이 약속한 것과 달라 어색했다. 삭제는 상세
+    /// 화면 안과 행 길게 누르기로 옮겼다 — 길게 누르기는 좌우 스와이프와 달리
+    /// 날짜 넘기기 제스처와 충돌하지 않는다.
+    ///
+    /// 메모가 있으면 아이콘이 카테고리 색으로 또렷해져서, 열어보지 않아도 메모
+    /// 유무가 구분된다.
+    private var detailButton: some View {
+        Button {
+            showsMemoEditor = true
         } label: {
-            Image(systemName: hasMemo ? "note.text" : "ellipsis")
+            Image(systemName: hasMemo ? "note.text" : "square.and.pencil")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(hasMemo ? accentColor : MoscoPalette.textSecondary)
                 .frame(width: 28, height: 28)

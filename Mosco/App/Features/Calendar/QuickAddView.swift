@@ -251,38 +251,63 @@ struct QuickAddView: View {
         .animation(.easeOut(duration: 0.15), value: isClassifying)
     }
 
+    /// 색 원만 나열하면 누르기 전엔 어떤 카테고리인지 알 수 없어서, 다른 화면에서
+    /// 쓰는 것과 같은 언어(점 + 이름 캡슐)로 보여준다. 이름이 붙으면 가로로 쉽게
+    /// 넘치므로 시간 추천 팝업과 같은 방식으로 입력창 폭 안에서 가로 스크롤시킨다.
     private var categoryOptionsPopup: some View {
-        HStack(spacing: 10) {
-            ForEach(categories) { candidate in
-                Circle()
-                    .fill(candidate.color)
-                    .frame(width: 22, height: 22)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(.white, lineWidth: category?.id == candidate.id ? 2 : 0)
-                    )
-                    .onTapGesture {
-                        category = candidate
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            showCategoryOptions = false
-                        }
-                    }
-                    .onLongPressGesture {
-                        categoryBeingEdited = candidate
-                    }
-            }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(categories) { candidate in
+                    categoryOption(candidate)
+                }
 
-            Button {
-                showNewCategorySheet = true
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(MoscoPalette.textSecondary)
+                Button {
+                    showNewCategorySheet = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(MoscoPalette.textSecondary)
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, Metrics.spacingMD)
         .padding(.vertical, Metrics.spacingSM)
+        .frame(maxWidth: composeBarSize.width)
         .moscoGlass(in: Capsule())
+        // moscoGlass는 배경만 캡슐로 깔 뿐 내용물을 자르진 않아서, 스크롤 중인
+        // 칩이 캡슐 밖으로 삐져나온다 — 내용물도 같은 모양으로 잘라낸다.
+        .clipShape(Capsule())
+    }
+
+    private func categoryOption(_ candidate: TodoCategory) -> some View {
+        let isSelected = category?.id == candidate.id
+
+        return HStack(spacing: 5) {
+            Circle()
+                .fill(candidate.color)
+                .frame(width: 6, height: 6)
+            Text(candidate.name)
+                .font(.moscoCaption())
+                .lineLimit(1)
+        }
+        .foregroundStyle(candidate.color)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(candidate.color.opacity(isSelected ? 0.22 : 0.1), in: Capsule())
+        .overlay(
+            Capsule().strokeBorder(candidate.color, lineWidth: isSelected ? 1.5 : 0)
+        )
+        .contentShape(Capsule())
+        .onTapGesture {
+            category = candidate
+            withAnimation(.easeInOut(duration: 0.15)) {
+                showCategoryOptions = false
+            }
+        }
+        .onLongPressGesture {
+            categoryBeingEdited = candidate
+        }
     }
 
     private var sendButton: some View {

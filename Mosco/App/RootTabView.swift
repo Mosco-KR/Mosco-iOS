@@ -19,19 +19,6 @@ struct RootTabView: View {
     /// 카테고리를 하나도 안 만든 사용자도 첫 할 일부터 뭔가에는 속하게 한다.
     private static let defaultCategoryColorHex = "8B5CF6"
 
-    /// 알림 기본값이 "꺼짐"이던 시절에 만들어진 카테고리들을 한 번만 켜준다.
-    /// 새 카테고리는 모델 기본값이 이미 켜짐이라 해당 없고, 이 마이그레이션이
-    /// 돌고 나면 사용자가 끈 것을 다시 켜지 않도록 플래그로 막는다.
-    private func migrateNotificationDefaultsIfNeeded() {
-        let key = "didEnableNotificationsForExistingCategories"
-        guard !UserDefaults.standard.bool(forKey: key) else { return }
-        for category in categories where !category.notifiesBeforeStart {
-            category.notifiesBeforeStart = true
-            category.notificationLeadMinutes = 10
-        }
-        UserDefaults.standard.set(true, forKey: key)
-    }
-
     /// 알림에 영향을 주는 값들만 추린 키 — 이게 바뀔 때만 재예약한다.
     /// 제목/시간/카테고리 알림 설정이 들어가고, 색이나 메모처럼 알림과 무관한
     /// 변경으로는 다시 예약하지 않는다.
@@ -89,7 +76,6 @@ struct RootTabView: View {
             }
         }
         .onAppear {
-            migrateNotificationDefaultsIfNeeded()
             guard categories.isEmpty else { return }
             modelContext.insert(TodoCategory(name: "할 일", colorHex: Self.defaultCategoryColorHex, sortOrder: 0, isDefault: true))
         }

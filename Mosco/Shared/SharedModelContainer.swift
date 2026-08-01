@@ -16,20 +16,31 @@ enum SharedModelContainer {
     static let schema = Schema([TodoItem.self, TodoCategory.self])
 
     static func make() -> ModelContainer {
-        let configuration: ModelConfiguration
-        if let url = sharedStoreURL() {
-            migrateLegacyStoreIfNeeded(to: url)
-            configuration = ModelConfiguration(schema: schema, url: url)
-        } else {
-            configuration = ModelConfiguration(schema: schema)
-        }
+        let configuration = makeConfiguration()
 
         do {
             return try ModelContainer(for: schema, configurations: configuration)
         } catch {
-            // 여기서 실패하면 데이터가 아예 안 열리는 상태라 더 할 수 있는 게 없다.
+            #if DEBUG
+            // 아직 배포 전이라 스키마를 자주 바꾸는데, 그때마다 기존 저장소와
+            // 안 맞아서 앱이 못 뜬다. 개발 중에는 저장소를 버리고 새로 만든다 —
+            // 앱을 지웠다 다시 까는 수고를 없애기 위한 것이고, 그래서 릴리스
+            // 빌드에는 절대 넣지 않는다(조용한 데이터 소실이 된다).
+            resetStore()
+            if let container = try? ModelContainer(for: schema, configurations: makeConfiguration()) {
+                return container
+            }
+            #endif
+            // 여기까지 오면 데이터가 아예 안 열리는 상태라 더 할 수 있는 게 없다.
             fatalError("ModelContainer를 만들지 못했습니다: \(error)")
         }
+    }
+
+    private static func makeConfiguration() -> ModelConfiguration {
+        guard let url = sharedStoreURL() else {
+            return ModelConfiguration(schema: schema)
+        }
+        return ModelConfiguration(schema: schema, url: url)
     }
 
     private static func sharedStoreURL() -> URL? {
@@ -38,27 +49,14 @@ enum SharedModelContainer {
             .appending(path: "Mosco.store")
     }
 
-    /// App Group으로 옮기기 전(앱 샌드박스)에 쌓인 데이터를 한 번 복사해온다.
-    /// 이걸 안 하면 업데이트한 사용자에게는 할 일이 전부 사라진 것처럼 보인다.
-    ///
-    /// SQLite는 본체(.store) 말고도 -shm/-wal 사이드카 파일을 함께 쓰므로 셋 다
-    /// 옮겨야 한다. 공유 위치에 이미 파일이 있으면(=이미 옮겼으면) 건드리지 않는다.
-    private static func migrateLegacyStoreIfNeeded(to sharedURL: URL) {
-        let fileManager = FileManager.default
-        guard !fileManager.fileExists(atPath: sharedURL.path) else { return }
-
-        guard let legacyURL = fileManager
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first?
-            .appending(path: "default.store"),
-            fileManager.fileExists(atPath: legacyURL.path)
-        else { return }
-
+    #if DEBUG
+    /// SQLite는 본체(.store) 말고 -shm/-wal 사이드카도 함께 쓰므로 셋 다 지워야
+    /// 깨끗하게 다시 만들어진다.
+    private static func resetStore() {
+        guard let url = sharedStoreURL() else { return }
         for suffix in ["", "-shm", "-wal"] {
-            let source = URL(fileURLWithPath: legacyURL.path + suffix)
-            let destination = URL(fileURLWithPath: sharedURL.path + suffix)
-            guard fileManager.fileExists(atPath: source.path) else { continue }
-            try? fileManager.copyItem(at: source, to: destination)
+            try? FileManager.default.removeItem(atPath: url.path + suffix)
         }
     }
+    #endif
 }

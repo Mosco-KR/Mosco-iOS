@@ -61,7 +61,7 @@ struct TutorialOverlayView: View {
         case .deleteTodo:
             topBanner(
                 title: "방금 만든 할 일을 지워볼까요",
-                message: "할 일 오른쪽의 ··· 버튼을 누르고 삭제를 골라보세요.",
+                message: "목록에서 할 일을 왼쪽으로 밀면 삭제 버튼이 나와요. 눌러서 지워보세요.",
                 topInset: safeAreaTop
             )
         case .autoCategory:
