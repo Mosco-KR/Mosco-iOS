@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 튜토리얼 카드 하나를 그린다. 필수 단계(날짜 선택 · 시간 자동 인식 · 할 일
-/// 추가 · 스와이프 삭제)는 배경을 안 가리고 살짝 떠 있는 안내문만 보여줘서,
+/// 추가 · 삭제)는 배경을 안 가리고 살짝 떠 있는 안내문만 보여줘서,
 /// 사용자가 실제 달력/입력창/목록을 그대로 조작할 수 있게 한다. 나머지 단계는
 /// 배경을 살짝 어둡게 깔고 가운데 카드로 설명 + "다음"/"건너뛰기"를 준다.
 struct TutorialOverlayView: View {
@@ -58,10 +58,10 @@ struct TutorialOverlayView: View {
                 title: "이제 전송해보세요",
                 message: "입력창 오른쪽의 전송 버튼을 누르면 할 일이 저장돼요."
             )
-        case .swipeToDelete:
+        case .deleteTodo:
             topBanner(
                 title: "방금 만든 할 일을 지워볼까요",
-                message: "목록에서 항목을 왼쪽으로 밀면 삭제 버튼이 나와요. 눌러서 지워보세요.",
+                message: "할 일 오른쪽의 ··· 버튼을 누르고 삭제를 골라보세요.",
                 topInset: safeAreaTop
             )
         case .autoCategory:

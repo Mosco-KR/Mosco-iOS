@@ -13,10 +13,9 @@ struct WeekBlockBarsView: View, Equatable {
     let weekStart: Date
     let weekDates: [Date]
     let positionedBlocks: [PositionedBlock]
-    /// 이번 달에 속하는 칸인지(7개, weekDates와 대응) — 이전/다음 달로 흐려진
-    /// 칸에는 막대를 그리지 않는다. 안 그러면 월 경계를 넘는 일정이 캐러셀의
-    /// 이전 페이지(흐린 꼬리)와 다음 페이지(진짜 시작) 양쪽에 동시에 보여서
-    /// 스와이프 중 같은 일정이 두 번 보이는 것처럼 어색해진다.
+    /// 이번 달에 속하는 칸인지(7개, weekDates와 대응) — 이전/다음 달 칸에도 막대는
+    /// 똑같이 그리되(달 경계에서 일정이 뚝 끊겨 보이면 오히려 불편하다), 날짜 숫자가
+    /// 흐린 것과 같은 톤으로 막대도 흐리게 해서 이번 달이 아니라는 건 유지한다.
     let inMonth: [Bool]
     let totalRows: Int
     /// 블록을 탭하면 그 블록이 시작하는 날짜로 선택 진입한다 — DayCell을 탭한
@@ -35,23 +34,27 @@ struct WeekBlockBarsView: View, Equatable {
     }
 
     private let calendar = Calendar.current
+    /// 지금 누르고 있는 블록 — 블록 하나가 여러 날짜 칸(버튼)으로 나뉘어 있어서,
+    /// 어느 칸을 눌렀든 블록 전체가 같이 눌린 것처럼 보이게 하려면 공유해야 한다.
+    @State private var pressedBlockID: String?
 
     private struct Segment: Identifiable {
         let id: String
         let title: String
         let category: TodoCategory?
         let isCompleted: Bool
+        let isRepeating: Bool
         let row: Int
         let startColumn: Int
         let endColumn: Int
         let continuesBefore: Bool
         let continuesAfter: Bool
+        /// 걸쳐 있는 칸이 전부 이번 달 밖이면 true — 흐린 날짜 숫자와 톤을 맞춘다.
+        let isDimmed: Bool
     }
 
     private var segments: [Segment] {
         guard let weekEnd = weekDates.last else { return [] }
-        let inMonthColumns = inMonth.indices.filter { inMonth[$0] }
-        guard let firstInMonth = inMonthColumns.first, let lastInMonth = inMonthColumns.last else { return [] }
 
         let raw: [Segment] = positionedBlocks.compactMap { positioned in
             let block = positioned.block
@@ -59,24 +62,24 @@ struct WeekBlockBarsView: View, Equatable {
             let overlapEnd = min(block.end, weekEnd)
             guard overlapStart <= overlapEnd else { return nil }
             guard
-                let rawStartColumn = weekDates.firstIndex(where: { calendar.isDate($0, inSameDayAs: overlapStart) }),
-                let rawEndColumn = weekDates.firstIndex(where: { calendar.isDate($0, inSameDayAs: overlapEnd) })
+                let startColumn = weekDates.firstIndex(where: { calendar.isDate($0, inSameDayAs: overlapStart) }),
+                let endColumn = weekDates.firstIndex(where: { calendar.isDate($0, inSameDayAs: overlapEnd) })
             else { return nil }
-
-            let startColumn = max(rawStartColumn, firstInMonth)
-            let endColumn = min(rawEndColumn, lastInMonth)
-            guard startColumn <= endColumn else { return nil }
 
             return Segment(
                 id: block.id,
                 title: block.title,
                 category: block.category,
                 isCompleted: block.isCompleted,
+                isRepeating: block.isRepeating,
                 row: positioned.row,
                 startColumn: startColumn,
                 endColumn: endColumn,
-                continuesBefore: block.start < weekStart && startColumn == rawStartColumn,
-                continuesAfter: block.end > weekEnd && endColumn == rawEndColumn
+                continuesBefore: block.start < weekStart,
+                continuesAfter: block.end > weekEnd,
+                // 이번 달 칸에 한 칸이라도 걸쳐 있으면 진하게 — 달 경계를 넘는
+                // 일정이 중간에 톤이 바뀌며 잘려 보이지 않게 한다.
+                isDimmed: !(startColumn...endColumn).contains { inMonth[$0] }
             )
         }
 
@@ -93,11 +96,13 @@ struct WeekBlockBarsView: View, Equatable {
                 title: segment.title,
                 category: segment.category,
                 isCompleted: segment.isCompleted,
+                isRepeating: segment.isRepeating,
                 row: rowMap[segment.row] ?? segment.row,
                 startColumn: segment.startColumn,
                 endColumn: segment.endColumn,
                 continuesBefore: segment.continuesBefore,
-                continuesAfter: segment.continuesAfter
+                continuesAfter: segment.continuesAfter,
+                isDimmed: segment.isDimmed
             )
         }
     }
@@ -113,30 +118,15 @@ struct WeekBlockBarsView: View, Equatable {
             //
             // 블록이 없는 빈 자리는 여기서 아무 것도 그리지 않는다 — 일부러다.
             // 탭은 MonthGridView가 숫자 줄부터 이 영역 끝까지 통째로 깔아둔
-            // 배경 버튼이 받는다. 블록(barView)만 자기 자리에 직접
-            // SpatialTapGesture를 붙여서, 블록을 정확히 누르면 그 블록이
-            // 시작하는 날짜로 가는 동작이 배경 버튼보다 우선하게 한다.
+            // 배경 버튼이 받는다. 블록(barView)만 자기 자리에 직접 버튼을 얹어서,
+            // 블록을 정확히 누르면 그 블록의 날짜로 가는 동작이 배경 버튼보다
+            // 우선하게 한다.
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(0..<totalRows, id: \.self) { row in
                     ZStack(alignment: .leading) {
                         ForEach(segments.filter { $0.row == row }) { segment in
                             barView(segment: segment, columnWidth: columnWidth)
                                 .offset(x: columnWidth * CGFloat(segment.startColumn))
-                                // 블록이 여러 날에 걸쳐 있으면 시작일이 아니라
-                                // 실제로 손가락이 닿은 칸의 날짜로 가야 한다 —
-                                // 그래서 탭 위치(x)를 열 너비로 나눠 어느 날짜
-                                // 칸인지 계산한다.
-                                .gesture(
-                                    SpatialTapGesture()
-                                        .onEnded { value in
-                                            let offsetColumns = Int(value.location.x / columnWidth)
-                                            let column = min(
-                                                max(segment.startColumn + offsetColumns, segment.startColumn),
-                                                segment.endColumn
-                                            )
-                                            onSelect(weekDates[column])
-                                        }
-                                )
                         }
                     }
                     // 높이: MonthGridView.blockRowHeight(32)와 짝 맞는 값 — VStack
@@ -173,11 +163,21 @@ struct WeekBlockBarsView: View, Equatable {
 
         return HStack(spacing: 5) {
             if !segment.continuesBefore {
-                Capsule()
-                    .fill(color)
-                    .frame(width: 2.5)
-                    .padding(.vertical, 4)
+                // 인용문처럼 맨 앞에 세우는 카테고리 색 바. 반복 일정은 이 바를
+                // 소문자 i 모양(점 + 막대)으로 바꿔 한 번짜리(|)와 구분한다 —
+                // 별도 아이콘을 덧붙이면 가뜩이나 좁은 막대에서 제목 자리가 준다.
+                VStack(spacing: 1.5) {
+                    if segment.isRepeating {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 2.5, height: 2.5)
+                    }
+                    Capsule().fill(color)
+                }
+                .frame(width: 2.5)
+                .padding(.vertical, 4)
             }
+
             Text(segment.title)
                 .font(.system(size: 9, weight: .semibold))
                 .strikethrough(segment.isCompleted)
@@ -195,7 +195,48 @@ struct WeekBlockBarsView: View, Equatable {
         .moscoGlass(in: shape)
         .overlay(shape.strokeBorder(color.opacity(0.28), lineWidth: 0.75))
         .clipShape(shape)
-        // 완료된 항목은 TodoRow와 같은 방식(톤 낮춤)으로 구분한다.
-        .opacity(segment.isCompleted ? 0.45 : 1)
+        // 여러 날에 걸친 블록은 손가락이 닿은 "그 날"로 가야 한다 — 예전엔 탭
+        // 위치(x)를 열 너비로 나눠 계산했지만, 지금은 아예 걸쳐 있는 날짜 수만큼
+        // 칸을 나눠 각 칸에 그 날짜를 아는 버튼을 얹는다. 위치 계산이 사라져
+        // 정확할 뿐 아니라, 날짜 칸과 똑같이 Button의 눌림 상태를 그대로 받아
+        // 누르는 동안 피드백을 줄 수 있다.
+        .overlay {
+            HStack(spacing: 0) {
+                ForEach(segment.startColumn...segment.endColumn, id: \.self) { column in
+                    Button {
+                        onSelect(weekDates[column])
+                    } label: {
+                        Color.clear
+                    }
+                    .buttonStyle(BlockPressStyle(onPressingChanged: { isPressed in
+                        pressedBlockID = isPressed ? segment.id : (pressedBlockID == segment.id ? nil : pressedBlockID)
+                    }))
+                }
+            }
+        }
+        // 완료된 항목은 TodoRow와 같은 방식(톤 낮춤)으로 구분한다. 이번 달 밖의
+        // 칸에만 있는 블록도 흐린 날짜 숫자(DayCell의 0.4)와 같은 톤으로 낮춘다.
+        .opacity(segment.isCompleted ? 0.45 : (segment.isDimmed ? 0.4 : 1))
+        // 날짜 칸과 같은 언어의 눌림 피드백 — 다만 블록은 가로로 긴 막대라
+        // 숫자(0.88)만큼 줄이면 과하게 출렁여서, 살짝만 눌리는 정도로 잡는다.
+        .scaleEffect(pressedBlockID == segment.id ? 0.96 : 1)
+        .opacity(pressedBlockID == segment.id ? 0.7 : 1)
+        .animation(.easeOut(duration: 0.12), value: pressedBlockID == segment.id)
+    }
+}
+
+/// 블록 위에 얹는 투명 버튼 전용 스타일 — 블록 자체가 이미 유리/색을 갖고 있어서
+/// 여기선 배경을 더 깔지 않고, 눌림 상태만 바깥으로 알려준다(실제 축소·페이드는
+/// barView가 블록 전체에 한 번에 적용한다 — 여러 날짜 칸으로 나뉜 버튼 중
+/// 하나만 따로 움직이면 블록이 찢어져 보인다).
+private struct BlockPressStyle: ButtonStyle {
+    var onPressingChanged: (Bool) -> Void = { _ in }
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .onChange(of: configuration.isPressed) { _, newValue in
+                onPressingChanged(newValue)
+            }
     }
 }

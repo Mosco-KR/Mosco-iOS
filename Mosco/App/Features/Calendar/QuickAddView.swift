@@ -88,6 +88,15 @@ struct QuickAddView: View {
         .onChange(of: title) { _, newValue in
             scheduleClassification(for: newValue)
         }
+        // startDate는 @State 초기값으로만 date를 받으므로, 이 뷰가 그대로 살아있는
+        // 채 날짜만 바뀌면(리스트를 좌우로 밀어 날짜 이동) 초기값이 다시 평가되지
+        // 않아 입력창의 날짜 칩이 이전 날짜에 멈춰 있었다.
+        // 수정 중일 땐 그 항목의 날짜를 들고 있어야 하니 건드리지 않는다.
+        .onChange(of: initialDate) { _, newValue in
+            guard !isEditing else { return }
+            startDate = newValue
+            endDate = newValue
+        }
         .onChange(of: editingTodo?.id) { _, _ in
             guard let todo = editingTodo else { return }
             title = todo.title
@@ -146,8 +155,10 @@ struct QuickAddView: View {
             CategoryEditorSheet(
                 existing: nil,
                 usedColorHexValues: categories.map(\.colorHex),
-                onSave: { name, colorHex in
-                    let newCategory = TodoCategory(name: name, colorHex: colorHex, sortOrder: categories.count)
+                onSave: { draft in
+                    let newCategory = TodoCategory(name: draft.name, colorHex: draft.colorHex, sortOrder: categories.count)
+                    newCategory.notifiesBeforeStart = draft.notifiesBeforeStart
+                    newCategory.notificationLeadMinutes = draft.notificationLeadMinutes
                     modelContext.insert(newCategory)
                     category = newCategory
                 }
@@ -157,9 +168,11 @@ struct QuickAddView: View {
             CategoryEditorSheet(
                 existing: editing,
                 usedColorHexValues: categories.map(\.colorHex),
-                onSave: { name, colorHex in
-                    editing.name = name
-                    editing.colorHex = colorHex
+                onSave: { draft in
+                    editing.name = draft.name
+                    editing.colorHex = draft.colorHex
+                    editing.notifiesBeforeStart = draft.notifiesBeforeStart
+                    editing.notificationLeadMinutes = draft.notificationLeadMinutes
                 },
                 onDelete: {
                     guard let defaultCategory = categories.first(where: \.isDefault) else { return }

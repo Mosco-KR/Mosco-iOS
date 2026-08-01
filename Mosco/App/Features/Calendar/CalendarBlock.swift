@@ -8,6 +8,9 @@ struct CalendarBlock: Equatable, Identifiable {
     let id: String
     let title: String
     let category: TodoCategory?
+    /// 반복 일정에서 나온 블록인지(원본 포함) — 캘린더에서 한 번짜리와 구분해
+    /// 표시하는 데 쓴다.
+    var isRepeating: Bool = false
     /// 시작/종료일(하루 단위, startOfDay 기준). 하루짜리면 start == end.
     let start: Date
     let end: Date

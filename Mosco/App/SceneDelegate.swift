@@ -17,8 +17,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
 
+        // 위젯도 같은 저장소를 읽어야 해서 App Group 컨테이너를 쓴다.
         let rootView = RootTabView()
-            .modelContainer(for: [TodoItem.self, TodoCategory.self])
+            .modelContainer(SharedModelContainer.make())
 
         let window = UIWindow(windowScene: windowScene)
         window.rootViewController = UIHostingController(rootView: rootView)

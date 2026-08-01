@@ -20,6 +20,14 @@ final class TodoCategory {
     /// 여기로 옮겨오기 때문에, 옮겨 담을 곳이 항상 있다는 걸 보장해야 한다.
     /// 기존 데이터와의 라이트웨이트 마이그레이션을 위해 기본값을 인라인으로 둔다.
     var isDefault: Bool = false
+    /// 이 카테고리의 할 일에 시작 전 알림을 보낼지. 알림은 카테고리 단위로 켜고
+    /// 끈다 — 할 일마다 정하게 하면 매번 신경 써야 하지만, "업무는 알림 받고
+    /// 개인 할 일은 안 받는다"처럼 묶어서 정하면 한 번만 정하면 된다.
+    /// 기본은 켜짐 — 시간을 정해둔 일정은 알림을 원하는 게 보통이고, 필요 없으면
+    /// 끄는 편이 "왜 알림이 안 오지"보다 알아채기 쉽다.
+    var notifiesBeforeStart: Bool = true
+    /// 시작 몇 분 전에 알릴지. notifiesBeforeStart가 false면 의미 없다.
+    var notificationLeadMinutes: Int = 10
 
     init(name: String, colorHex: String, sortOrder: Int, isDefault: Bool = false) {
         self.id = UUID()

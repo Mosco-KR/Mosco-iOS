@@ -12,6 +12,11 @@ struct TodoRow: View {
     /// 셀 몸통을 누르면 수정할 수 있게 채팅형 입력창을 다시 띄우는 콜백.
     /// (체크박스는 별도 버튼이라 이 탭과 겹치지 않는다)
     var onTap: (() -> Void)? = nil
+    /// 이 할 일을 지운다. nil이면 삭제 메뉴를 감춘다.
+    var onDelete: (() -> Void)? = nil
+
+    @State private var showsMemoEditor = false
+    @State private var showsDeleteConfirmation = false
 
     private var isDone: Bool {
         if let occurrenceDate { return todo.isCompleted(on: occurrenceDate) }
@@ -44,9 +49,20 @@ struct TodoRow: View {
                         TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary)
                     }
 
+                    // 반복 일정은 한 번짜리와 겉모습이 같아서, 목록에서 이게
+                    // "매주 오는 그 일정"인지 이번 한 번인지 구분이 안 됐다.
+                    // 규칙까지 적어주면 태그 줄이 길어지니 반복 아이콘만 붙인다.
+                    if todo.repeatRule != .none {
+                        Image(systemName: "repeat")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(accentColor)
+                    }
+
                     Spacer(minLength: 0)
                 }
             }
+
+            actionMenu
         }
         .padding(.vertical, 13)
         .padding(.horizontal, 14)
@@ -72,6 +88,61 @@ struct TodoRow: View {
         .shadow(color: .black.opacity(isDone ? 0.02 : 0.06), radius: 12, y: 5)
         .scaleEffect(isDone ? 0.985 : 1)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isDone)
+        .sheet(isPresented: $showsMemoEditor) {
+            TodoDetailSheet(todo: todo)
+        }
+        // 반복 일정은 하나를 지우면 모든 날짜의 인스턴스가 같이 사라지므로,
+        // 확인 문구에서 그걸 먼저 알려준다.
+        .confirmationDialog(
+            todo.repeatRule == .none ? "이 할 일을 삭제할까요?" : "반복 일정 전체를 삭제할까요?",
+            isPresented: $showsDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("삭제", role: .destructive) { onDelete?() }
+            Button("취소", role: .cancel) {}
+        } message: {
+            if todo.repeatRule != .none {
+                Text("이 일정은 반복 일정이라 모든 날짜에서 함께 삭제돼요.")
+            }
+        }
+    }
+
+    private var hasMemo: Bool { todo.memo != nil }
+
+    /// 메모·삭제를 모으는 메뉴. 스와이프로 두 동작을 나눠 갖고 있었는데, 리스트
+    /// 좌우 스와이프가 날짜 넘기기와 같은 방향이라 서로 먹히는 문제가 있었다.
+    /// 버튼 두 개를 나란히 두면 행이 다시 복잡해지므로, 상시 버튼 하나에 모은다.
+    /// 메모가 있으면 아이콘이 카테고리 색으로 또렷해져서, 열어보지 않아도 메모
+    /// 유무가 구분된다.
+    private var actionMenu: some View {
+        Menu {
+            Button {
+                showsMemoEditor = true
+            } label: {
+                Label(hasMemo ? "메모 보기" : "메모 추가", systemImage: "note.text")
+            }
+
+            if onDelete != nil {
+                Button(role: .destructive) {
+                    showsDeleteConfirmation = true
+                } label: {
+                    Label("삭제", systemImage: "trash")
+                }
+            }
+        } label: {
+            Image(systemName: hasMemo ? "note.text" : "ellipsis")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(hasMemo ? accentColor : MoscoPalette.textSecondary)
+                .frame(width: 28, height: 28)
+                .background(
+                    (hasMemo ? accentColor : MoscoPalette.textSecondary).opacity(hasMemo ? 0.16 : 0.07),
+                    in: Circle()
+                )
+                .opacity(hasMemo ? 1 : 0.45)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
+        .animation(.easeOut(duration: 0.2), value: hasMemo)
     }
 
     /// 체크박스가 완료 컨트롤이면서 동시에 카테고리 색 표시도 겸한다 —

@@ -3,6 +3,7 @@ import SwiftData
 
 struct CalendarScreen: View {
     @Environment(TutorialManager.self) private var tutorialManager
+    @Environment(WeatherStore.self) private var weatherStore
     @Query(sort: \TodoItem.date) private var todos: [TodoItem]
     @State private var displayedMonth = Date()
     @State private var selectedDate: Date?
@@ -44,6 +45,7 @@ struct CalendarScreen: View {
                 id: "\(todo.id.uuidString)-base",
                 title: todo.title,
                 category: todo.category,
+                isRepeating: todo.repeatRule != .none,
                 start: baseStart,
                 end: baseEnd,
                 isCompleted: todo.isCompleted(on: baseStart),
@@ -68,6 +70,7 @@ struct CalendarScreen: View {
                         id: "\(todo.id.uuidString)-\(cursor.dayKey)",
                         title: todo.title,
                         category: todo.category,
+                        isRepeating: true,
                         start: cursor,
                         end: end,
                         // 반복은 날짜별로 완료 상태가 다르다 — 그 인스턴스의 기록만 본다.
@@ -165,8 +168,11 @@ struct CalendarScreen: View {
                 )
 
                 if let selectedDate {
-                    DayTodosContentView(date: selectedDate)
-                        .transition(.opacity)
+                    DayTodosContentView(
+                        date: selectedDate,
+                        onDateChange: { delta in shiftSelectedDate(by: delta) }
+                    )
+                    .transition(.opacity)
                 } else {
                     Spacer(minLength: 0)
                 }
@@ -192,6 +198,19 @@ struct CalendarScreen: View {
 
     private func collapse() {
         selectedDate = nil
+    }
+
+    /// 리스트를 좌우로 밀어 하루씩 이동. 주가 바뀌면 압축된 스트립이 그 주로,
+    /// 달이 바뀌면 표시 중인 달까지 같이 따라가야 선택 표시가 안 사라진다.
+    /// 캐러셀이 이미 슬라이드를 끝낸 뒤라 여기선 애니메이션 없이 상태만 맞춘다.
+    private func shiftSelectedDate(by delta: Int) {
+        guard let current = selectedDate,
+              let next = calendar.date(byAdding: .day, value: delta, to: current)
+        else { return }
+        selectedDate = next
+        if !calendar.isDate(next, equalTo: displayedMonth, toGranularity: .month) {
+            displayedMonth = next
+        }
     }
 
     private var monthHeader: some View {
@@ -263,17 +282,33 @@ struct CalendarScreen: View {
 
     /// 항상 상단 오른쪽에 고정 — 압축 여부/현재 달 여부와 무관하게 항상 눌러서
     /// 오늘이 있는 달로, 펼쳐진 상태로 돌아올 수 있다.
+    ///
+    /// 오늘 날씨가 있으면 같은 캡슐 안에 아이콘과 기온을 붙인다 — 날씨만을 위한
+    /// 자리를 새로 만들지 않고, 이미 "오늘"을 가리키는 버튼에 얹는 편이 헤더가
+    /// 안 복잡해진다. 못 받아왔으면 원래 모습 그대로다.
     private var todayButton: some View {
         Button {
             goToToday()
         } label: {
-            Text("오늘")
-                .font(.moscoCaption().weight(.semibold))
-                .foregroundStyle(MoscoPalette.accent)
-                .padding(.horizontal, 14)
-                .frame(height: 34)
+            HStack(spacing: 5) {
+                Text("오늘")
+                    .font(.moscoCaption().weight(.semibold))
+                    .foregroundStyle(MoscoPalette.accent)
+
+                if let today = weatherStore.weather(for: Date()) {
+                    Image(systemName: today.symbolName)
+                        .font(.system(size: 12))
+                        .symbolRenderingMode(.multicolor)
+                    Text("\(today.highCelsius)°")
+                        .font(.moscoCaption())
+                        .foregroundStyle(MoscoPalette.textSecondary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 34)
         }
         .moscoGlass(in: Capsule())
+        .animation(.easeOut(duration: 0.25), value: weatherStore.weather(for: Date()))
     }
 
     private var weekdayHeader: some View {

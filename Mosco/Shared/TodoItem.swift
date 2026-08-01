@@ -31,6 +31,10 @@ final class TodoItem {
     var completedDayKeys: [String]?
     var isCompleted: Bool
     var createdAt: Date
+    /// 제목만으로 부족할 때 덧붙이는 자유 메모. 앞으로 알림·첨부처럼 "할 일에
+    /// 붙는 부가 정보"가 더 생길 자리의 첫 번째다(TodoDetailSheet 참고).
+    /// 기존 데이터와의 라이트웨이트 마이그레이션을 위해 옵셔널로 둔다.
+    var memo: String?
 
     init(
         title: String,

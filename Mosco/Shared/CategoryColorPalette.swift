@@ -1,5 +1,19 @@
 import SwiftUI
 
+/// 위젯 타겟도 카테고리 색을 그려야 해서, hex 이니셜라이저는 앱 전용 팔레트가
+/// 아니라 공유 소스에 둔다.
+extension Color {
+    init(hex: UInt, alpha: Double = 1) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: alpha
+        )
+    }
+}
+
 /// 카테고리를 만들 때 고르는 기본 16색. 채도 있는 트렌디한 톤으로, 서로
 /// 구별이 잘 되도록 색상환을 고르게 훑는다. 색은 hex로 저장해서 Category가
 /// SwiftUI를 몰라도 되게 한다(모델은 순수 데이터로 유지).

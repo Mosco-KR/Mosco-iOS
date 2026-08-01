@@ -13,7 +13,7 @@ final class TutorialManager {
         case selectDate
         case timeDetection
         case addTodo
-        case swipeToDelete
+        case deleteTodo
         case autoCategory
         case manualCategory
         case scheduleDetail
@@ -24,7 +24,7 @@ final class TutorialManager {
         /// 이 단계는 실제로 해내야만 다음으로 넘어간다 — 건너뛰기 버튼 자체가 없다.
         var isEssential: Bool {
             switch self {
-            case .selectDate, .timeDetection, .addTodo, .swipeToDelete: true
+            case .selectDate, .timeDetection, .addTodo, .deleteTodo: true
             default: false
             }
         }
@@ -91,9 +91,9 @@ final class TutorialManager {
         advance()
     }
 
-    /// DayTodosContentView에서 할 일을 실제로 스와이프 삭제하면 호출된다.
+    /// 할 일을 실제로 삭제하면 호출된다.
     func userDidDeleteTodo() {
-        guard isActive, step == .swipeToDelete else { return }
+        guard isActive, step == .deleteTodo else { return }
         advance()
     }
 }

@@ -66,12 +66,16 @@ struct TodayTodoScreen: View {
                     Section {
                         if !collapsedCategoryKeys.contains(group.category?.id) {
                             ForEach(group.items) { todo in
-                                TodoRow(todo: todo, occurrenceDate: today, onTap: { editingTodo = todo })
-                                    .listRowBackground(Color.clear)
-                                    .listRowSeparator(.hidden)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
+                                TodoRow(
+                                    todo: todo,
+                                    occurrenceDate: today,
+                                    onTap: { editingTodo = todo },
+                                    onDelete: { delete(todo) }
+                                )
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
                             }
-                            .onDelete { offsets in delete(items: group.items, at: offsets) }
                         }
                     } header: {
                         sectionHeader(for: group.category, count: group.items.count)
@@ -92,12 +96,16 @@ struct TodayTodoScreen: View {
                     Section {
                         if showsCompleted {
                             ForEach(completedTodos) { todo in
-                                TodoRow(todo: todo, occurrenceDate: today, onTap: { editingTodo = todo })
-                                    .listRowBackground(Color.clear)
-                                    .listRowSeparator(.hidden)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
+                                TodoRow(
+                                    todo: todo,
+                                    occurrenceDate: today,
+                                    onTap: { editingTodo = todo },
+                                    onDelete: { delete(todo) }
+                                )
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
                             }
-                            .onDelete { offsets in delete(items: completedTodos, at: offsets) }
                         }
                     } header: {
                         completedHeader
@@ -186,9 +194,7 @@ struct TodayTodoScreen: View {
         .buttonStyle(.plain)
     }
 
-    private func delete(items: [TodoItem], at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(items[index])
-        }
+    private func delete(_ todo: TodoItem) {
+        modelContext.delete(todo)
     }
 }

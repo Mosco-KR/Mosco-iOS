@@ -27,6 +27,9 @@ struct DayCell: View {
     var showsHolidayLabel: Bool = true
     /// MonthGridView의 배경 버튼이 지금 눌리고 있는 날짜면 true.
     var isPressed: Bool = false
+    /// 그날 날씨 아이콘(SF Symbol). 압축된 주간 스트립에서만 쓴다 — 예보 범위
+    /// 밖이거나 날씨를 못 받아왔으면 nil이고, 그때는 아무것도 안 그린다.
+    var weatherSymbol: String? = nil
 
     private var dayNumber: String {
         String(Calendar.current.component(.day, from: date))
@@ -49,6 +52,23 @@ struct DayCell: View {
                 .foregroundStyle(numberColor)
                 .frame(width: 34, height: 34)
                 .background(isToday ? MoscoPalette.accent : Color.clear, in: Circle())
+                // 압축된 주간 스트립은 높이가 44로 고정이라 숫자 아래에 한 줄을
+                // 더 두면 잘린다 — 숫자 원의 오른쪽 위 모서리에 작게 얹어서
+                // 높이를 안 늘리고도 그날 날씨가 보이게 한다.
+                //
+                // 바깥으로 밀어내지 않고 원 위에 살짝 걸치게 둔다. 예전엔 오른쪽
+                // 위로 밀어놨더니 선택 표시(칸을 감싸는 사각형)의 모서리에 거의
+                // 붙어서 답답해 보였다 — 아래 padding과 함께 여백을 만든다.
+                .overlay(alignment: .topTrailing) {
+                    if let weatherSymbol {
+                        Image(systemName: weatherSymbol)
+                            .font(.system(size: 9))
+                            .symbolRenderingMode(.multicolor)
+                            .padding(2)
+                            .background(MoscoPalette.canvas, in: Circle())
+                            .offset(x: 1, y: -1)
+                    }
+                }
 
             // 공휴일 이름이 있을 때만 채워지지만, 자리는 항상 예약해둔다 —
             // 안 그러면 공휴일이 있는 셀만 아래로 한 줄 더 커져서, 같은 행에서도
@@ -62,6 +82,11 @@ struct DayCell: View {
                     .opacity(holidayName == nil ? 0 : 1)
             }
         }
+        // 압축된 주간 스트립(공휴일 라벨을 생략하는 그 상태)에서만 위쪽 여백을
+        // 준다 — 날씨 아이콘이 칸 맨 위에 붙어 선택 표시 사각형과 겹쳐 보이는 걸
+        // 막는다. 펼친 달력에는 날씨를 안 그리므로 여백도 필요 없고, 여기에 주면
+        // 주(週) 행 높이가 통째로 밀려 블록 위치까지 어긋난다.
+        .padding(.top, showsHolidayLabel ? 0 : 4)
         // maxHeight를 여기서 .infinity로 주면 이 칸이 속한 HStack이 통째로
         // 늘어나 버려서, 같은 주(週) VStack 안에 있는 블록 바(WeekBlockBarsView)가
         // 늘어난 만큼 아래로 밀려난다 — 블록 수가 적은 주(특히 탭바 바로 위
@@ -76,6 +101,9 @@ struct DayCell: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(MoscoPalette.accent, lineWidth: 1.5)
                 .opacity(isSelected && !isToday ? 1 : 0)
+                // 칸 가장자리에 딱 붙이지 않고 살짝 안쪽으로 — 옆 칸의 표시와도,
+                // 날씨 아이콘과도 사이가 뜬다.
+                .padding(2)
         )
         // 예전엔 이 축소·페이드가 DayCell 자신의 버튼 눌림에서 나왔지만, 지금은
         // 탭을 배경 버튼이 대신 받으므로 그 눌림 상태를 isPressed로 전달받아

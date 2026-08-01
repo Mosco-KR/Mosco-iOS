@@ -29,6 +29,8 @@ struct MonthGridView: View, Equatable {
             && lhs.selectedRowIndex == rhs.selectedRowIndex
     }
 
+    @Environment(WeatherStore.self) private var weatherStore
+
     private let calendar = Calendar.current
     // 제목이 길면 말줄임표 대신 두 줄로 끊어서 보여주기로 해서, 한 줄(16pt)보다
     // 훨씬 넉넉하게 잡는다 — 9pt 텍스트 두 줄(~22~24pt) + 위아래 여백이 실제로
@@ -71,16 +73,15 @@ struct MonthGridView: View, Equatable {
 
     /// 이 주(週)에 실제로 쓰이는 블록 행 수 — 달 전체 최대에 맞춰 모든 주를
     /// 늘리지 않고, 주마다 자기 블록 수만큼만 높이를 가진다.
-    /// 이전/다음 달의 흐린 칸에만 걸치는 블록은 그려지지 않으므로(WeekBlockBarsView가
-    /// 잘라냄) 높이 계산에서도 빼야 하고, 전역 행 번호가 아니라 "서로 다른 행의
-    /// 개수"를 세야 한다 — WeekBlockBarsView가 주 안에서 행을 촘촘하게 다시 매기는
-    /// 것과 같은 기준이라, 다른 주의 긴 반복 일정 때문에 빈 행이 예약되지 않는다.
+    /// 이전/다음 달의 흐린 칸에 걸치는 블록도 이제 그대로 그리므로, 이번 달 칸만이
+    /// 아니라 이 주 전체(일~토)를 기준으로 센다. 전역 행 번호가 아니라 "서로 다른
+    /// 행의 개수"를 세야 하는데, WeekBlockBarsView가 주 안에서 행을 촘촘하게 다시
+    /// 매기는 것과 같은 기준이라야 다른 주의 긴 반복 일정 때문에 빈 행이 예약되지 않는다.
     private func blockRows(for week: WeekRow) -> Int {
-        let inMonthDates = zip(week.dates, week.inMonth).filter(\.1).map(\.0)
-        guard let firstInMonth = inMonthDates.first, let lastInMonth = inMonthDates.last else { return minBlockRows }
+        guard let weekStart = week.dates.first, let weekEnd = week.dates.last else { return minBlockRows }
         let usedRows = Set(
             positionedBlocks
-                .filter { $0.block.start <= lastInMonth && $0.block.end >= firstInMonth }
+                .filter { $0.block.start <= weekEnd && $0.block.end >= weekStart }
                 .map(\.row)
         )
         return max(usedRows.count, minBlockRows)
@@ -178,7 +179,10 @@ struct MonthGridView: View, Equatable {
             weekendKind: weekendKind(for: date),
             holidayName: KoreanHoliday.name(for: date),
             showsHolidayLabel: !isCompact,
-            isPressed: pressedDate == date
+            isPressed: pressedDate == date,
+            // 월 전체 그리드에 다 뿌리면 아이콘이 42개나 깔려 산만해진다 —
+            // 날짜를 골라 하루를 보고 있을 때(압축된 주간 스트립)만 보여준다.
+            weatherSymbol: isCompact ? weatherStore.weather(for: date)?.symbolName : nil
         )
         .frame(maxWidth: .infinity)
     }
