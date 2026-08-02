@@ -81,7 +81,7 @@ private struct DayTodoList: View {
                 ContentUnavailableView(
                     "이날은 비어 있어요",
                     systemImage: "checkmark.circle",
-                    description: Text("아래에 적으면 이날 일정으로 들어가요")
+                    description: Text("아래에 적으면 이날 할 일이 돼요")
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)

@@ -58,41 +58,63 @@ struct UpcomingScreen: View {
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
 
+    /// 세로로 쌓지 않고 **가로로 넘겨 보는 카드**로 둔다. 세로로 쌓으면 디데이를
+    /// 몇 개만 등록해도 날짜별 목록이 화면 밖으로 밀려나 이 화면의 본래 역할이
+    /// 가려진다. 가로 카드는 개수와 상관없이 높이가 한 줄로 고정된다.
     private var dDaySection: some View {
         Section {
-            ForEach(dDayTodos) { todo in
-                dDayCard(todo)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(dDayTodos) { todo in
+                        dDayCard(todo, isNearest: todo.id == dDayTodos.first?.id)
+                    }
+                }
+                .padding(.horizontal, Metrics.spacingMD)
             }
+            // List의 행 밖으로 카드가 잘리지 않게.
+            .scrollClipDisabled()
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 14, trailing: 0))
         } header: {
-            Text("손꼽아 기다리는 일")
+            Text("디데이")
                 .font(.moscoCaption().weight(.semibold))
                 .foregroundStyle(MoscoPalette.textSecondary)
         }
     }
 
-    private func dDayCard(_ todo: TodoItem) -> some View {
-        HStack(spacing: Metrics.spacingMD) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(todo.title)
-                    .font(.moscoBody().weight(.semibold))
-                    .foregroundStyle(MoscoPalette.textPrimary)
-                    .lineLimit(1)
-                if let date = todo.date {
-                    Text(date.koreanMonthDayWeekday)
-                        .font(.moscoCaption())
-                        .foregroundStyle(MoscoPalette.textSecondary)
-                }
-            }
-            Spacer(minLength: 0)
+    /// 가장 가까운 하나만 색을 꽉 채운다 — 여러 장이 똑같이 생기면 어느 게 먼저
+    /// 오는지 결국 날짜를 하나씩 읽어야 알 수 있다.
+    private func dDayCard(_ todo: TodoItem, isNearest: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             Text(dDayLabel(for: todo.date ?? today, from: today))
-                .font(.system(size: 24, weight: .bold).monospacedDigit())
-                .foregroundStyle(MoscoPalette.accent)
+                .font(.system(size: 27, weight: .heavy, design: .rounded).monospacedDigit())
+                .foregroundStyle(isNearest ? .white : MoscoPalette.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Spacer(minLength: 6)
+
+            Text(todo.title)
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(isNearest ? .white : MoscoPalette.textPrimary)
+                .lineLimit(1)
+
+            if let date = todo.date {
+                Text(date.koreanMonthDayWeekday)
+                    .font(.system(size: 11))
+                    .foregroundStyle(isNearest ? .white.opacity(0.75) : MoscoPalette.textSecondary)
+                    .lineLimit(1)
+            }
         }
-        .padding(Metrics.spacingMD)
-        .background(MoscoPalette.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 8, leading: Metrics.spacingMD, bottom: 8, trailing: Metrics.spacingMD))
+        .padding(14)
+        .frame(width: 138, height: 112, alignment: .topLeading)
+        // 유리도 그림자도 쓰지 않는다 — 셀과 같은 이유로 단색 채우기만 쓴다.
+        .background(
+            isNearest ? MoscoPalette.accent : MoscoPalette.accent.opacity(0.12),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .contentShape(Rectangle())
         .onTapGesture { detailTodo = todo }
     }
 
@@ -154,7 +176,7 @@ struct UpcomingScreen: View {
                 if items.isEmpty {
                     // 빈 날을 감추면 "어디로 미룰까"에 답할 수 없다 — 이 줄이
                     // 이 화면의 절반이다.
-                    Text("일정 없음")
+                    Text("할 일 없음")
                         .font(.moscoCaption())
                         .foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
                         .listRowBackground(Color.clear)
@@ -183,7 +205,7 @@ struct UpcomingScreen: View {
                     row(todo, on: todo.date.map { calendar.startOfDay(for: $0) })
                 }
             } header: {
-                Text("\(searchResults.count)개 찾았어요")
+                Text("찾은 할 일 \(searchResults.count)개")
                     .font(.moscoCaption())
                     .foregroundStyle(MoscoPalette.textSecondary)
             }

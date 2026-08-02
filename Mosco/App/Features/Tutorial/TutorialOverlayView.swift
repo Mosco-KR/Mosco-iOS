@@ -37,7 +37,9 @@ struct TutorialOverlayView: View {
                     // 안내만 띄우고 조작은 그대로 열어둔다.
                     instructionBody
                         .frame(maxHeight: .infinity, alignment: .bottom)
-                        .padding(.bottom, 120)
+                        // 입력창과 탭바 위로 올려둔다 — 120pt면 입력창에 걸쳐서
+                        // 안내와 입력창이 겹쳐 보였다.
+                        .padding(.bottom, 170)
                         .allowsHitTesting(false)
                 }
             }
@@ -146,14 +148,29 @@ struct TutorialOverlayView: View {
     // MARK: - 지시문
 
     /// 구멍을 가리지 않는 쪽에 붙인다 — 위가 넉넉하면 위, 아니면 아래.
+    ///
+    /// 다만 구멍 바로 옆에 두는 것보다 **화면 끝에 닿지 않는 것**이 우선이다.
+    /// 달력 격자처럼 구멍이 화면을 거의 다 차지하면 "구멍 아래"가 곧 화면 맨
+    /// 밑이라, 안내가 탭바에 딱 붙어 잘린 것처럼 보였다. 위아래로 띠를 남겨두고
+    /// 그 안쪽으로 잡아당긴다.
     private func instruction(near hole: CGRect) -> some View {
         GeometryReader { proxy in
-            let placeAbove = hole.minY > proxy.size.height * 0.45
-            VStack {
-                if !placeAbove { Spacer().frame(height: hole.maxY + 20) }
+            let height = proxy.size.height
+            let placeAbove = hole.minY > height * 0.45
+            // 아래쪽 띠가 더 넓은 건 탭바와 홈 인디케이터가 거기 있기 때문이다.
+            let topBand: CGFloat = 76
+            let bottomBand: CGFloat = 148
+            // 안내 카드의 대략적인 높이(두 줄 기준). 끝에 닿지 않을 만큼만
+            // 잡으면 되므로 정확할 필요는 없다.
+            let cardHeight: CGFloat = 96
+
+            let below = min(hole.maxY + 20, height - bottomBand - cardHeight)
+            let above = min(height - hole.minY + 20, height - topBand - cardHeight)
+
+            VStack(spacing: 0) {
+                if !placeAbove { Spacer().frame(height: max(topBand, below)) }
                 instructionBody
-                    .padding(.horizontal, Metrics.spacingMD)
-                if placeAbove { Spacer().frame(height: proxy.size.height - hole.minY + 20) }
+                if placeAbove { Spacer().frame(height: max(bottomBand, above)) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: placeAbove ? .bottom : .top)
         }
@@ -203,15 +220,15 @@ struct TutorialOverlayView: View {
         case .selectDate:
             ("날짜를 눌러보세요", nil)
         case .writeWithTime:
-            ("\"오후 3시 회의\"라고 적어보세요", "다 적으면 위에 뜨는 시간 칩을 눌러주세요")
+            ("\"오후 3시 회의\"라고 적어보세요", "다 적으면 위에 시간 칩이 떠요")
         case .categoryHint:
-            ("카테고리는 알아서 붙어요", "제목을 보고 골라줘요. 바꾸고 싶을 때만 이 버튼을 누르면 돼요.\n아무 데나 누르면 계속돼요.")
+            ("카테고리는 자동으로 정해져요", "제목을 보고 골라줘요. 직접 고르려면 이 버튼을 눌러요.\n아무 데나 누르면 넘어가요.")
         case .sendTodo:
             ("전송 버튼을 눌러보세요", nil)
         case .completeTodo:
             ("동그라미를 눌러 완료해보세요", nil)
         case .deleteTodo:
-            ("왼쪽으로 밀어 지워보세요", "실수로 지워도 괜찮아요. 연습이니까요.")
+            ("왼쪽으로 밀어 지워보세요", nil)
         case .swipeWeek:
             ("달력을 옆으로 밀어보세요", "주 단위로 넘어가요")
         }
@@ -225,14 +242,14 @@ struct TutorialOverlayView: View {
             (
                 "checkmark.seal.fill",
                 "다 익히셨어요",
-                "연습으로 만든 건 지워두셔도 돼요. 이 안내는 설정에서 다시 볼 수 있어요.",
+                "이 안내는 설정에서 다시 볼 수 있어요.",
                 "완료"
             )
         default:
             (
                 "hand.wave.fill",
                 "모스코에 오신 걸 환영해요",
-                "직접 따라 해보면서 익혀볼게요. 화면에 밝게 표시된 곳만 누르면 돼요.",
+                "밝게 표시된 곳을 따라 누르면 돼요.",
                 "시작하기"
             )
         }

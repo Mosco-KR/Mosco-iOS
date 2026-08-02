@@ -52,10 +52,12 @@ struct TodoRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(spacing: 6) {
-                    // 디데이로 표시해둔 항목은 목록에서도 한눈에 구분돼야 한다 —
-                    // 표시해놓고 어디에 반영됐는지 안 보이면 표시한 보람이 없다.
-                    if todo.isDDay, let date = todo.date {
-                        TagChip(label: dDayLabel(for: date), tint: MoscoPalette.accent)
+                    // 여기선 **표시해뒀다는 사실만** 알리면 된다. 남은 날짜까지
+                    // 적으면 옆의 날짜 태그와 같은 말을 두 번 하는 셈이고, 목록에서
+                    // 알고 싶은 건 "이게 그 챙기는 일이구나"뿐이다. 남은 날짜를
+                    // 세는 건 '다가오는' 화면의 디데이 카드가 맡는다.
+                    if todo.isDDay {
+                        TagChip(label: "D-DAY", tint: MoscoPalette.accent)
                     }
 
                     CategoryTag(category: todo.category)

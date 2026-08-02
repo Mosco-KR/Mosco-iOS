@@ -152,7 +152,7 @@ struct TodayTodoScreen: View {
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(MoscoPalette.textPrimary)
                 if !incompleteToday.isEmpty {
-                    Text("남은 일 \(incompleteToday.count)개")
+                    Text("할 일 \(incompleteToday.count)개 남음")
                         .font(.moscoCaption())
                         .foregroundStyle(MoscoPalette.textSecondary)
                 }
@@ -184,7 +184,7 @@ struct TodayTodoScreen: View {
                 }
 
                 if !fixedTodos.isEmpty {
-                    section("시간이 정해진 일", subtitle: "이 시각에 맞춰 하루가 짜여요", items: fixedTodos)
+                    section("시간이 정해진 할 일", subtitle: "시작 시각이 정해져 있어요", items: fixedTodos)
                 }
 
                 if !unplannedTodos.isEmpty {
@@ -232,10 +232,10 @@ struct TodayTodoScreen: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(MoscoPalette.must)
             VStack(alignment: .leading, spacing: 2) {
-                Text("오늘 할 일이 \(incompleteToday.count)개예요")
+                Text("할 일이 \(incompleteToday.count)개예요")
                     .font(.moscoCaption().weight(.semibold))
                     .foregroundStyle(MoscoPalette.textPrimary)
-                Text("다 못 해도 괜찮아요. 몇 개는 다른 날로 넘겨두면 오늘이 한결 가벼워져요.")
+                Text("몇 개는 다른 날로 옮길 수 있어요.")
                     .font(.moscoCaption())
                     .foregroundStyle(MoscoPalette.textSecondary)
             }
@@ -280,7 +280,7 @@ struct TodayTodoScreen: View {
             .onMove { move(unplannedTodos, from: $0, to: $1) }
             .onDelete { delete(unplannedTodos, at: $0) }
         } header: {
-            plainHeader("언제 하실래요?", subtitle: "정해두면 실제로 해낼 가능성이 훨씬 높아져요", count: unplannedTodos.count)
+            plainHeader("시간을 안 정한 할 일", subtitle: "시간대를 고르면 아래로 옮겨져요", count: unplannedTodos.count)
         }
     }
 
@@ -352,7 +352,7 @@ struct TodayTodoScreen: View {
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 0, leading: Metrics.spacingMD, bottom: 8, trailing: Metrics.spacingMD))
         } header: {
-            plainHeader("아직 못 한 일", subtitle: "오른쪽으로 밀면 오늘로 가져와요", count: overdueTodos.count)
+            plainHeader("지난 할 일", subtitle: "오른쪽으로 밀면 오늘로 가져와요", count: overdueTodos.count)
         }
     }
 
@@ -391,7 +391,7 @@ struct TodayTodoScreen: View {
             ) { showsBacklog.toggle() }
         } footer: {
             if showsBacklog {
-                Text("언젠가 하면 되는 일들이에요. 화살표를 누르면 오늘로 가져와요.")
+                Text("화살표를 누르면 오늘로 가져와요.")
                     .font(.moscoCaption())
                     .foregroundStyle(MoscoPalette.textSecondary)
             }
@@ -407,7 +407,7 @@ struct TodayTodoScreen: View {
                 .onDelete { delete(completedToday, at: $0) }
             }
         } header: {
-            collapsibleHeader("완료됨", count: completedToday.count, isExpanded: showsCompleted) {
+            collapsibleHeader("완료한 할 일", count: completedToday.count, isExpanded: showsCompleted) {
                 showsCompleted.toggle()
             }
         }
@@ -535,7 +535,7 @@ struct TodayTodoScreen: View {
             )
             .datePickerStyle(.graphical)
             .padding(Metrics.spacingMD)
-            .navigationTitle("어느 날에 하실래요?")
+            .navigationTitle("날짜 고르기")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

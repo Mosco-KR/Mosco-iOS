@@ -208,7 +208,7 @@ struct SettingsScreen: View {
         } header: {
             Text("캘린더")
         } footer: {
-            Text("일과 개인처럼 크게 나눠서 따로 보거나 함께 볼 수 있어요.")
+            Text("일과 개인처럼 크게 나눠서 볼 수 있어요.")
         }
     }
 
@@ -247,7 +247,7 @@ struct SettingsScreen: View {
             } else if notificationScheduler.isEnabled {
                 Text("어떤 카테고리를 언제 받을지는 위에서 정해요.")
             } else {
-                Text("꺼두면 카테고리 설정과 상관없이 아무 알림도 오지 않아요.")
+                Text("꺼두면 어떤 알림도 오지 않아요.")
             }
         }
     }
@@ -280,9 +280,9 @@ struct SettingsScreen: View {
         case .locationDenied:
             Text("위치 권한이 없어 가져올 수 없어요.")
         case .serviceFailed:
-            Text("가져오지 못했어요. 잠시 후 다시 시도해요.")
+            Text("가져오지 못했어요. 잠시 후 다시 시도할게요.")
         case .disabledByUser, .none:
-            Text("주간 달력과 '오늘' 버튼 옆에 함께 보여줘요.")
+            Text("주간 달력과 '오늘' 버튼에 함께 보여줘요.")
         }
     }
 
@@ -297,7 +297,7 @@ struct SettingsScreen: View {
         } header: {
             Text("가이드")
         } footer: {
-            Text("처음 쓰던 그 안내를 그대로 다시 따라 해봐요.")
+            Text("처음 봤던 안내를 다시 볼 수 있어요.")
         }
     }
 

@@ -56,7 +56,7 @@ struct CalendarEditorSheet: View {
                 } header: {
                     Text("색상")
                 } footer: {
-                    Text("캘린더 색은 상단 선택기에서 구분용으로만 써요. 달력에 그려지는 일정 막대 색은 카테고리 색을 따라가요.")
+                    Text("캘린더 색은 상단 선택기에서 구분용으로만 써요. 달력에 그려지는 할 일 막대 색은 카테고리 색을 따라가요.")
                 }
 
                 if existing?.isDefault == true {
