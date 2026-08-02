@@ -91,7 +91,7 @@ struct WeekBarsView: View, Equatable {
         let color = bar.categoryColorHex.map { CategoryColorPalette.color(forHex: $0) }
             ?? MoscoPalette.textSecondary
 
-        return HStack(spacing: 4) {
+        return HStack(spacing: 3) {
             if !bar.continuesBefore {
                 // 반복 일정은 이 바를 소문자 i 모양(점 + 막대)으로 바꿔 한 번짜리(|)와
                 // 구분한다 — 별도 아이콘을 덧붙이면 좁은 막대에서 제목 자리가 준다.
@@ -112,12 +112,19 @@ struct WeekBarsView: View, Equatable {
                 .strikethrough(bar.isCompleted)
                 .foregroundStyle(MoscoPalette.textPrimary)
                 .lineLimit(1)
+                // 자르기 전에 **먼저 줄여서** 최대한 많은 글자를 보여준다. 한 칸이
+                // 56pt 남짓이라 9pt 그대로면 네 글자쯤에서 "..."로 끊겨, 무슨
+                // 일정인지 알아볼 수가 없었다. 0.7배까지는 작아도 읽히고,
+                // 그래도 넘치면 그때 자른다.
+                .minimumScaleFactor(0.7)
                 .truncationMode(.tail)
         }
-        .padding(.horizontal, 5)
+        // 좌우 여백을 줄여 글자 자리를 넓힌다 — 막대가 좁을수록 여백 1pt가 글자
+        // 한 자다.
+        .padding(.horizontal, 3)
         // 폭을 고정하면 Text가 알아서 잘리므로 clipShape가 필요 없다 — 막대마다
         // 오프스크린 렌더 패스를 하나씩 얹지 않게 된다.
-        .frame(width: max(spanWidth - 2, 0), height: MonthPageMetrics.barHeight, alignment: .leading)
+        .frame(width: max(spanWidth - 1.5, 0), height: MonthPageMetrics.barHeight, alignment: .leading)
         .background(shape.fill(color.opacity(0.14)))
         .overlay(shape.strokeBorder(color.opacity(0.30), lineWidth: 0.75))
         // 완료된 항목은 TodoRow와 같은 방식(톤 낮춤)으로 구분한다. 이번 달 밖의

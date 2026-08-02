@@ -31,7 +31,7 @@ struct TodoDetailSheet: View {
                 // lineLimit(4...10) 필드라 화면 대부분이 빈 채로 남았다.
                 ZStack(alignment: .topLeading) {
                     if memo.isEmpty {
-                        Text("메모를 입력하세요")
+                        Text("여기에 자유롭게 적어보세요")
                             .font(.moscoBody())
                             .foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
                             // TextEditor의 기본 내부 여백과 맞춰서 글자가 겹쳐 보이지 않게.
@@ -59,6 +59,11 @@ struct TodoDetailSheet: View {
             .padding(Metrics.spacingMD)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(MoscoPalette.canvas.opacity(0.5))
+            // 키보드가 뜨면 바깥 컨테이너가 안전영역을 줄여 화면을 밀어 올리고,
+            // 그 안에서 TextEditor가 커서를 따라 또 스크롤한다 — 두 움직임이
+            // 겹쳐서 길게 쓸수록 화면이 위아래로 출렁였다. 바깥은 가만히 두고
+            // 스크롤은 TextEditor 하나만 하게 한다.
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .navigationTitle("메모")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

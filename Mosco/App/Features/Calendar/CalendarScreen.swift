@@ -60,6 +60,7 @@ struct CalendarScreen: View {
                             visibleMonth: $visibleMonth,
                             onSelect: select
                         )
+                        .tutorialAnchor(.monthGrid)
                     } else {
                         WeekPagerView(
                             width: pageSize.width,
@@ -70,6 +71,7 @@ struct CalendarScreen: View {
                             onSelect: select,
                             onExpand: collapse
                         )
+                        .tutorialAnchor(.weekStrip)
                     }
                 }
                 .padding(.horizontal, Metrics.spacingSM)
@@ -110,6 +112,7 @@ struct CalendarScreen: View {
             selectedDate = moved
             let month = CalendarMonth.containing(moved)
             if month != visibleMonth { visibleMonth = month }
+            tutorialManager.userDidSwipeWeek()
         }
         // 지운 캘린더의 id가 숨김 목록에 남아 있어도 동작에 영향은 없지만,
         // 나중에 같은 id가 재사용될 일은 없으니 그냥 정리해둔다.
@@ -240,7 +243,6 @@ struct CalendarScreen: View {
 
             Spacer()
 
-            HelpButton(title: "달력", topics: HelpContent.calendar)
             settingsButton
             todayButton
         }
@@ -339,29 +341,23 @@ struct CalendarScreen: View {
     /// 오늘 날씨가 있으면 같은 캡슐 안에 아이콘과 기온을 붙인다 — 날씨만을 위한
     /// 자리를 새로 만들지 않고, 이미 "오늘"을 가리키는 버튼에 얹는 편이 헤더가
     /// 안 복잡해진다. 못 받아왔으면 원래 모습 그대로다.
+    /// "오늘"만 담는다. 예전엔 여기에 날씨 아이콘과 기온까지 붙어 있었는데, 그
+    /// 폭 때문에 헤더가 넘쳐서 달 숫자가 잘리고 버튼 글자가 두 줄로 깨졌다.
+    /// 날씨는 주간 스트립의 날짜 칸에 날짜별로 이미 나오므로, 헤더에서 한 번 더
+    /// 자리를 차지할 이유가 없다.
     private var todayButton: some View {
         Button {
             goToToday()
         } label: {
-            HStack(spacing: 5) {
-                Text("오늘")
-                    .font(.moscoCaption().weight(.semibold))
-                    .foregroundStyle(MoscoPalette.accent)
-
-                if let today = weatherStore.weather(for: Date()) {
-                    Image(systemName: today.symbolName)
-                        .font(.system(size: 12))
-                        .symbolRenderingMode(.multicolor)
-                    Text("\(today.highCelsius)°")
-                        .font(.moscoCaption())
-                        .foregroundStyle(MoscoPalette.textSecondary)
-                }
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 34)
+            Text("오늘")
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(MoscoPalette.accent)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 14)
+                .frame(height: 34)
         }
         .moscoGlass(in: Capsule())
-        .animation(.easeOut(duration: 0.25), value: weatherStore.weather(for: Date()))
     }
 
     private var weekdayHeader: some View {

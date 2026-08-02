@@ -72,15 +72,18 @@ struct QuickAddView: View {
 
             dateButton
 
-            TextField("할 일을 입력하세요", text: $title, axis: .vertical)
+            TextField("무엇을 하실 건가요?", text: $title, axis: .vertical)
                 .font(.moscoBody())
                 .lineLimit(1...4)
                 .focused($isTitleFocused)
                 .submitLabel(.send)
                 .onSubmit(save)
+                .tutorialAnchor(.composeField)
 
             categoryButton
+                .tutorialAnchor(.categoryButton)
             sendButton
+                .tutorialAnchor(.sendButton)
         }
         .animation(.easeOut(duration: 0.2), value: isEditing)
         // 보이는 캘린더가 하나면 묻지 않고 거기에 넣는다. 둘 이상일 때만 물어본다 —
@@ -137,6 +140,7 @@ struct QuickAddView: View {
         .overlay(alignment: .bottomTrailing) {
             if showCategoryOptions {
                 categoryOptionsPopup
+                    .tutorialAnchor(.categoryPopup)
                     .offset(y: -54)
                     .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomTrailing)))
             }
@@ -144,6 +148,7 @@ struct QuickAddView: View {
         .overlay(alignment: .bottomLeading) {
             if let suggestion = timeSuggestion {
                 timeSuggestionPopup(suggestion)
+                    .tutorialAnchor(.timeSuggestion)
                     .offset(y: -54)
                     .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomLeading)))
             }

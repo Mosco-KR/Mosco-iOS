@@ -1,235 +1,262 @@
 import SwiftUI
 
-/// 튜토리얼 카드 하나를 그린다. 필수 단계(날짜 선택 · 시간 자동 인식 · 할 일
-/// 추가 · 삭제)는 배경을 안 가리고 살짝 떠 있는 안내문만 보여줘서,
-/// 사용자가 실제 달력/입력창/목록을 그대로 조작할 수 있게 한다. 나머지 단계는
-/// 배경을 살짝 어둡게 깔고 가운데 카드로 설명 + "다음"/"건너뛰기"를 준다.
+/// 튜토리얼 오버레이. 지금 눌러야 할 자리 **하나만 뚫어놓고** 나머지를 덮는다.
+///
+/// 예전엔 배경을 아예 안 가리거나(필수 단계) 통째로 어둡게만 했는데(설명 단계),
+/// 둘 다 문제였다. 안 가리면 엉뚱한 걸 눌러 흐름에서 벗어나고, 통째로 가리면
+/// 아무것도 못 누른다. 지금은 조명한 자리만 통과시키고 나머지 터치는 이 뷰가
+/// 흡수한다 — 사용자가 할 수 있는 건 지금 해야 하는 그 동작 하나뿐이다.
+///
+/// 글도 한 번에 하나만 준다. 예전엔 세 문장을 같은 색으로 붙여놨더니 "그래서 뭘
+/// 누르라는 거지"가 안 읽혔다. 지금은 **굵은 한 줄이 지시**, 그 아래 흐린 한 줄이
+/// 부연이고, 부연은 없어도 되는 단계엔 아예 안 넣는다.
 struct TutorialOverlayView: View {
     @Environment(TutorialManager.self) private var manager
+    /// 각 대상의 화면 좌표. 아직 안 그려진 대상은 없을 수 있다.
+    let rects: [TutorialTarget: CGRect]
+    let screenSize: CGSize
+
+    /// 조명 구멍 둘레 여백.
+    private let holePadding: CGFloat = 8
+    private let holeCornerRadius: CGFloat = 16
 
     var body: some View {
         if manager.isActive {
-            GeometryReader { geometry in
-                ZStack {
-                    if !manager.step.isEssential {
-                        Color.black.opacity(0.35)
-                            .ignoresSafeArea()
-                            .transition(.opacity)
-                    }
-
-                    content(for: manager.step, safeAreaTop: geometry.safeAreaInsets.top)
+            ZStack {
+                if manager.step.isCard {
+                    Color.black.opacity(0.55).ignoresSafeArea()
+                    card
+                } else if let hole {
+                    scrim(around: hole)
+                    highlight(hole)
+                    instruction(near: hole)
+                } else {
+                    // 대상 좌표를 아직 못 받았다(목록이 막 그려지는 중 등).
+                    // **여기서 화면을 덮으면 안 된다** — 조명할 자리를 못 찾은 채
+                    // 가림막만 깔리면 아무것도 못 눌러 사용자가 갇힌다.
+                    // 안내만 띄우고 조작은 그대로 열어둔다.
+                    instructionBody
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                        .padding(.bottom, 120)
+                        .allowsHitTesting(false)
                 }
-                // allowsHitTesting(false)는 부모가 걸면 자식이 다시 켤 수 없는
-                // 단방향 게이트다 — 그래서 카드에 버튼이 있는 비필수 단계는 아예
-                // 안 걸어서(기본값=터치 받음) 버튼이 눌리게 하고, 버튼이 없는
-                // 필수 단계(배너)만 통째로 꺼서 뒤의 달력/입력창이 눌리게 한다.
-                .allowsHitTesting(!manager.step.isEssential)
             }
-            .transition(.opacity)
             .animation(.easeInOut(duration: 0.25), value: manager.step)
-            // 키보드가 올라와도 안내는 제자리에 있어야 한다 — 같이 밀려 올라가면
-            // 입력창 위로 겹쳐 앉는다.
+            // 키보드를 따라 오버레이가 밀려 올라가면 조명 구멍이 대상에서 벗어난다.
             .ignoresSafeArea(.keyboard, edges: .bottom)
         }
     }
 
-    @ViewBuilder
-    private func content(for step: TutorialManager.Step, safeAreaTop: CGFloat) -> some View {
-        switch step {
-        case .welcome:
-            centeredCard(
-                icon: "hand.wave.fill",
-                title: "Mosco에 오신 걸 환영해요",
-                message: "달력과 할 일을 한 곳에서 관리해요. 짧은 튜토리얼로 핵심 기능을 직접 눌러보면서 익혀볼게요.",
-                primaryLabel: "시작하기",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .selectDate:
-            topBanner(
-                title: "날짜를 눌러보세요",
-                message: "달력에서 아무 날짜나 탭하면 그날의 할 일 목록이 펼쳐져요.",
-                topInset: safeAreaTop
-            )
-        case .timeDetection:
-            topBanner(
-                title: "시간이 담긴 할 일을 적어보세요",
-                message: "예를 들어 \"오후 3시 회의\"처럼 시간을 넣어 적어보세요. 시간을 자동으로 알아채고 추천 칩을 보여줘요. 칩을 탭하면 바로 적용돼요.",
-                topInset: safeAreaTop
-            )
-        case .addTodo:
-            topBanner(
-                title: "이제 전송해보세요",
-                message: "입력창 오른쪽의 전송 버튼을 누르면 할 일이 저장돼요.",
-                topInset: safeAreaTop
-            )
-        case .deleteTodo:
-            topBanner(
-                title: "방금 만든 할 일을 지워볼까요",
-                message: "목록에서 할 일을 왼쪽으로 밀면 삭제 버튼이 나와요. 눌러서 지워보세요.",
-                topInset: safeAreaTop
-            )
-        case .autoCategory:
-            centeredCard(
-                icon: "sparkles",
-                title: "카테고리 자동 추천",
-                message: "제목을 다 적으면 잠깐 멈추는 사이에 어울리는 카테고리를 알아서 추천해줘요. 카테고리 점의 색이 바뀌면 추천이 반영된 거예요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .manualCategory:
-            centeredCard(
-                icon: "circle.grid.2x2.fill",
-                title: "직접 고르거나 새로 만들기",
-                message: "입력창 오른쪽의 동그란 버튼을 누르면 만들어둔 카테고리 중에서 고를 수 있어요. + 버튼으로는 이름과 색을 정해 새 카테고리를 바로 만들 수 있어요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .scheduleDetail:
-            centeredCard(
-                icon: "clock.fill",
-                title: "시간과 반복 설정",
-                message: "왼쪽 날짜 칩을 누르면 시작·종료 시간, 종료일, 반복 규칙까지 자세히 정할 수 있어요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .completeTodo:
-            centeredCard(
-                icon: "checkmark.circle.fill",
-                title: "완료 체크",
-                message: "할 일 왼쪽의 동그라미를 누르면 완료로 표시돼요. 다시 누르면 되돌릴 수 있어요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .weekStrip:
-            centeredCard(
-                icon: "calendar.day.timeline.left",
-                title: "주간 스트립",
-                message: "날짜를 고르면 달력이 그 주만 남기고 접혀요. 접힌 상태에서 좌우로 밀면 주 단위로 넘어가고, 아래로 쓸어내리면 다시 한 달 전체가 펼쳐져요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .calendarSwitcher:
-            centeredCard(
-                icon: "square.stack.3d.up.fill",
-                title: "캘린더 나누기",
-                message: "월 표시 옆 버튼에서 볼 캘린더를 체크로 켜고 끌 수 있어요. 개인·업무처럼 나눠두면 필요한 것만 볼 수 있고, 새 일정은 켜둔 캘린더로 들어가요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .todoTab:
-            centeredCard(
-                icon: "list.bullet",
-                title: "할 일 탭",
-                message: "탭바 왼쪽이 할 일, 가운데가 달력, 오른쪽이 다가오는 일정이에요. 할 일 탭에서는 오늘 하루를 계획해요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .todayPlanning:
-            centeredCard(
-                icon: "sun.max.fill",
-                title: "오늘 언제 할지 정하기",
-                message: "시각을 안 정한 할 일에는 오전·오후·저녁 중 하나를 골라둘 수 있어요. 언제 할지를 미리 정해두면 실제로 해내는 비율이 크게 올라가요. 날짜 없이 쌓아둔 일은 \"언젠가\"에서 오늘로 가져올 수 있어요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .upcomingTab:
-            centeredCard(
-                icon: "calendar.badge.clock",
-                title: "다가오는 일정",
-                message: "탭바 오른쪽에서 앞으로 2주를 날짜별로 볼 수 있어요. 비어 있는 날도 함께 보여줘서 오늘이 빡빡할 때 어디로 미룰지 고르기 좋아요. 오른쪽으로 밀면 '내일로' 미룰 수 있어요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .help:
-            centeredCard(
-                icon: "questionmark.circle.fill",
-                title: "언제든 다시 볼 수 있어요",
-                message: "화면마다 있는 ? 버튼을 누르면 그 화면의 기능 설명이 나와요. 설정에서 이 튜토리얼을 처음부터 다시 볼 수도 있어요.",
-                primaryLabel: "다음",
-                onPrimary: manager.advance,
-                onSkip: manager.skipAll
-            )
-        case .finish:
-            centeredCard(
-                icon: "party.popper.fill",
-                title: "준비 완료!",
-                message: "핵심 기능을 모두 둘러봤어요. 이제 자유롭게 Mosco를 사용해보세요.",
-                primaryLabel: "시작하기",
-                onPrimary: manager.finish,
-                onSkip: nil
-            )
+    private var hole: CGRect? {
+        // 탭바를 가리키던 단계는 뺐다 — 시스템이 그리는 뷰라 앵커를 못 붙이고,
+        // 화면 크기로 자리를 추정하면 iOS 버전·기기마다 어긋난다. 탭 세 개는
+        // 하단에 늘 보이니 굳이 손잡고 안내할 것도 아니다.
+        guard let target = manager.step.target else { return nil }
+        guard var rect = rects[target] else { return nil }
+
+        // 눌러야 할 것이 조명 밖에 남지 않도록, 그 단계에서 함께 뜨는 것까지 묶는다.
+        switch target {
+        case .composeField:
+            // 입력창 위에 뜨는 시간 추천 칩.
+            if let suggestion = rects[.timeSuggestion] { rect = rect.union(suggestion) }
+        case .categoryButton:
+            // 버튼을 누르면 그 위로 올라오는 카테고리 목록 팝업.
+            if let popup = rects[.categoryPopup] { rect = rect.union(popup) }
+        case .firstTodoRow:
+            // 스와이프 삭제 버튼은 셀 **바깥**(행의 오른쪽 끝)에서 나타난다.
+            // 셀 크기만 밝히면 정작 눌러야 할 삭제 버튼이 어두운 쪽에 남는다.
+            rect = CGRect(x: 0, y: rect.minY, width: screenSize.width, height: rect.height)
+        default:
+            break
         }
+
+        return rect.insetBy(dx: -holePadding, dy: -holePadding)
     }
 
-    // MARK: - 레이아웃 조각
+    // MARK: - 가림막
 
-    private func topBanner(title: String, message: String, topInset: CGFloat) -> some View {
-        VStack {
-            bannerBody(title: title, message: message)
-                .padding(.horizontal, Metrics.spacingMD)
-                .padding(.top, topInset + Metrics.spacingSM)
-            Spacer()
-        }
-    }
-
-    // 예전엔 입력을 요구하는 단계(시간 인식·전송)에 하단 배너를 썼다. 화면 아래에서
-    // 96pt 띄우는 고정값이었는데, 컴포즈 바 높이와 키보드가 함께 움직이는 바람에
-    // **정작 눌러야 할 입력창과 전송 버튼을 배너가 가렸다.** 안내가 조작을 막으면
-    // 안내가 아니다. 지금은 그 단계들도 상단 배너를 쓴다 — 위쪽에는 가려도 되는
-    // 월 헤더밖에 없고, 키보드가 올라와도 절대 겹치지 않는다.
-
-    private func bannerBody(title: String, message: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Image(systemName: "hand.tap.fill")
-                    .foregroundStyle(MoscoPalette.accent)
-                Text(title)
-                    .font(.moscoBody().weight(.semibold))
+    /// 구멍 바깥을 네 조각으로 덮는다. 각 조각이 터치를 흡수하므로 조명한 자리
+    /// 말고는 아무것도 눌리지 않는다 — 마스크로 구멍만 뚫으면 그림은 되지만
+    /// 터치는 그대로 통과해서 다른 버튼이 눌린다.
+    private func scrim(around hole: CGRect) -> some View {
+        GeometryReader { proxy in
+            let full = proxy.frame(in: .local)
+            ZStack(alignment: .topLeading) {
+                block(x: 0, y: 0, w: full.width, h: max(hole.minY, 0))
+                block(x: 0, y: hole.maxY, w: full.width, h: max(full.height - hole.maxY, 0))
+                block(x: 0, y: hole.minY, w: max(hole.minX, 0), h: hole.height)
+                block(x: hole.maxX, y: hole.minY, w: max(full.width - hole.maxX, 0), h: hole.height)
             }
-            Text(message)
-                .font(.moscoCaption())
-                .foregroundStyle(MoscoPalette.textSecondary)
         }
-        .padding(Metrics.spacingMD)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .moscoGlass(in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+        .ignoresSafeArea()
     }
 
-    private func centeredCard(
-        icon: String,
-        title: String,
-        message: String,
-        primaryLabel: String,
-        onPrimary: @escaping () -> Void,
-        onSkip: (() -> Void)?
-    ) -> some View {
+    private func block(x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat) -> some View {
+        Color.black.opacity(0.55)
+            .frame(width: w, height: h)
+            .offset(x: x, y: y)
+            .contentShape(Rectangle())
+            // 흡수만 하고 아무 일도 안 한다 — "여긴 지금 누를 곳이 아니다".
+            .onTapGesture {
+                // 안내 단계는 읽고 아무 데나 누르면 넘어간다.
+                manager.userDidAcknowledgeHint()
+            }
+            // 손가락을 끄는 단계에서는 아예 터치를 안 받는다. 이 뷰가 살아 있으면
+            // 탭뿐 아니라 드래그도 함께 먹어서, 정작 밀어야 할 대상이 안 밀린다.
+            .allowsHitTesting(manager.step.blocksInteraction)
+    }
+
+    /// 구멍 둘레의 테두리와 손짓 표시.
+    private func highlight(_ hole: CGRect) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: holeCornerRadius, style: .continuous)
+                .strokeBorder(MoscoPalette.accent, lineWidth: 2.5)
+                .frame(width: hole.width, height: hole.height)
+                .position(x: hole.midX, y: hole.midY)
+
+            if let gesture = manager.step.gesture {
+                gestureHint(gesture, in: hole)
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
+    /// 탭이면 퍼지는 원, 스와이프면 좌우로 오가는 화살표.
+    @ViewBuilder
+    private func gestureHint(_ gesture: TutorialGestureHint, in hole: CGRect) -> some View {
+        switch gesture {
+        case .tap:
+            TapPulse()
+                .position(x: hole.midX, y: hole.midY)
+        case .swipeHorizontal:
+            SwipeArrow(directions: [.left, .right])
+                .position(x: hole.midX, y: hole.midY)
+        case .swipeLeft:
+            SwipeArrow(directions: [.left])
+                // 스와이프 삭제는 오른쪽 끝에서 왼쪽으로 — 손짓도 그 자리에 둔다.
+                .position(x: hole.maxX - 44, y: hole.midY)
+        case .pointAt:
+            PointingArrow()
+                // 대상 바로 위에서 아래를 가리킨다.
+                .position(x: hole.midX, y: hole.minY - 22)
+        }
+    }
+
+    // MARK: - 지시문
+
+    /// 구멍을 가리지 않는 쪽에 붙인다 — 위가 넉넉하면 위, 아니면 아래.
+    private func instruction(near hole: CGRect) -> some View {
+        GeometryReader { proxy in
+            let placeAbove = hole.minY > proxy.size.height * 0.45
+            VStack {
+                if !placeAbove { Spacer().frame(height: hole.maxY + 20) }
+                instructionBody
+                    .padding(.horizontal, Metrics.spacingMD)
+                if placeAbove { Spacer().frame(height: proxy.size.height - hole.minY + 20) }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: placeAbove ? .bottom : .top)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
+    private var instructionBody: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("\(stepNumber)/\(actionStepCount)")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.6))
+                // 지시는 굵고 밝게 — 화면에서 가장 강한 글자여야 한다.
+                Text(copy.action)
+                    .font(.system(size: 19, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            if let detail = copy.detail {
+                Text(detail)
+                    .font(.moscoCaption())
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Metrics.spacingMD)
+        .background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(.horizontal, Metrics.spacingMD)
+    }
+
+    /// 조작 단계 중 몇 번째인지 — 끝이 보여야 끝까지 간다.
+    private var stepNumber: Int {
+        // 카드(시작·장 전환·끝)는 세지 않는다 — 사용자가 세는 건 "내가 해야 할 일"이다.
+        let actionSteps = TutorialManager.Step.allCases.filter { !$0.isCard }
+        return (actionSteps.firstIndex(of: manager.step) ?? 0) + 1
+    }
+
+    private var actionStepCount: Int {
+        TutorialManager.Step.allCases.filter { !$0.isCard }.count
+    }
+
+    private var copy: (action: String, detail: String?) {
+        switch manager.step {
+        case .welcome, .finish:
+            ("", nil)
+        case .selectDate:
+            ("날짜를 눌러보세요", nil)
+        case .writeWithTime:
+            ("\"오후 3시 회의\"라고 적어보세요", "다 적으면 위에 뜨는 시간 칩을 눌러주세요")
+        case .categoryHint:
+            ("카테고리는 알아서 붙어요", "제목을 보고 골라줘요. 바꾸고 싶을 때만 이 버튼을 누르면 돼요.\n아무 데나 누르면 계속돼요.")
+        case .sendTodo:
+            ("전송 버튼을 눌러보세요", nil)
+        case .completeTodo:
+            ("동그라미를 눌러 완료해보세요", nil)
+        case .deleteTodo:
+            ("왼쪽으로 밀어 지워보세요", "실수로 지워도 괜찮아요. 연습이니까요.")
+        case .swipeWeek:
+            ("달력을 옆으로 밀어보세요", "주 단위로 넘어가요")
+        }
+    }
+
+    // MARK: - 카드(시작 · 장 전환 · 끝)
+
+    private var cardCopy: (icon: String, title: String, message: String, button: String) {
+        switch manager.step {
+        case .finish:
+            (
+                "checkmark.seal.fill",
+                "다 익히셨어요",
+                "연습으로 만든 건 지워두셔도 돼요. 이 안내는 설정에서 다시 볼 수 있어요.",
+                "완료"
+            )
+        default:
+            (
+                "hand.wave.fill",
+                "모스코에 오신 걸 환영해요",
+                "직접 따라 해보면서 익혀볼게요. 화면에 밝게 표시된 곳만 누르면 돼요.",
+                "시작하기"
+            )
+        }
+    }
+
+    private var card: some View {
         VStack(spacing: Metrics.spacingMD) {
-            Image(systemName: icon)
+            Image(systemName: cardCopy.icon)
                 .font(.system(size: 34))
                 .foregroundStyle(MoscoPalette.accent)
 
-            Text(title)
+            Text(cardCopy.title)
                 .font(.moscoTitle())
                 .multilineTextAlignment(.center)
 
-            Text(message)
+            Text(cardCopy.message)
                 .font(.moscoBody())
                 .foregroundStyle(MoscoPalette.textSecondary)
                 .multilineTextAlignment(.center)
 
-            Button(action: onPrimary) {
-                Text(primaryLabel)
+            Button {
+                manager.step == .finish ? manager.finish() : manager.advance()
+            } label: {
+                Text(cardCopy.button)
                     .font(.moscoBody().weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -238,16 +265,90 @@ struct TutorialOverlayView: View {
             }
             .buttonStyle(.plain)
 
-            if let onSkip {
-                Button("건너뛰기", action: onSkip)
+            // 빠져나갈 문은 시작할 때만 보여준다. 도중에 계속 보이면 어려워서가
+            // 아니라 그냥 눈에 띄어서 누르게 된다.
+            if manager.step == .welcome {
+                Button("건너뛰기", action: manager.skipAll)
                     .font(.moscoCaption())
                     .foregroundStyle(MoscoPalette.textSecondary)
             }
         }
         .padding(Metrics.spacingLG)
         .frame(maxWidth: 340)
-        .moscoGlass(in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(MoscoPalette.canvas, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
         .padding(.horizontal, Metrics.spacingLG)
+    }
+}
+
+// MARK: - 손짓 표시
+
+/// 눌러야 하는 자리에서 퍼져나가는 원.
+private struct TapPulse: View {
+    @State private var expanded = false
+
+    var body: some View {
+        Circle()
+            .stroke(MoscoPalette.accent, lineWidth: 2)
+            .frame(width: 44, height: 44)
+            .scaleEffect(expanded ? 1.5 : 0.8)
+            .opacity(expanded ? 0 : 0.9)
+            .onAppear {
+                withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) {
+                    expanded = true
+                }
+            }
+    }
+}
+
+/// 아래를 가리키는 화살표 — 조작 없이 "여기를 보세요"만 말한다.
+private struct PointingArrow: View {
+    @State private var bobbing = false
+
+    var body: some View {
+        Image(systemName: "arrow.down")
+            .font(.system(size: 24, weight: .bold))
+            .foregroundStyle(MoscoPalette.accent)
+            .offset(y: bobbing ? 6 : -4)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
+                    bobbing = true
+                }
+            }
+    }
+}
+
+/// 미는 손짓 — 화살표가 실제로 그 방향으로 오간다. 한 방향만 주면 그쪽으로만
+/// 움직여서 "어느 쪽으로 밀라는 건지"가 분명해진다.
+private struct SwipeArrow: View {
+    enum Direction { case left, right }
+
+    let directions: [Direction]
+    @State private var shifted = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if directions.contains(.left) {
+                Image(systemName: "chevron.left")
+            }
+            Image(systemName: "hand.point.up.left.fill")
+            if directions.contains(.right) {
+                Image(systemName: "chevron.right")
+            }
+        }
+        .font(.system(size: 22, weight: .bold))
+        .foregroundStyle(MoscoPalette.accent)
+        .offset(x: offset)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                shifted = true
+            }
+        }
+    }
+
+    private var offset: CGFloat {
+        // 왼쪽으로만 밀어야 하면 오른쪽에서 왼쪽으로 흐르게.
+        if directions == [.left] { return shifted ? -22 : 12 }
+        return shifted ? 26 : -26
     }
 }

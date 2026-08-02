@@ -133,7 +133,7 @@ struct RootTabView: View {
             TabView(selection: $selectedTab) {
                 TodayTodoScreen()
                     .tabItem { Image(systemName: "list.bullet") }
-                    .accessibilityLabel("할 일")
+                    .accessibilityLabel("오늘 계획")
                     .tag(Tab.todo)
 
                 CalendarScreen()
@@ -143,14 +143,24 @@ struct RootTabView: View {
 
                 UpcomingScreen()
                     .tabItem { Image(systemName: "calendar.badge.clock") }
-                    .accessibilityLabel("다가오는")
+                    .accessibilityLabel("다가오는 일정")
                     .tag(Tab.upcoming)
             }
             // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다 — 앱 테마(바이올렛)가
             // 선택된 탭 색상에도 이어지도록 지정.
             .tint(MoscoPalette.accent)
 
-            TutorialOverlayView()
+        }
+        // 튜토리얼이 "지금 눌러야 할 자리"를 알려면 그 요소들의 화면 좌표가 필요하다.
+        // 각 화면이 `.tutorialAnchor(...)`로 등록한 좌표를 여기서 한꺼번에 받는다.
+        .overlayPreferenceValue(TutorialAnchorKey.self) { anchors in
+            GeometryReader { proxy in
+                TutorialOverlayView(
+                    rects: anchors.mapValues { proxy[$0] },
+                    screenSize: proxy.size
+                )
+            }
+            .ignoresSafeArea()
         }
         .environment(tutorialManager)
         .environment(weatherStore)

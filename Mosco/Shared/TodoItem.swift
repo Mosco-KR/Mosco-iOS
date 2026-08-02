@@ -72,6 +72,11 @@ final class TodoItem {
         set { daySlotRawValue = newValue?.rawValue }
     }
 
+    /// 손꼽아 기다리는 일 하나에 표시해두면, "다가오는" 화면 맨 위에 남은 날짜가
+    /// 크게 고정된다. 탭을 새로 만들지 않은 건 탭 구성이 상황에 따라 늘었다 줄었다
+    /// 하면 길 찾기가 어려워지기 때문이다.
+    var isDDay: Bool = false
+
     /// 사용자가 직접 끌어서 정한 순서. 같은 묶음(시간대/백로그) 안에서만 의미가
     /// 있고, 아직 손대지 않았으면 전부 0이라 만든 순서(`createdAt`)를 따른다.
     var sortIndex: Int = 0

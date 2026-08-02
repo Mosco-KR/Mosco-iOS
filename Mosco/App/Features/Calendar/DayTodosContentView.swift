@@ -79,26 +79,28 @@ private struct DayTodoList: View {
         List {
             if todosForDay.isEmpty {
                 ContentUnavailableView(
-                    "이 날은 할 일이 없어요",
+                    "이날은 비어 있어요",
                     systemImage: "checkmark.circle",
-                    description: Text("아래에서 바로 추가해보세요")
+                    description: Text("아래에 적으면 이날 일정으로 들어가요")
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             } else {
                 // 리스트에서 날짜를 넘기던 스와이프를 걷어냈으므로, 좌우 스와이프를
                 // 원래 자리인 스와이프 삭제로 되돌린다.
-                ForEach(todosForDay) { todo in
+                ForEach(Array(todosForDay.enumerated()), id: \.element.id) { index, todo in
                     TodoRow(
                         todo: todo,
                         occurrenceDate: date,
                         onTap: { onSelect(todo) },
                         onDelete: { onDelete([todo]) },
-                        showsCalendarTag: showsCalendarTag
+                        showsCalendarTag: showsCalendarTag,
+                        isTutorialAnchor: index == 0
                     )
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
+                    .tutorialAnchor(index == 0 ? .firstTodoRow : nil)
                 }
                 .onDelete { offsets in
                     onDelete(offsets.map { todosForDay[$0] })

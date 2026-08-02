@@ -43,6 +43,59 @@ struct UpcomingScreen: View {
             .sorted { $0.sortableMinutes < $1.sortableMinutes }
     }
 
+    /// 디데이로 표시해둔 것 **전부**를 가까운 순으로. 처음엔 가장 가까운 하나만
+    /// 보여줬는데, 여러 개를 표시해두면 나머지가 어디로 갔는지 알 수 없었다.
+    ///
+    /// 탭을 새로 만들지 않고 이 화면 맨 위에 두는 건, 탭 구성이 상황에 따라
+    /// 바뀌면 길 찾기가 어려워지고 "앞으로 무슨 일이 있나"를 보는 이 화면과
+    /// 의미도 딱 맞기 때문이다. 지난 디데이는 뺀다 — 세어봐야 의미가 없다.
+    private var dDayTodos: [TodoItem] {
+        visibleTodos
+            .filter { todo in
+                guard todo.isDDay, let date = todo.date else { return false }
+                return calendar.startOfDay(for: date) >= today
+            }
+            .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
+    }
+
+    private var dDaySection: some View {
+        Section {
+            ForEach(dDayTodos) { todo in
+                dDayCard(todo)
+            }
+        } header: {
+            Text("손꼽아 기다리는 일")
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(MoscoPalette.textSecondary)
+        }
+    }
+
+    private func dDayCard(_ todo: TodoItem) -> some View {
+        HStack(spacing: Metrics.spacingMD) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(todo.title)
+                    .font(.moscoBody().weight(.semibold))
+                    .foregroundStyle(MoscoPalette.textPrimary)
+                    .lineLimit(1)
+                if let date = todo.date {
+                    Text(date.koreanMonthDayWeekday)
+                        .font(.moscoCaption())
+                        .foregroundStyle(MoscoPalette.textSecondary)
+                }
+            }
+            Spacer(minLength: 0)
+            Text(dDayLabel(for: todo.date ?? today, from: today))
+                .font(.system(size: 24, weight: .bold).monospacedDigit())
+                .foregroundStyle(MoscoPalette.accent)
+        }
+        .padding(Metrics.spacingMD)
+        .background(MoscoPalette.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 8, leading: Metrics.spacingMD, bottom: 8, trailing: Metrics.spacingMD))
+        .onTapGesture { detailTodo = todo }
+    }
+
     // MARK: - 검색
 
     private var trimmedQuery: String {
@@ -73,6 +126,7 @@ struct UpcomingScreen: View {
         NavigationStack {
             List {
                 if trimmedQuery.isEmpty {
+                    if !dDayTodos.isEmpty { dDaySection }
                     agendaSections
                 } else {
                     searchSection
@@ -81,14 +135,11 @@ struct UpcomingScreen: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(MoscoPalette.canvas)
-            .navigationTitle("다가오는")
+            // 제목을 두지 않는다 — 날짜 헤더가 줄줄이 이어지는 것 자체가 이미
+            // "앞으로 무슨 일이 있는지"를 말하고, 좁은 화면에서 제목 줄은 목록이
+            // 차지할 수 있는 높이만 가져간다.
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query, prompt: "제목·메모 검색")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    HelpButton(title: "다가오는", topics: HelpContent.upcoming)
-                }
-            }
+            .searchable(text: $query, prompt: "할 일과 메모에서 찾기")
             .sheet(item: $detailTodo) { todo in
                 TodoDetailSheet(todo: todo)
             }
@@ -103,7 +154,7 @@ struct UpcomingScreen: View {
                 if items.isEmpty {
                     // 빈 날을 감추면 "어디로 미룰까"에 답할 수 없다 — 이 줄이
                     // 이 화면의 절반이다.
-                    Text("비어 있음")
+                    Text("일정 없음")
                         .font(.moscoCaption())
                         .foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
                         .listRowBackground(Color.clear)
@@ -132,7 +183,7 @@ struct UpcomingScreen: View {
                     row(todo, on: todo.date.map { calendar.startOfDay(for: $0) })
                 }
             } header: {
-                Text("검색 결과 \(searchResults.count)개")
+                Text("\(searchResults.count)개 찾았어요")
                     .font(.moscoCaption())
                     .foregroundStyle(MoscoPalette.textSecondary)
             }

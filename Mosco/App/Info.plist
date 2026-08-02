@@ -5,6 +5,9 @@
 	<!-- 앱에 한국어 지역화가 등록돼 있지 않으면 스와이프 삭제 버튼이 "Delete",
 	     검색창 취소가 "Cancel"처럼 시스템 기본 영어로 나온다. 앱 문구는 전부
 	     한국어인데 시스템이 끼워 넣는 것만 영어여서 어색했다. -->
+	<!-- 홈 화면과 설정 앱에 보이는 이름. 타깃 이름("App")이 그대로 나오고 있었다. -->
+	<key>CFBundleDisplayName</key>
+	<string>모스코</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ko</string>
 	<key>CFBundleLocalizations</key>

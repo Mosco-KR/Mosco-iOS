@@ -51,6 +51,17 @@ extension Date {
     }
 }
 
+/// 오늘 기준 D-day 표기: 당일은 "D-DAY", 미래는 "D-n", 지난 날은 "D+n".
+func dDayLabel(for day: Date, from reference: Date = .now, calendar: Calendar = .current) -> String {
+    let days = calendar.dateComponents(
+        [.day],
+        from: calendar.startOfDay(for: reference),
+        to: calendar.startOfDay(for: day)
+    ).day ?? 0
+    if days == 0 { return "D-DAY" }
+    return days > 0 ? "D-\(days)" : "D+\(-days)"
+}
+
 /// "오늘 오후 7시" / "내일 오후 7시" / "7월 30일 오후 7시" 형태로 조합.
 /// time이 nil이면 날짜(상대 표현)만 반환.
 func koreanScheduleLabel(date: Date, time: Date?) -> String {

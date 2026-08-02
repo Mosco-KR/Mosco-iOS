@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct TodoRow: View {
     @Bindable var todo: TodoItem
@@ -17,7 +18,11 @@ struct TodoRow: View {
     /// 여러 캘린더를 함께 보고 있을 때만 소속 캘린더 칩을 붙인다 — 하나만 보고
     /// 있으면 전부 같은 캘린더라 칩이 자리만 차지한다.
     var showsCalendarTag: Bool = false
+    /// 목록의 첫 행에만 켠다 — 튜토리얼이 "이 동그라미"를 정확히 가리킬 수 있게.
+    var isTutorialAnchor: Bool = false
 
+    @Environment(TutorialManager.self) private var tutorialManager
+    @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @State private var showsMemoEditor = false
     @State private var showsDeleteConfirmation = false
 
@@ -35,6 +40,7 @@ struct TodoRow: View {
 
         HStack(alignment: .center, spacing: 12) {
             checkButton
+                .tutorialAnchor(isTutorialAnchor ? .firstTodoCheck : nil)
 
             // 1행: 제목 그대로, 2행: 카테고리(항상 맨 앞) + 날짜/시간을 하나로 합친 태그.
             VStack(alignment: .leading, spacing: 6) {
@@ -46,6 +52,12 @@ struct TodoRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 HStack(spacing: 6) {
+                    // 디데이로 표시해둔 항목은 목록에서도 한눈에 구분돼야 한다 —
+                    // 표시해놓고 어디에 반영됐는지 안 보이면 표시한 보람이 없다.
+                    if todo.isDDay, let date = todo.date {
+                        TagChip(label: dDayLabel(for: date), tint: MoscoPalette.accent)
+                    }
+
                     CategoryTag(category: todo.category)
 
                     if showsCalendarTag, let calendar = todo.calendar {
@@ -105,6 +117,35 @@ struct TodoRow: View {
                 showsMemoEditor = true
             } label: {
                 Label(hasMemo ? "메모 보기" : "메모 추가", systemImage: "note.text")
+            }
+
+            Button {
+                todo.isDDay.toggle()
+            } label: {
+                Label(
+                    todo.isDDay ? "디데이 해제" : "디데이로 표시",
+                    systemImage: todo.isDDay ? "star.slash" : "star"
+                )
+            }
+
+            // 만들 때 고른 캘린더를 나중에 바꿀 방법이 없었다 — 옮기려면 지우고
+            // 다시 만드는 수밖에 없었다.
+            if calendars.count > 1 {
+                Menu {
+                    ForEach(calendars) { calendar in
+                        Button {
+                            todo.calendar = calendar
+                        } label: {
+                            if todo.calendar?.id == calendar.id {
+                                Label(calendar.name, systemImage: "checkmark")
+                            } else {
+                                Text(calendar.name)
+                            }
+                        }
+                    }
+                } label: {
+                    Label("캘린더 옮기기", systemImage: "square.stack.3d.up")
+                }
             }
 
             if onDelete != nil {
@@ -176,6 +217,7 @@ struct TodoRow: View {
                     todo.isCompleted.toggle()
                 }
             }
+            tutorialManager.userDidCompleteTodo()
         } label: {
             ZStack {
                 Circle()
