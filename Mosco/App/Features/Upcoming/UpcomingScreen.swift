@@ -21,6 +21,8 @@ struct UpcomingScreen: View {
 
     @State private var query = ""
     @State private var detailTodo: TodoItem?
+    @State private var isSearching = false
+    @FocusState private var isSearchFocused: Bool
 
     private let calendar = Calendar.current
     /// 앞으로 며칠까지 늘어놓을지. 2주면 "이번 주와 다음 주"가 다 들어온다.
@@ -145,35 +147,104 @@ struct UpcomingScreen: View {
     }
 
     var body: some View {
+        // 시스템 제목(.navigationTitle)을 쓰지 않는다. 다른 두 탭은 모두 내용
+        // 안에 직접 그린 헤더를 쓰는데, 이 화면만 시스템 제목을 쓰니 위쪽 여백과
+        // 글자 크기가 혼자 달라 다른 앱처럼 보였다. 같은 구조로 맞춘다.
         NavigationStack {
-            List {
-                if trimmedQuery.isEmpty {
-                    if !dDayTodos.isEmpty { dDaySection }
-                    agendaSections
-                } else {
-                    searchSection
-                }
+            VStack(spacing: 0) {
+                header
+                if isSearching { searchField }
+                list
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(MoscoPalette.canvas)
-            // 큰 제목을 쓴다. 인라인 제목은 높이만 가져가고 사라지지도 않아서
-            // 예전엔 아예 뺐는데, 그러니 위쪽이 휑하게 비었다. 큰 제목은 가만히
-            // 있을 때 그 자리를 채우고 스크롤하면 접혀 없어진다.
-            .navigationTitle("앞으로 2주")
-            .navigationBarTitleDisplayMode(.large)
-            // 검색창은 처음부터 자리를 차지하지 않는다. 이 화면에 오는 이유는
-            // 대개 "앞으로 뭐 있지"를 보려는 것이지 찾으려는 게 아니다.
-            // .automatic이면 맨 위에서 아래로 당길 때만 나타난다.
-            .searchable(
-                text: $query,
-                placement: .navigationBarDrawer(displayMode: .automatic),
-                prompt: "할 일과 메모에서 찾기"
-            )
+            .background(MoscoPalette.canvas.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $detailTodo) { todo in
                 TodoDetailSheet(todo: todo)
             }
         }
+    }
+
+    private var list: some View {
+        List {
+            if trimmedQuery.isEmpty {
+                if !dDayTodos.isEmpty { dDaySection }
+                agendaSections
+            } else {
+                searchSection
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+    }
+
+    /// '오늘' 탭의 헤더와 같은 짜임 — 왼쪽은 두 줄(무엇을 보고 있는지 + 개수),
+    /// 오른쪽은 작은 글자 버튼 하나.
+    ///
+    /// 이름을 따로 붙이지 않는다. "다가오는"은 말이 끝나지 않았고 "앞으로 2주"도
+    /// 겉돌았는데, 애초에 이 화면에 필요한 건 이름이 아니라 **지금 어디를 보고
+    /// 있는지**다. '오늘' 탭이 날짜를 제목처럼 쓰는 것과 같은 방식으로 기간을 쓴다.
+    private var header: some View {
+        HStack(alignment: .center, spacing: Metrics.spacingSM) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(rangeLabel)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(MoscoPalette.textPrimary)
+                if upcomingCount > 0 {
+                    Text("할 일 \(upcomingCount)개")
+                        .font(.moscoCaption())
+                        .foregroundStyle(MoscoPalette.textSecondary)
+                }
+            }
+
+            Spacer()
+
+            // 검색은 평소엔 자리를 차지하지 않는다 — 이 화면에 오는 이유는 대개
+            // "앞으로 뭐 있지"를 보려는 것이지 찾으려는 게 아니다.
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isSearching.toggle()
+                    if !isSearching { query = "" }
+                }
+                isSearchFocused = isSearching
+            } label: {
+                Text(isSearching ? "완료" : "검색")
+                    .font(.moscoCaption().weight(.semibold))
+                    .foregroundStyle(MoscoPalette.accent)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, Metrics.spacingMD)
+        .padding(.top, Metrics.spacingSM)
+        .padding(.bottom, Metrics.spacingSM)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(MoscoPalette.textSecondary)
+            TextField("할 일과 메모에서 찾기", text: $query)
+                .font(.moscoBody())
+                .focused($isSearchFocused)
+                .submitLabel(.search)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(MoscoPalette.surface, in: Capsule())
+        .padding(.horizontal, Metrics.spacingMD)
+        .padding(.bottom, Metrics.spacingSM)
+    }
+
+    /// "8월 3일 - 16일". 달을 넘어가면 뒤쪽에도 달을 적는다.
+    private var rangeLabel: String {
+        let end = calendar.date(byAdding: .day, value: Self.horizonDays - 1, to: today) ?? today
+        let sameMonth = calendar.component(.month, from: today) == calendar.component(.month, from: end)
+        let endText = sameMonth ? "\(calendar.component(.day, from: end))일" : end.koreanMonthDay
+        return "\(today.koreanMonthDay) - \(endText)"
+    }
+
+    private var upcomingCount: Int {
+        upcomingDays.reduce(0) { $0 + todos(on: $1).count }
     }
 
     @ViewBuilder

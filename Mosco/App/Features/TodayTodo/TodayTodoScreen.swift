@@ -467,6 +467,12 @@ struct TodayTodoScreen: View {
         .padding(.leading, 4)
     }
 
+    /// 시간대 칩은 **중립색**이다.
+    ///
+    /// 강조색으로 칠했더니, 계획 안 한 할 일이 세 개만 있어도 화면에 강조색 캡슐이
+    /// 열두 개가 깔려 정작 할 일 제목보다 버튼이 더 세게 읽혔다. 여기서 강조가
+    /// 필요한 건 "무엇을 할지"이지 "어디를 누를지"가 아니다 — 칩은 셀 바로 아래
+    /// 붙어 있어 위치만으로도 무엇에 대한 선택인지 알 수 있다.
     private func chipLabel(_ text: String, systemImage: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: systemImage)
@@ -474,10 +480,10 @@ struct TodayTodoScreen: View {
             Text(text)
                 .font(.moscoCaption().weight(.semibold))
         }
-        .foregroundStyle(MoscoPalette.accent)
+        .foregroundStyle(MoscoPalette.textSecondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(MoscoPalette.accent.opacity(0.1), in: Capsule())
+        .background(MoscoPalette.textSecondary.opacity(0.10), in: Capsule())
     }
 
     private func plainHeader(_ title: String, subtitle: String?, count: Int) -> some View {
