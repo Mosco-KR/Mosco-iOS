@@ -157,11 +157,19 @@ struct UpcomingScreen: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(MoscoPalette.canvas)
-            // 제목을 두지 않는다 — 날짜 헤더가 줄줄이 이어지는 것 자체가 이미
-            // "앞으로 무슨 일이 있는지"를 말하고, 좁은 화면에서 제목 줄은 목록이
-            // 차지할 수 있는 높이만 가져간다.
-            .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query, prompt: "할 일과 메모에서 찾기")
+            // 큰 제목을 쓴다. 인라인 제목은 높이만 가져가고 사라지지도 않아서
+            // 예전엔 아예 뺐는데, 그러니 위쪽이 휑하게 비었다. 큰 제목은 가만히
+            // 있을 때 그 자리를 채우고 스크롤하면 접혀 없어진다.
+            .navigationTitle("다가오는")
+            .navigationBarTitleDisplayMode(.large)
+            // 검색창은 처음부터 자리를 차지하지 않는다. 이 화면에 오는 이유는
+            // 대개 "앞으로 뭐 있지"를 보려는 것이지 찾으려는 게 아니다.
+            // .automatic이면 맨 위에서 아래로 당길 때만 나타난다.
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .automatic),
+                prompt: "할 일과 메모에서 찾기"
+            )
             .sheet(item: $detailTodo) { todo in
                 TodoDetailSheet(todo: todo)
             }

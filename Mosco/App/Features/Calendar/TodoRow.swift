@@ -105,10 +105,10 @@ struct TodoRow: View {
         // 그 비용이 셀 수만큼 늘어난다(달력 막대에서 이미 같은 이유로 걷어냈다).
         // 유리는 화면 위에 떠 있는 소수의 요소에만 쓴다 — GlassSurface 주석의 원칙.
         //
-        // 대신 불투명한 표면 위에 카테고리 색을 아주 옅게 한 겹 얹는다. 색이
-        // "칠해진" 게 아니라 "비치는" 느낌은 그대로 남으면서, 그리는 비용은
-        // 단색 채우기 두 번이 전부다.
-        .background(accentColor.opacity(isDone ? 0.03 : 0.07), in: shape)
+        // 카드 배경은 **중립색 하나**다. 예전엔 여기에도 카테고리 색을 옅게
+        // 깔았는데, 목록이 길어지면 카드마다 바탕색이 달라 화면 전체가 알록달록해
+        // 눈이 피로했다. 색은 체크 동그라미와 카테고리 칩에만 — 찾을 때 필요한
+        // 자리에만 점처럼 찍는다.
         .background(MoscoPalette.surface, in: shape)
         .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.4), lineWidth: 0.5))
         .shadow(color: .black.opacity(isDone ? 0.02 : 0.06), radius: 12, y: 5)
