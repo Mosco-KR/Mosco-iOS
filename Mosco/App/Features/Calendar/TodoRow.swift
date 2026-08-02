@@ -97,6 +97,13 @@ struct TodoRow: View {
         .padding(.horizontal, 14)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
+        // contextMenu는 열렸다는 걸 알려주지 않으므로, 길게 누름을 따로 듣는다.
+        // simultaneous라 이벤트를 가져가지 않아서 메뉴는 그대로 열리고, 튜토리얼
+        // 밖에서는 advanceIfWaiting이 걸러내 아무 일도 하지 않는다.
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.4)
+                .onEnded { _ in tutorialManager.userDidLongPressTodo() }
+        )
         // 완료된 항목은 내용만 흐려진다. 배경보다 뒤에 놓아서 카드 자체는
         // 불투명하게 남는다 — 카드까지 반투명해지면 뒤가 비쳐 얼룩져 보인다.
         .opacity(isDone ? 0.55 : 1)

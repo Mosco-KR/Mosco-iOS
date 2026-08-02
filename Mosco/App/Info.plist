@@ -7,7 +7,7 @@
 	     한국어인데 시스템이 끼워 넣는 것만 영어여서 어색했다. -->
 	<!-- 홈 화면과 설정 앱에 보이는 이름. 타깃 이름("App")이 그대로 나오고 있었다. -->
 	<key>CFBundleDisplayName</key>
-	<string>모스코</string>
+	<string>Mosco</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ko</string>
 	<key>CFBundleLocalizations</key>

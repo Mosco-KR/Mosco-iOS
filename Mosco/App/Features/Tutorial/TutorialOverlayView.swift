@@ -134,6 +134,9 @@ struct TutorialOverlayView: View {
         case .swipeHorizontal:
             SwipeArrow(directions: [.left, .right])
                 .position(x: hole.midX, y: hole.midY)
+        case .longPress:
+            HoldPulse()
+                .position(x: hole.midX, y: hole.midY)
         case .swipeLeft:
             SwipeArrow(directions: [.left])
                 // 스와이프 삭제는 오른쪽 끝에서 왼쪽으로 — 손짓도 그 자리에 둔다.
@@ -227,8 +230,10 @@ struct TutorialOverlayView: View {
             ("전송 버튼을 눌러보세요", nil)
         case .completeTodo:
             ("동그라미를 눌러 완료해보세요", nil)
+        case .longPressTodo:
+            ("할 일을 꾹 눌러보세요", "메모·디데이처럼 화면에 안 보이는 기능이 여기 있어요")
         case .deleteTodo:
-            ("왼쪽으로 밀어 지워보세요", nil)
+            ("메뉴를 닫고, 왼쪽으로 밀어 지워보세요", nil)
         case .swipeWeek:
             ("달력을 옆으로 밀어보세요", "주 단위로 넘어가요")
         }
@@ -248,7 +253,7 @@ struct TutorialOverlayView: View {
         default:
             (
                 "hand.wave.fill",
-                "모스코에 오신 걸 환영해요",
+                "Mosco에 오신 걸 환영해요",
                 "밝게 표시된 곳을 따라 누르면 돼요.",
                 "시작하기"
             )
@@ -299,6 +304,29 @@ struct TutorialOverlayView: View {
 }
 
 // MARK: - 손짓 표시
+
+/// 꾹 눌러야 하는 자리에서 차오르는 원. 퍼져나가는 `TapPulse`와 달리 **채워지는**
+/// 움직임이라 "누르고 있으라"는 뜻이 읽힌다.
+private struct HoldPulse: View {
+    @State private var progress: CGFloat = 0
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(MoscoPalette.accent.opacity(0.3), lineWidth: 3)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(MoscoPalette.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+        .frame(width: 44, height: 44)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: false)) {
+                progress = 1
+            }
+        }
+    }
+}
 
 /// 눌러야 하는 자리에서 퍼져나가는 원.
 private struct TapPulse: View {

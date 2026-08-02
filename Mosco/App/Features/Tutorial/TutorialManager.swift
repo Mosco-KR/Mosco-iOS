@@ -23,6 +23,7 @@ final class TutorialManager {
         case categoryHint
         case sendTodo
         case completeTodo
+        case longPressTodo
         case deleteTodo
 
         case swipeWeek
@@ -51,7 +52,7 @@ final class TutorialManager {
             case .categoryHint: .categoryButton
             case .sendTodo: .sendButton
             case .completeTodo: .firstTodoCheck
-            case .deleteTodo: .firstTodoRow
+            case .longPressTodo, .deleteTodo: .firstTodoRow
             case .swipeWeek: .weekStrip
             }
         }
@@ -62,6 +63,7 @@ final class TutorialManager {
                 .tap
             case .swipeWeek: .swipeHorizontal
             case .deleteTodo: .swipeLeft
+            case .longPressTodo: .longPress
             // 안내 단계는 "여기를 보세요"라 손짓 대신 가리키는 화살표를 쓴다.
             case .categoryHint: .pointAt
             case .writeWithTime, .welcome, .finish: nil
@@ -166,6 +168,13 @@ final class TutorialManager {
         advanceIfWaiting(for: .completeTodo)
     }
 
+    /// 셀을 꾹 눌러 메뉴가 열렸을 때. 메모·디데이·캘린더 옮기기처럼 화면에
+    /// 버튼으로 나와 있지 않은 기능이 전부 여기 있는데, 한 번 열어보지 않으면
+    /// 있는 줄을 모른다.
+    func userDidLongPressTodo() {
+        advanceIfWaiting(for: .longPressTodo)
+    }
+
     func userDidDeleteTodo() {
         advanceIfWaiting(for: .deleteTodo)
     }
@@ -185,6 +194,7 @@ enum TutorialGestureHint {
     case tap
     case swipeHorizontal
     case swipeLeft
+    case longPress
     /// 조작 없이 "여기를 보세요"만 가리킨다.
     case pointAt
 }
