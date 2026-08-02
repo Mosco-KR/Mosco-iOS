@@ -51,15 +51,10 @@ struct TodoRow: View {
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                // 이 줄에는 규칙이 있다. **이름이 있는 것은 글자 칩**(카테고리·
+                // 캘린더·시각)이고, **켜고 끄는 표시는 아이콘**이다(반복·디데이).
+                // 아이콘 쪽은 카테고리 색을 따라가 이 행이 한 가지 색으로 읽힌다.
                 HStack(spacing: 6) {
-                    // 여기선 **표시해뒀다는 사실만** 알리면 된다. 남은 날짜까지
-                    // 적으면 옆의 날짜 태그와 같은 말을 두 번 하는 셈이고, 목록에서
-                    // 알고 싶은 건 "이게 그 챙기는 일이구나"뿐이다. 남은 날짜를
-                    // 세는 건 '다가오는' 화면의 디데이 카드가 맡는다.
-                    if todo.isDDay {
-                        TagChip(label: "D-DAY", tint: MoscoPalette.accent)
-                    }
-
                     CategoryTag(category: todo.category)
 
                     if showsCalendarTag, let calendar = todo.calendar {
@@ -71,6 +66,16 @@ struct TodoRow: View {
 
                     if let scheduleLabel {
                         TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary)
+                    }
+
+                    // 디데이로 표시해둔 항목. 남은 날짜는 적지 않는다 — 옆의 날짜
+                    // 태그와 같은 말을 두 번 하는 셈이고, 여기서 알고 싶은 건
+                    // "이게 그 챙기는 일이구나"뿐이다. 남은 날짜를 세는 건
+                    // '다가오는' 화면의 디데이 카드가 맡는다.
+                    if todo.isDDay {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(accentColor)
                     }
 
                     // 반복 일정은 한 번짜리와 겉모습이 같아서, 목록에서 이게

@@ -23,6 +23,8 @@ struct CategoryTag: View {
         .foregroundStyle(color)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(color.opacity(0.1), in: Capsule())
+        // TagChip과 같은 알파를 쓴다 — 한 줄에 나란히 서는 칩끼리 배경 농도가
+        // 다르면 같은 종류로 안 읽힌다.
+        .background(color.opacity(0.12), in: Capsule())
     }
 }
