@@ -18,7 +18,12 @@ final class TutorialManager {
         case manualCategory
         case scheduleDetail
         case completeTodo
+        case weekStrip
+        case calendarSwitcher
         case todoTab
+        case todayPlanning
+        case upcomingTab
+        case help
         case finish
 
         /// 이 단계는 실제로 해내야만 다음으로 넘어간다 — 건너뛰기 버튼 자체가 없다.

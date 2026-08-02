@@ -27,6 +27,9 @@ struct TutorialOverlayView: View {
             }
             .transition(.opacity)
             .animation(.easeInOut(duration: 0.25), value: manager.step)
+            // 키보드가 올라와도 안내는 제자리에 있어야 한다 — 같이 밀려 올라가면
+            // 입력창 위로 겹쳐 앉는다.
+            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
     }
 
@@ -49,14 +52,16 @@ struct TutorialOverlayView: View {
                 topInset: safeAreaTop
             )
         case .timeDetection:
-            bottomBanner(
+            topBanner(
                 title: "시간이 담긴 할 일을 적어보세요",
-                message: "예를 들어 \"오후 3시 회의\"처럼 시간을 넣어 적어보세요. 시간을 자동으로 알아채고 추천 칩을 보여줘요. 칩을 탭하면 바로 적용돼요."
+                message: "예를 들어 \"오후 3시 회의\"처럼 시간을 넣어 적어보세요. 시간을 자동으로 알아채고 추천 칩을 보여줘요. 칩을 탭하면 바로 적용돼요.",
+                topInset: safeAreaTop
             )
         case .addTodo:
-            bottomBanner(
+            topBanner(
                 title: "이제 전송해보세요",
-                message: "입력창 오른쪽의 전송 버튼을 누르면 할 일이 저장돼요."
+                message: "입력창 오른쪽의 전송 버튼을 누르면 할 일이 저장돼요.",
+                topInset: safeAreaTop
             )
         case .deleteTodo:
             topBanner(
@@ -100,11 +105,56 @@ struct TutorialOverlayView: View {
                 onPrimary: manager.advance,
                 onSkip: manager.skipAll
             )
+        case .weekStrip:
+            centeredCard(
+                icon: "calendar.day.timeline.left",
+                title: "주간 스트립",
+                message: "날짜를 고르면 달력이 그 주만 남기고 접혀요. 접힌 상태에서 좌우로 밀면 주 단위로 넘어가고, 아래로 쓸어내리면 다시 한 달 전체가 펼쳐져요.",
+                primaryLabel: "다음",
+                onPrimary: manager.advance,
+                onSkip: manager.skipAll
+            )
+        case .calendarSwitcher:
+            centeredCard(
+                icon: "square.stack.3d.up.fill",
+                title: "캘린더 나누기",
+                message: "월 표시 옆 버튼에서 볼 캘린더를 체크로 켜고 끌 수 있어요. 개인·업무처럼 나눠두면 필요한 것만 볼 수 있고, 새 일정은 켜둔 캘린더로 들어가요.",
+                primaryLabel: "다음",
+                onPrimary: manager.advance,
+                onSkip: manager.skipAll
+            )
         case .todoTab:
             centeredCard(
                 icon: "list.bullet",
-                title: "오늘 할 일 탭",
-                message: "하단의 \"오늘 할 일\" 탭에서 오늘 처리할 일들을 카테고리별로 모아볼 수 있어요.",
+                title: "할 일 탭",
+                message: "탭바 왼쪽이 할 일, 가운데가 달력, 오른쪽이 다가오는 일정이에요. 할 일 탭에서는 오늘 하루를 계획해요.",
+                primaryLabel: "다음",
+                onPrimary: manager.advance,
+                onSkip: manager.skipAll
+            )
+        case .todayPlanning:
+            centeredCard(
+                icon: "sun.max.fill",
+                title: "오늘 언제 할지 정하기",
+                message: "시각을 안 정한 할 일에는 오전·오후·저녁 중 하나를 골라둘 수 있어요. 언제 할지를 미리 정해두면 실제로 해내는 비율이 크게 올라가요. 날짜 없이 쌓아둔 일은 \"언젠가\"에서 오늘로 가져올 수 있어요.",
+                primaryLabel: "다음",
+                onPrimary: manager.advance,
+                onSkip: manager.skipAll
+            )
+        case .upcomingTab:
+            centeredCard(
+                icon: "calendar.badge.clock",
+                title: "다가오는 일정",
+                message: "탭바 오른쪽에서 앞으로 2주를 날짜별로 볼 수 있어요. 비어 있는 날도 함께 보여줘서 오늘이 빡빡할 때 어디로 미룰지 고르기 좋아요. 오른쪽으로 밀면 '내일로' 미룰 수 있어요.",
+                primaryLabel: "다음",
+                onPrimary: manager.advance,
+                onSkip: manager.skipAll
+            )
+        case .help:
+            centeredCard(
+                icon: "questionmark.circle.fill",
+                title: "언제든 다시 볼 수 있어요",
+                message: "화면마다 있는 ? 버튼을 누르면 그 화면의 기능 설명이 나와요. 설정에서 이 튜토리얼을 처음부터 다시 볼 수도 있어요.",
                 primaryLabel: "다음",
                 onPrimary: manager.advance,
                 onSkip: manager.skipAll
@@ -132,15 +182,11 @@ struct TutorialOverlayView: View {
         }
     }
 
-    private func bottomBanner(title: String, message: String) -> some View {
-        VStack {
-            Spacer()
-            bannerBody(title: title, message: message)
-                .padding(.horizontal, Metrics.spacingMD)
-                // 컴포즈 바(입력창)를 가리지 않도록 그 위쪽에 띄운다.
-                .padding(.bottom, 96)
-        }
-    }
+    // 예전엔 입력을 요구하는 단계(시간 인식·전송)에 하단 배너를 썼다. 화면 아래에서
+    // 96pt 띄우는 고정값이었는데, 컴포즈 바 높이와 키보드가 함께 움직이는 바람에
+    // **정작 눌러야 할 입력창과 전송 버튼을 배너가 가렸다.** 안내가 조작을 막으면
+    // 안내가 아니다. 지금은 그 단계들도 상단 배너를 쓴다 — 위쪽에는 가려도 되는
+    // 월 헤더밖에 없고, 키보드가 올라와도 절대 겹치지 않는다.
 
     private func bannerBody(title: String, message: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {

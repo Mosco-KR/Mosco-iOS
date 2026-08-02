@@ -2,6 +2,21 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- 앱에 한국어 지역화가 등록돼 있지 않으면 스와이프 삭제 버튼이 "Delete",
+	     검색창 취소가 "Cancel"처럼 시스템 기본 영어로 나온다. 앱 문구는 전부
+	     한국어인데 시스템이 끼워 넣는 것만 영어여서 어색했다. -->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>ko</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ko</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<!-- CloudKit이 다른 기기의 변경을 푸시로 알려줄 때 받기 위한 것.
+		     없으면 앱을 직접 열 때만 동기화된다. -->
+		<string>remote-notification</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>지금 계신 곳의 날씨를 캘린더에 함께 보여드리기 위해 위치를 사용합니다.</string>
 	<key>UIApplicationSceneManifest</key>

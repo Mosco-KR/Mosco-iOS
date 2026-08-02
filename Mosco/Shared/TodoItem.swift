@@ -1,10 +1,13 @@
 import Foundation
 import SwiftData
 
+/// 모든 저장 속성에 인라인 기본값이 있는 건 **CloudKit 미러링 요구사항**이다 —
+/// 옵셔널이거나 기본값을 가져야 하고, 관계는 전부 옵셔널이어야 하며,
+/// `@Attribute(.unique)`는 쓸 수 없다. 기본값을 지우면 앱이 저장소를 아예 못 연다.
 @Model
 final class TodoItem {
-    var id: UUID
-    var title: String
+    var id: UUID = UUID()
+    var title: String = ""
     /// 할 일이 시작하는 날짜(하루 단위). nil이면 날짜 없는 백로그 항목 — 캘린더엔
     /// 안 나오고 "할 일" 탭에만 있는다("할 일" 탭에서 바로 만들면 기본값이 없다).
     var date: Date?
@@ -18,23 +21,60 @@ final class TodoItem {
     /// (TodoCategory.delete 참고). deleteRule .nullify는 혹시 못 옮긴 경우를
     /// 위한 안전망일 뿐, 정상 경로에서는 category가 nil이 되는 일이 없다.
     @Relationship(deleteRule: .nullify) var category: TodoCategory?
+    /// 어느 캘린더 묶음에 속하는지("개인"/"업무" 등). 카테고리와 별개의 층이다 —
+    /// 카테고리가 성격이라면 이건 "지금 보고 있는 묶음"을 가른다.
+    /// nil이면 어느 묶음에도 안 넣은 상태로, 통합에서만 보인다.
+    @Relationship(deleteRule: .nullify) var calendar: TodoCalendar?
     /// enum을 raw String으로 저장 (순서/정수 기반 저장 금지 원칙)
-    private var repeatRuleRawValue: String
+    private var repeatRuleRawValue: String = RepeatRule.none.rawValue
     /// 반복이 끝나는 날짜. nil이면 무기한 반복(반복 안 함이면 의미 없음).
     var repeatEndDate: Date?
     /// 매주 반복 시 어느 요일들에 반복할지 (1=일요일...7=토요일, Calendar.component(.weekday) 규칙).
-    var repeatWeekdays: [Int]
+    ///
+    /// CloudKit은 Swift 배열 속성을 그대로 못 다룬다 — 켜자마자 콘솔에
+    /// `Could not materialize Objective-C class named "Array" ... Array<Int>` fault가
+    /// 뜨고 동기화가 안 된다. 그래서 쉼표로 이은 문자열로 저장하고, 쓰는 쪽에는
+    /// 지금까지와 똑같이 배열로 보여준다(호출부는 하나도 안 바뀐다).
+    private var repeatWeekdaysRaw: String = ""
+
+    var repeatWeekdays: [Int] {
+        get { repeatWeekdaysRaw.split(separator: ",").compactMap { Int($0) } }
+        set { repeatWeekdaysRaw = newValue.map(String.init).joined(separator: ",") }
+    }
     /// everyNDays 반복의 간격(N). 기존 데이터 호환을 위해 옵셔널로 두고 읽을 때 보정한다.
     var repeatInterval: Int?
     /// 반복 일정에서 완료 처리된 인스턴스들의 시작일 키(dayKey) — 반복은 날마다
     /// 따로 완료할 수 있어야 해서, 전체 isCompleted와 별개로 날짜별로 기록한다.
-    var completedDayKeys: [String]?
-    var isCompleted: Bool
-    var createdAt: Date
+    /// `repeatWeekdays`와 같은 이유로 문자열에 이어 붙여 저장한다(dayKey는 숫자
+    /// 문자열이라 쉼표가 들어갈 일이 없다).
+    private var completedDayKeysRaw: String = ""
+
+    var completedDayKeys: [String]? {
+        get {
+            guard !completedDayKeysRaw.isEmpty else { return nil }
+            return completedDayKeysRaw.split(separator: ",").map(String.init)
+        }
+        set { completedDayKeysRaw = (newValue ?? []).joined(separator: ",") }
+    }
+    var isCompleted: Bool = false
+    var createdAt: Date = Date.now
     /// 제목만으로 부족할 때 덧붙이는 자유 메모. 앞으로 알림·첨부처럼 "할 일에
     /// 붙는 부가 정보"가 더 생길 자리의 첫 번째다(TodoDetailSheet 참고).
     /// 안 쓴 상태와 빈 문자열을 한 가지로 다루려고 옵셔널로 둔다(빈 값은 nil로 저장).
     var memo: String?
+    /// "오늘 이걸 언제 할 것인가"(오전/오후/저녁). 시각을 정하지 않은 할 일에만
+    /// 의미가 있고, `startTime`이 있는 일정은 그 시각이 곧 계획이라 쓰지 않는다.
+    /// enum을 raw String으로 저장한다(순서/정수 기반 저장 금지 원칙).
+    private var daySlotRawValue: String?
+
+    var daySlot: DaySlot? {
+        get { daySlotRawValue.flatMap(DaySlot.init(rawValue:)) }
+        set { daySlotRawValue = newValue?.rawValue }
+    }
+
+    /// 사용자가 직접 끌어서 정한 순서. 같은 묶음(시간대/백로그) 안에서만 의미가
+    /// 있고, 아직 손대지 않았으면 전부 0이라 만든 순서(`createdAt`)를 따른다.
+    var sortIndex: Int = 0
 
     init(
         title: String,
@@ -57,7 +97,10 @@ final class TodoItem {
         self.category = category
         self.repeatRuleRawValue = repeatRule.rawValue
         self.repeatEndDate = repeatEndDate
-        self.repeatWeekdays = repeatWeekdays
+        // 계산 프로퍼티가 아니라 저장 프로퍼티에 바로 넣는다 — 모든 저장
+        // 프로퍼티가 초기화되기 전에는 계산 setter를 부를 수 없다.
+        self.repeatWeekdaysRaw = repeatWeekdays.map(String.init).joined(separator: ",")
+        self.completedDayKeysRaw = ""
         self.repeatInterval = repeatInterval
         self.isCompleted = false
         self.createdAt = .now

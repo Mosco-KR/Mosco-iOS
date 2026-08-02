@@ -15,7 +15,12 @@ struct QuickAddView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(TutorialManager.self) private var tutorialManager
     @Query(sort: \TodoCategory.sortOrder) private var categories: [TodoCategory]
+    @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @Query private var allTodos: [TodoItem]
+    /// 새로 만드는 일정을 어느 캘린더에 넣을지 정하는 데 쓴다.
+    @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
+    /// 보이는 캘린더가 둘 이상일 때, 어디에 넣을지 물어보는 중.
+    @State private var isChoosingCalendar = false
     @State private var title = ""
     @State private var category: TodoCategory?
     /// 시스템 Menu는 safeAreaInset 안에서 열릴 때 컴포즈 바 자체가 사라지는
@@ -78,6 +83,14 @@ struct QuickAddView: View {
             sendButton
         }
         .animation(.easeOut(duration: 0.2), value: isEditing)
+        // 보이는 캘린더가 하나면 묻지 않고 거기에 넣는다. 둘 이상일 때만 물어본다 —
+        // 어디에 들어갔는지 모르는 채로 만들어지는 게 제일 나쁘다.
+        .confirmationDialog("어느 캘린더에 넣을까요?", isPresented: $isChoosingCalendar, titleVisibility: .visible) {
+            ForEach(visibleCalendars) { calendar in
+                Button(calendar.name) { commitSave(assigning: calendar) }
+            }
+            Button("취소", role: .cancel) {}
+        }
         .onAppear {
             // "미분류"로 시작하는 대신, 사용자가 아직 카테고리를 하나도 안
             // 골랐으면 앱 테마 색으로 seed된 기본 카테고리("할 일")부터 담는다.
@@ -589,7 +602,31 @@ struct QuickAddView: View {
         tutorialManager.userDidApplyTimeSuggestion()
     }
 
+    /// 지금 화면에 보이도록 켜둔 캘린더들.
+    private var visibleCalendars: [TodoCalendar] {
+        CalendarSelection.visible(calendars, hidden: CalendarSelection.hidden(from: hiddenCalendarIDs))
+    }
+
     private func save() {
+        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        // 수정 중이면 소속은 건드리지 않는다 — 이미 어딘가에 들어가 있다.
+        guard !isEditing else {
+            commitSave(assigning: nil)
+            return
+        }
+
+        // 보이는 캘린더가 둘 이상이면 어디에 넣을지 물어본다. 하나뿐이면 거기로,
+        // 하나도 안 켜져 있으면 기본 캘린더로 조용히 넣는다.
+        if visibleCalendars.count >= 2 {
+            isChoosingCalendar = true
+            return
+        }
+        commitSave(assigning: visibleCalendars.first ?? calendars.first(where: \.isDefault))
+    }
+
+    /// 인자 이름을 `calendar`로 두면 이 뷰의 `Calendar.current` 프로퍼티를 가린다.
+    private func commitSave(assigning targetCalendar: TodoCalendar?) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let resolvedEndDate: Date? = {
@@ -621,6 +658,9 @@ struct QuickAddView: View {
                 repeatWeekdays: startDate == nil ? [] : Array(repeatWeekdays),
                 repeatInterval: (startDate != nil && repeatRule == .everyNDays) ? repeatInterval : nil
             )
+            // 어디에도 안 넣으면 캘린더를 하나 끄는 순간 방금 만든 일정이
+            // 사라진 것처럼 보인다 — 항상 소속을 준다.
+            todo.calendar = targetCalendar ?? calendars.first(where: \.isDefault)
             modelContext.insert(todo)
             tutorialManager.userDidAddTodo()
         }

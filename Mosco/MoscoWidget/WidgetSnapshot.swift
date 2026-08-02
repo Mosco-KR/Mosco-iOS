@@ -23,19 +23,25 @@ struct DayCountSnapshot: Hashable {
 /// 위젯에서 저장소를 읽는 얇은 창구. 앱과 같은 App Group 컨테이너를 연다.
 enum WidgetStore {
     /// 위젯은 짧게 살고 자주 죽어서, 매번 컨테이너를 새로 여는 대신 재사용한다.
-    private static let container: ModelContainer? = try? ModelContainer(
-        for: SharedModelContainer.schema,
-        configurations: sharedConfiguration()
-    )
-
-    private static func sharedConfiguration() -> ModelConfiguration {
-        if let url = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: SharedModelContainer.appGroupID)?
-            .appending(path: "Mosco.store") {
-            return ModelConfiguration(schema: SharedModelContainer.schema, url: url)
+    ///
+    /// 설정을 여기서 직접 만들지 않고 앱과 **같은 함수**를 쓴다. 예전엔 이 파일이
+    /// `ModelConfiguration(schema:url:)`을 따로 만들었는데, 앱이 CloudKit을 켠 뒤로
+    /// 같은 파일을 서로 다른 설정으로 열게 돼서 컨테이너 생성이 실패했다 —
+    /// `try?`가 그 실패를 삼키는 바람에 위젯은 아무 오류 없이 그냥 빈 목록을 그렸다.
+    private static let container: ModelContainer? = {
+        if let shared = try? ModelContainer(
+            for: SharedModelContainer.schema,
+            configurations: SharedModelContainer.makeConfiguration()
+        ) {
+            return shared
         }
-        return ModelConfiguration(schema: SharedModelContainer.schema)
-    }
+        // iCloud를 못 쓰는 상황(계정 없음 등)에서는 앱도 로컬 전용으로 물러난다 —
+        // 위젯도 같은 자리로 물러나야 둘이 계속 같은 파일을 본다.
+        return try? ModelContainer(
+            for: SharedModelContainer.schema,
+            configurations: SharedModelContainer.localOnlyConfiguration()
+        )
+    }()
 
     /// 그날에 걸치는(반복 포함) 할 일을, 미완료 먼저 시간순으로.
     @MainActor

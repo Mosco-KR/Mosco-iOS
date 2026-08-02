@@ -18,25 +18,36 @@ struct CalendarEntry: TimelineEntry {
     let date: Date
     /// dayKey → 그날 할 일 개수.
     let countsByDayKey: [String: Int]
+    /// 잠금화면 사각 위젯에서 이번 주 아래에 붙일 오늘의 일정들.
+    let todayTodos: [TodoSnapshot]
 }
 
 struct CalendarProvider: TimelineProvider {
     func placeholder(in context: Context) -> CalendarEntry {
-        CalendarEntry(date: .now, countsByDayKey: [:])
+        CalendarEntry(date: .now, countsByDayKey: [:], todayTodos: [])
     }
 
     func getSnapshot(in context: Context, completion: @escaping (CalendarEntry) -> Void) {
         Task { @MainActor in
-            completion(CalendarEntry(date: .now, countsByDayKey: WidgetStore.dayCounts(inMonthOf: .now)))
+            completion(makeEntry())
         }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<CalendarEntry>) -> Void) {
         Task { @MainActor in
-            let entry = CalendarEntry(date: .now, countsByDayKey: WidgetStore.dayCounts(inMonthOf: .now))
             let nextMidnight = Calendar.current.startOfDay(for: .now.addingTimeInterval(86_400))
-            completion(Timeline(entries: [entry], policy: .after(nextMidnight)))
+            completion(Timeline(entries: [makeEntry()], policy: .after(nextMidnight)))
         }
+    }
+
+    @MainActor
+    private func makeEntry() -> CalendarEntry {
+        CalendarEntry(
+            date: .now,
+            countsByDayKey: WidgetStore.dayCounts(inMonthOf: .now),
+            // 잠금화면 한 줄에 두세 개면 충분하다 — 더 받아와도 그릴 자리가 없다.
+            todayTodos: WidgetStore.todos(on: .now, limit: 3)
+        )
     }
 }
 
@@ -54,19 +65,66 @@ struct CalendarWidgetView: View {
         }
     }
 
-    /// 잠금화면은 좁아서 달력 격자가 안 들어간다 — 오늘 날짜와 개수만.
+    /// 잠금화면(사각)에는 한 달 격자가 안 들어간다 — 대신 **이번 주 일곱 칸**을
+    /// 넣고 그 아래에 오늘 일정을 붙인다. 예전엔 "할 일 3개"라는 개수만 있어서
+    /// 달력이라 부를 것도, 볼 것도 없었다.
+    ///
+    /// 잠금화면 위젯은 단색(vibrant)으로 그려지므로 색으로는 구분할 수 없다 —
+    /// 오늘은 채운 원, 일정이 있는 날은 밑의 점, 나머지는 흐리게로 가른다.
     private var lockScreenBody: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(entry.date.formatted(.dateTime.month(.wide).day()))
-                .font(.headline)
-            Text(todayCount > 0 ? "할 일 \(todayCount)개" : "할 일 없음")
-                .font(.caption)
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 0) {
+                ForEach(currentWeek, id: \.self) { day in
+                    lockScreenDay(day)
+                }
+            }
+
+            if entry.todayTodos.isEmpty {
+                Text("오늘 할 일 없음")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            } else {
+                // 두 줄까지만. 세 번째부터는 "+N"으로 접는다.
+                ForEach(entry.todayTodos.prefix(2)) { todo in
+                    Text(todo.timeLabel.map { "\($0) \(todo.title)" } ?? todo.title)
+                        .font(.system(size: 11))
+                        .lineLimit(1)
+                }
+                if entry.todayTodos.count > 2 {
+                    Text("+\(entry.todayTodos.count - 2)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private var todayCount: Int {
-        entry.countsByDayKey[calendar.startOfDay(for: entry.date).dayKeyForWidget] ?? 0
+    private func lockScreenDay(_ day: Date) -> some View {
+        let isToday = calendar.isDateInToday(day)
+        let hasTodos = (entry.countsByDayKey[day.dayKey] ?? 0) > 0
+
+        return VStack(spacing: 1) {
+            Text("\(calendar.component(.day, from: day))")
+                .font(.system(size: 10, weight: isToday ? .bold : .regular))
+                .frame(width: 15, height: 15)
+                .background {
+                    if isToday {
+                        Circle().fill(.tertiary)
+                    }
+                }
+            Circle()
+                .fill(hasTodos ? AnyShapeStyle(.primary) : AnyShapeStyle(.clear))
+                .frame(width: 2.5, height: 2.5)
+        }
+        .opacity(isToday ? 1 : 0.7)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// 오늘이 속한 주의 일~토.
+    private var currentWeek: [Date] {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: entry.date) else { return [] }
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: week.start) }
     }
 
     private var homeScreenBody: some View {
@@ -98,7 +156,7 @@ struct CalendarWidgetView: View {
     private func dayCell(_ day: Date) -> some View {
         let inMonth = calendar.isDate(day, equalTo: entry.date, toGranularity: .month)
         let isToday = calendar.isDateInToday(day)
-        let count = entry.countsByDayKey[day.dayKeyForWidget] ?? 0
+        let count = entry.countsByDayKey[day.dayKey] ?? 0
 
         VStack(spacing: 1) {
             Text("\(calendar.component(.day, from: day))")
@@ -136,10 +194,7 @@ struct CalendarWidgetView: View {
     }
 }
 
-private extension Date {
-    /// 앱의 dayKey와 같은 규칙 — 위젯 타겟은 앱 소스를 전부 안 가져오므로 여기 둔다.
-    var dayKeyForWidget: String {
-        let components = Calendar.current.dateComponents([.year, .month, .day], from: self)
-        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
-    }
-}
+// `dayKeyForWidget`을 여기서 따로 만들어 쓰고 있었는데("%04d-%02d-%02d"), 정작 키를
+// 만드는 쪽(WidgetStore.dayCounts)은 앱의 `Date.dayKey`(epoch 초 문자열)를 썼다.
+// 두 규칙이 달라서 조회가 **한 번도 맞지 않았고**, 그래서 달력 위젯에 점이 하나도
+// 안 찍혔다. `Date+Korean.swift`는 Shared라 위젯 타겟에도 있으니 그걸 그대로 쓴다.

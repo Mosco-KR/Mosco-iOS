@@ -14,6 +14,9 @@ struct TodoRow: View {
     var onTap: (() -> Void)? = nil
     /// 이 할 일을 지운다. nil이면 삭제 메뉴를 감춘다.
     var onDelete: (() -> Void)? = nil
+    /// 여러 캘린더를 함께 보고 있을 때만 소속 캘린더 칩을 붙인다 — 하나만 보고
+    /// 있으면 전부 같은 캘린더라 칩이 자리만 차지한다.
+    var showsCalendarTag: Bool = false
 
     @State private var showsMemoEditor = false
     @State private var showsDeleteConfirmation = false
@@ -44,6 +47,13 @@ struct TodoRow: View {
 
                 HStack(spacing: 6) {
                     CategoryTag(category: todo.category)
+
+                    if showsCalendarTag, let calendar = todo.calendar {
+                        TagChip(
+                            label: calendar.name,
+                            tint: CategoryColorPalette.color(forHex: calendar.colorHex)
+                        )
+                    }
 
                     if let scheduleLabel {
                         TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary)

@@ -9,12 +9,16 @@ import SwiftData
 /// 구체적인 이름을 쓴다.)
 @Model
 final class TodoCategory {
-    var id: UUID
-    var name: String
-    var colorHex: String
+    var id: UUID = UUID()
+    var name: String = ""
+    var colorHex: String = "8B5CF6"
     /// 사용자가 만든 순서 — 목록/선택 팝업에서 이 순서 그대로 보여준다.
-    var sortOrder: Int
-    var createdAt: Date
+    var sortOrder: Int = 0
+    var createdAt: Date = Date.now
+    /// CloudKit 미러링은 역관계(inverse) 없는 관계를 받아주지 않는다. 실제로 이
+    /// 배열을 읽는 코드는 없지만, 없으면 저장소가 아예 안 열린다.
+    @Relationship(deleteRule: .nullify, inverse: \TodoItem.category)
+    var todos: [TodoItem]? = nil
     /// 앱이 처음 켜질 때 seed되는 단 하나의 카테고리(RootTabView 참고). 이름·색은
     /// 바꿀 수 있지만 지울 수는 없다 — 다른 카테고리가 삭제될 때 그 안의 할 일들이
     /// 여기로 옮겨오기 때문에, 옮겨 담을 곳이 항상 있다는 걸 보장해야 한다.

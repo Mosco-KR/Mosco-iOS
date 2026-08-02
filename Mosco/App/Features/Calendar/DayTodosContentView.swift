@@ -56,12 +56,23 @@ private struct DayTodoList: View {
     let onDelete: ([TodoItem]) -> Void
 
     @Query(sort: [SortDescriptor(\TodoItem.startTime)]) private var allTodos: [TodoItem]
+    /// 위쪽 격자와 같은 캘린더만 보여야 한다 — 격자엔 없는 일정이 아래 리스트에만
+    /// 나오면 어느 쪽이 맞는지 알 수 없다.
+    @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
 
     /// 반복 인스턴스는 저장소에 없고 규칙으로 계산되므로 #Predicate로는 못 거른다.
     /// 개인용 앱 규모에선 전체를 메모리에서 거르는 게 단순하고 충분히 빠르다 —
     /// 원본 기간과 겹치는 날은 물론, 반복이 그날에 걸치는 항목까지 함께 잡힌다.
     private var todosForDay: [TodoItem] {
-        allTodos.filter { $0.occurs(on: date) }
+        let hidden = CalendarSelection.hidden(from: hiddenCalendarIDs)
+        return allTodos.filter {
+            CalendarSelection.matches($0, hidden: hidden) && $0.occurs(on: date)
+        }
+    }
+
+    /// 화면에 두 개 이상의 캘린더가 섞여 있을 때만 소속을 밝힌다.
+    private var showsCalendarTag: Bool {
+        Set(todosForDay.compactMap { $0.calendar?.id }).count > 1
     }
 
     var body: some View {
@@ -82,7 +93,8 @@ private struct DayTodoList: View {
                         todo: todo,
                         occurrenceDate: date,
                         onTap: { onSelect(todo) },
-                        onDelete: { onDelete([todo]) }
+                        onDelete: { onDelete([todo]) },
+                        showsCalendarTag: showsCalendarTag
                     )
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)

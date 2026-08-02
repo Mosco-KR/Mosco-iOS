@@ -48,9 +48,12 @@ struct TodoDetailSheet: View {
                 .padding(Metrics.spacingSM)
                 .background(MoscoPalette.canvas)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                // 입력 영역이 어디까지인지가 이 화면의 유일한 구조 신호라, 테두리가
+                // 안 보이면 화면이 통째로 빈 종이처럼 보인다 — separator 원래
+                // 알파 그대로 1pt로 그린다(예전엔 여기에 0.4를 또 곱했다).
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(MoscoPalette.border.opacity(0.4), lineWidth: 0.5)
+                        .strokeBorder(MoscoPalette.border, lineWidth: 1)
                 )
             }
             .padding(Metrics.spacingMD)

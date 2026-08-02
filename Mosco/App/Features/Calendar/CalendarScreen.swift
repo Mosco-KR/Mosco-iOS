@@ -1,303 +1,80 @@
 import SwiftUI
 import SwiftData
 
+/// 캘린더 탭. 이 화면은 **조립만** 한다 — 데이터 계산은 `CalendarSnapshotStore`가
+/// 백그라운드에서, 페이징은 `MonthPagerView`가(=UIScrollView), 터치는
+/// `MonthPageInteractionLayer`가 각자 맡는다.
+///
+/// 예전엔 여기서 `@Query`로 할 일을 직접 들고, 반복 일정을 펼치고, 재계산 여부를
+/// 판단할 키까지 computed property로 만들었다. 그래서 할 일이 하나만 바뀌어도,
+/// 심지어 달을 넘기기만 해도 화면 전체 body가 다시 돌면서 그 계산들이 프레임
+/// 안으로 딸려 들어왔다.
 struct CalendarScreen: View {
     @Environment(TutorialManager.self) private var tutorialManager
     @Environment(WeatherStore.self) private var weatherStore
-    @Query(sort: \TodoItem.date) private var todos: [TodoItem]
-    @State private var displayedMonth = Date()
+
+    @State private var store = CalendarSnapshotStore()
+    @State private var visibleMonth = CalendarMonth.containing(Date())
     @State private var selectedDate: Date?
-    /// 월 헤더 + 요일 헤더가 차지하는 높이 — 전체 화면 높이에서 이만큼을 뺀
-    /// 나머지를 캘린더 영역의 최소 높이로 써서, 블록이 적어 콘텐츠가 짧을 땐
-    /// 탭바 바로 위까지 꽉 채우고 블록이 많아지면 자연스럽게 스크롤된다.
-    /// (스크롤뷰 자기 자신의 렌더링 크기를 재서 그대로 최소 높이로 되먹이면,
-    /// 탭바 안전영역 반영 타이밍에 따라 실제보다 크게 측정돼 콘텐츠가 탭바
-    /// 밑으로 밀려 들어가 일부가 가려지는 경우가 있었다 — 그래서 이 화면
-    /// 전체(GeometryReader)에서 헤더 높이만 빼는 방식으로 바꿨다.)
-    @State private var topChromeHeight: CGFloat = 0
+    /// 압축(주간 스트립) 상태에서 보고 있는 주의 시작일. 페이저가 좌우로 넘어가면
+    /// 이 값이 바뀌고, 그에 맞춰 선택 날짜가 **요일을 유지한 채** 따라간다.
+    @State private var visibleWeekStart = WeekWindow.normalized(Date())
+    /// 날짜를 고르기 **직전에** 보고 있던 달. 뒤로 나올 때 여기로 되돌린다.
+    ///
+    /// 두 가지 이상함을 한 번에 없앤다. ① 6월 격자에서 5월 말 흐린 날짜를 눌렀다가
+    /// 뒤로 나오면 5월에 가 있었다(고른 날짜의 달을 그대로 따라갔으니까).
+    /// ② 압축 상태로 주를 넘겨 9월까지 갔다가 뒤로 나오면 격자는 8월인데 헤더만
+    /// 9월이었다 — 둘 다 "들어온 자리로 돌아온다"로 정리된다.
+    @State private var monthBeforeSelection: CalendarMonth?
     @State private var showsSettings = false
-    /// 계산해둔 블록 배치. computed property로 두면 body가 돌 때마다 3개월치
-    /// 반복 일정을 다시 펼쳐서, 달을 넘기는 순간 프레임이 떨어졌다.
-    @State private var positionedBlocks: [PositionedBlock] = []
-    /// 블록을 미리 계산해둔 범위의 중심. displayedMonth와 따로 두어 스와이프마다
-    /// 재계산되지 않게 한다(recenterBlocksIfNeeded 참고).
-    @State private var blocksCenter = Date()
-    /// positionedBlocks가 갱신될 때마다 오르는 번호 — 하위 뷰의 == 비용을 상수로 만든다.
-    @State private var blocksRevision = 0
+    @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
+    /// 숨긴 캘린더들. 비어 있으면 전부 보인다.
+    @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
+    /// 월 헤더 + 요일 헤더의 높이. 페이지 높이를 여기서 빼서 정하는데, 이 값이
+    /// 압축 애니메이션과 무관하게 안정적이어야 한다 — 페이저 자신의 프레임을 재서
+    /// 되먹이면 접히는 매 프레임마다 페이지가 다시 그려진다.
+    @State private var topChromeHeight: CGFloat = 0
 
     private let calendar = Calendar.current
 
-    /// 블록을 계산해둘 범위의 한가운데. 보고 있는 달을 그대로 따라가면 스와이프
-    /// 때마다 전 범위를 다시 펼치게 되므로, 창 가장자리에 가까워질 때만 옮긴다.
-    /// 캐러셀이 ±2개월을 미리 올려두므로 그보다 넉넉한 ±4개월을 계산해둔다.
-    private static let blockWindowRadius = 4
-    /// 중심에서 이만큼 멀어지면 그때 다시 계산한다(가장자리에 닿기 전에).
-    private static let blockRecenterThreshold = 2
-
-    /// 미리 올려둔 페이지들이 함께 쓰는 블록 계산 범위.
-    private var blockWindow: DateInterval? {
-        guard let first = calendar.date(byAdding: .month, value: -Self.blockWindowRadius, to: blocksCenter),
-              let last = calendar.date(byAdding: .month, value: Self.blockWindowRadius, to: blocksCenter),
-              let firstInterval = calendar.dateInterval(of: .month, for: first),
-              let lastInterval = calendar.dateInterval(of: .month, for: last)
-        else { return nil }
-        return DateInterval(start: firstInterval.start, end: lastInterval.end)
-    }
-
-    /// 원본 + 반복 인스턴스를 전부 블록으로 펼친다(미리 계산해둔 범위만).
-    private var blocks: [CalendarBlock] {
-        guard let window = blockWindow else { return [] }
-        return todos.flatMap { occurrenceBlocks(for: $0, in: window) }
-    }
-
-    /// 보고 있는 달이 중심에서 충분히 멀어졌을 때만 중심을 옮긴다. 이 값이 바뀌면
-    /// blocksKey가 바뀌어 재계산이 걸리므로, 자주 바뀌지 않는 게 중요하다.
-    private func recenterBlocksIfNeeded() {
-        let months = calendar.dateComponents([.month], from: blocksCenter, to: displayedMonth).month ?? 0
-        guard abs(months) >= Self.blockRecenterThreshold else { return }
-        blocksCenter = calendar.dateInterval(of: .month, for: displayedMonth)?.start ?? displayedMonth
-    }
-
-    private func occurrenceBlocks(for todo: TodoItem, in window: DateInterval) -> [CalendarBlock] {
-        // 날짜 없는(백로그) 항목은 캘린더에 아예 나오지 않는다 — "할 일" 탭에만 있는다.
-        guard let todoDate = todo.date, let todoEnd = todo.effectiveEndDate else { return [] }
-        let baseStart = calendar.startOfDay(for: todoDate)
-        let baseEnd = calendar.startOfDay(for: todoEnd)
-        var result = [
-            CalendarBlock(
-                id: "\(todo.id.uuidString)-base",
-                title: todo.title,
-                categoryColorHex: todo.category?.colorHex,
-                isRepeating: todo.repeatRule != .none,
-                start: baseStart,
-                end: baseEnd,
-                isCompleted: todo.isCompleted(on: baseStart),
-                createdAt: todo.createdAt
-            )
-        ]
-
-        guard todo.repeatRule != .none else { return result }
-
-        // 계산 범위 앞쪽에서 시작해 범위 안으로 이어지는 반복도 잡히도록,
-        // 일정 길이만큼 앞당긴 지점부터 훑는다.
-        let scanStart = max(
-            calendar.date(byAdding: .day, value: 1, to: baseStart) ?? baseStart,
-            calendar.date(byAdding: .day, value: -todo.durationDays, to: window.start) ?? window.start
-        )
-
-        // 예전엔 하루씩 커서를 옮기며 매번 isRepeatStart를 물었다 — 3개월 범위면
-        // 반복 일정 하나당 90번씩 캘린더 날짜 연산이 돌아서, 달을 넘기는 순간
-        // 프레임이 눈에 띄게 떨어졌다. 규칙이 이미 주기를 알고 있으므로 그만큼
-        // 건너뛰면 후보 자체가 3~12개로 줄어든다.
-        // (요일 지정 주간 반복만은 한 주 안에서 여러 날이 걸릴 수 있어 하루씩 보되,
-        //  범위를 주 단위로 끊어 확인한다.)
-        for cursor in repeatCandidates(for: todo, base: baseStart, from: scanStart, until: window.end) {
-            guard todo.isRepeatStart(cursor) else { continue }
-            let end = calendar.date(byAdding: .day, value: todo.durationDays, to: cursor) ?? cursor
-            result.append(
-                CalendarBlock(
-                    id: "\(todo.id.uuidString)-\(cursor.dayKey)",
-                    title: todo.title,
-                    categoryColorHex: todo.category?.colorHex,
-                    isRepeating: true,
-                    start: cursor,
-                    end: end,
-                    // 반복은 날짜별로 완료 상태가 다르다 — 그 인스턴스의 기록만 본다.
-                    isCompleted: todo.isCompleted(on: cursor),
-                    createdAt: todo.createdAt
-                )
-            )
-        }
-        return result
-    }
-
-    /// 반복 규칙별로 "확인해볼 만한 날짜"만 추린다. 최종 판정은 여전히
-    /// `isRepeatStart`가 하므로(반복 종료일·요일 조건 등) 여기서는 실제 반복일을
-    /// 빠짐없이 포함하는 후보만 내면 되고, 하루씩 전부 훑지만 않으면 된다.
-    ///
-    /// 주기의 기준점은 반드시 **원본 시작일**이다. 스캔 시작점부터 주기만큼
-    /// 건너뛰면 위상이 어긋나서(예: 매월 15일 반복인데 1일부터 한 달씩 더하면
-    /// 영영 15일에 안 닿는다) 반복이 통째로 사라진다.
-    private func repeatCandidates(for todo: TodoItem, base: Date, from start: Date, until end: Date) -> [Date] {
-        switch todo.repeatRule {
-        case .none:
-            return []
-
-        case .daily:
-            return stride(from: max(base, start), to: end, by: 1)
-
-        case .everyNDays:
-            let interval = max(todo.repeatInterval ?? 2, 1)
-            // base + k*interval 중 start 이후 첫 지점을 구해 위상을 맞춘다.
-            let elapsed = calendar.dateComponents([.day], from: base, to: start).day ?? 0
-            let steps = max(Int(ceil(Double(elapsed) / Double(interval))), 0)
-            let first = calendar.date(byAdding: .day, value: steps * interval, to: base) ?? start
-            return stride(from: first, to: end, by: interval)
-
-        case .weekly:
-            // 요일을 여러 개 고를 수 있으면 주 안의 날짜를 다 봐야 한다(그래도
-            // 범위가 3개월이라 상한이 낮다). 안 골랐으면 원본과 같은 요일만.
-            guard todo.repeatWeekdays.isEmpty else {
-                return stride(from: max(base, start), to: end, by: 1)
-            }
-            let weekdayOffset = ((calendar.dateComponents([.day], from: base, to: start).day ?? 0) % 7 + 7) % 7
-            let aligned = calendar.date(byAdding: .day, value: weekdayOffset == 0 ? 0 : 7 - weekdayOffset, to: start) ?? start
-            return stride(from: max(base, aligned), to: end, by: 7)
-
-        case .monthly, .yearly:
-            // 달마다 날짜 수가 달라(31일 반복 등) 단순 덧셈으로는 어긋난다.
-            // 시스템의 날짜 매칭에 맡기고, 없는 날짜(2월 31일)는 건너뛴다.
-            let units: Set<Calendar.Component> = todo.repeatRule == .monthly ? [.day] : [.month, .day]
-            var result: [Date] = []
-            calendar.enumerateDates(
-                startingAfter: max(base, calendar.date(byAdding: .day, value: -1, to: start) ?? start),
-                matching: calendar.dateComponents(units, from: base),
-                matchingPolicy: .strict
-            ) { date, _, stop in
-                guard let date, date < end else {
-                    stop = true
-                    return
-                }
-                result.append(calendar.startOfDay(for: date))
-            }
-            return result
-        }
-    }
-
-    /// startOfDay 정렬을 유지하면서 일 단위로 건너뛴 날짜 목록.
-    private func stride(from start: Date, to end: Date, by days: Int) -> [Date] {
-        var result: [Date] = []
-        var cursor = calendar.startOfDay(for: start)
-        while cursor < end {
-            result.append(cursor)
-            guard let next = calendar.date(byAdding: .day, value: days, to: cursor) else { break }
-            cursor = next
-        }
-        return result
-    }
-
-    /// 블록 계산에 실제로 영향을 주는 값만 추린 키. 이게 바뀔 때만 다시 계산한다 —
-    /// 날씨 갱신이나 날짜 선택처럼 무관한 이유로 body가 다시 돌 때 3개월치를
-    /// 통째로 재계산하던 걸 막는다.
-    private var blocksKey: String {
-        var key = "\(blocksCenter.timeIntervalSince1970)"
-        for todo in todos {
-            key += "|" + todo.id.uuidString
-            key += "~" + todo.title
-            key += "~" + timestamp(todo.date)
-            key += "~" + timestamp(todo.endDate)
-            key += "~" + todo.repeatRule.rawValue
-            key += "~\(todo.repeatInterval ?? 0)"
-            key += "~" + todo.repeatWeekdays.map(String.init).joined(separator: ",")
-            key += "~" + timestamp(todo.repeatEndDate)
-            key += "~" + (todo.category?.colorHex ?? "-")
-            key += "~\(todo.isCompleted)"
-            key += "~" + (todo.completedDayKeys ?? []).joined(separator: ",")
-        }
-        return key
-    }
-
-    private func timestamp(_ date: Date?) -> String {
-        guard let date else { return "-" }
-        return "\(date.timeIntervalSince1970)"
-    }
-
-    /// 전체 블록에 안정적인 행을 한 번에 배정 — 겹치는 일정이 주마다 자리를
-    /// 바꾸거나 깜빡이지 않고, 항상 같은 줄에 그려진다.
-    ///
-    /// 달을 넘길 때 새로 필요한 건 화면 밖의 페이지뿐이고(들어오는 페이지는 이미
-    /// 이전 창에 들어있었다), 그래서 이 계산이 한 프레임 늦어도 눈에 안 띈다 —
-    /// 슬라이드 도중 동기적으로 도는 것보다 훨씬 매끄럽다.
-    private func recomputeBlocks() {
-        positionedBlocks = BlockLayout.position(blocks)
-        blocksRevision &+= 1
-    }
-
-    /// 선택된 날짜가 지금 보이는 달에 속할 때만 그 주의 행 번호를 계산한다 —
-    /// MonthGridView가 이 값 하나로 "그 행만 44pt로 남기고 나머지는 접는다"를
-    /// 처리한다(실제 레이아웃 하나로 압축·복원이 항상 대칭으로 이어진다).
-    private var selectedRowIndex: Int? {
-        guard let selectedDate, calendar.isDate(selectedDate, equalTo: displayedMonth, toGranularity: .month) else {
-            return nil
-        }
-        return calendar.weekRowIndex(of: selectedDate, in: displayedMonth)
-    }
-
     var body: some View {
         GeometryReader { geometry in
+            let pageSize = CGSize(
+                width: geometry.size.width - Metrics.spacingSM * 2,
+                height: max(geometry.size.height - topChromeHeight, 0)
+            )
+
             VStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    monthHeader
-                        .padding(.horizontal, Metrics.spacingMD)
-                        .padding(.top, Metrics.spacingSM)
+                topChrome
 
-                    weekdayHeader
-                        .padding(.horizontal, Metrics.spacingSM)
-                        .padding(.top, Metrics.spacingLG)
-                        .padding(.bottom, Metrics.spacingSM)
-                }
-                .background(
-                    GeometryReader { headerProxy in
-                        Color.clear
-                            .onAppear { topChromeHeight = headerProxy.size.height }
-                            .onChange(of: headerProxy.size.height) { _, newValue in
-                                topChromeHeight = newValue
-                            }
-                    }
-                )
-
-                // 세로 스크롤은 캐러셀 "바깥"에 하나만 둔다 — 페이지마다 스크롤을
-                // 넣으면 가로 스와이프를 스크롤뷰가 가로채 인식이 나빠지고, 달을
-                // 넘길 때 페이지별 스크롤 위치가 제각각이라 툭툭 튀어 보인다.
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        MonthCarouselView(
-                            width: geometry.size.width - Metrics.spacingSM * 2,
-                            displayedMonth: displayedMonth,
-                            positionedBlocks: positionedBlocks,
-                            blocksRevision: blocksRevision,
-                            selectedDate: selectedDate,
-                            selectedRowIndex: selectedRowIndex,
-                            onSelect: { day in select(day) },
-                            onMonthChange: { direction in
-                                if let newMonth = calendar.date(byAdding: .month, value: direction, to: displayedMonth) {
-                                    displayedMonth = newMonth
-                                }
-                            }
+                // 펼친 상태는 달 페이저, 고른 상태는 주 페이저 — 둘 다 가로 페이징
+                // 스크롤뷰다. 예전엔 하나의 달 페이지가 "선택된 주만 남기고 접는"
+                // 방식으로 둘을 겸했는데, 그러면 주를 넘길 때 행이 접히고 펴지는 게
+                // 세로 애니메이션으로 보였다.
+                Group {
+                    if selectedDate == nil {
+                        MonthPagerView(
+                            snapshot: store.snapshot,
+                            pageSize: pageSize,
+                            today: calendar.startOfDay(for: Date()),
+                            visibleMonth: $visibleMonth,
+                            onSelect: select
                         )
-                        .padding(.horizontal, Metrics.spacingSM)
-                        // 압축 중엔 이 최소 높이를 강제하면 44pt로 줄어들지 못하니 뺀다.
-                        .frame(minHeight: selectedDate == nil ? max(geometry.size.height - topChromeHeight, 0) : nil)
-                        .id("calendarTop")
-                    }
-                    .scrollDisabled(selectedDate != nil)
-                    .onChange(of: calendar.dateInterval(of: .month, for: displayedMonth)?.start) { _, _ in
-                        // 달이 바뀌면 위로 부드럽게 복귀 — 이전 달에서 내려둔 스크롤
-                        // 위치가 그대로 남아 어색하게 잘려 보이지 않게.
-                        withAnimation(.easeOut(duration: 0.25)) {
-                            proxy.scrollTo("calendarTop", anchor: .top)
-                        }
+                    } else {
+                        WeekPagerView(
+                            width: pageSize.width,
+                            today: calendar.startOfDay(for: Date()),
+                            selectedDate: selectedDate,
+                            weatherSymbol: { weatherStore.weather(for: $0)?.symbolName },
+                            visibleWeekStart: $visibleWeekStart,
+                            onSelect: select,
+                            onExpand: collapse
+                        )
                     }
                 }
-                .frame(maxHeight: selectedDate == nil ? .infinity : 44)
+                .padding(.horizontal, Metrics.spacingSM)
+                .frame(height: selectedDate == nil ? pageSize.height : WeekStripView.height)
                 .clipped()
-                // 압축된 주간 스트립의 제스처. 아래로 쓸면 전체 달력으로 돌아가고,
-                // 좌우로 밀면 주 단위로 이동한다.
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 16)
-                        .onEnded { value in
-                            guard selectedDate != nil else { return }
-                            let dx = value.translation.width
-                            let dy = value.translation.height
-
-                            if abs(dx) > abs(dy) {
-                                guard abs(dx) > 40 else { return }
-                                shiftSelectedDate(by: dx < 0 ? 7 : -7)
-                            } else if dy > 30 {
-                                collapse()
-                            }
-                        }
-                )
 
                 if let selectedDate {
                     DayTodosContentView(date: selectedDate)
@@ -311,42 +88,99 @@ struct CalendarScreen: View {
             .animation(.spring(response: 0.4, dampingFraction: 0.88), value: selectedDate)
         }
         .background(MoscoPalette.canvas.ignoresSafeArea(edges: .top))
-        .task(id: blocksKey) {
-            recomputeBlocks()
+        // 할 일 관찰을 이 리프 하나에 가둔다 — 이 화면의 body는 할 일이 바뀌어도
+        // 다시 돌지 않는다.
+        .background(TodoQueryBridge(store: store))
+        .onChange(of: visibleMonth) { _, month in
+            store.focus(on: month)
         }
-        // 달이 바뀔 때마다가 아니라, 미리 계산해둔 범위의 가장자리에 가까워질 때만
-        // 중심을 옮긴다 — 그때만 blocksKey가 바뀌어 재계산이 걸린다.
-        .onChange(of: displayedMonth) { _, _ in
-            recenterBlocksIfNeeded()
+        // 주 페이저가 좌우로 넘어가면 선택 날짜를 **같은 요일 자리**로 옮긴다
+        // (iOS 캘린더와 같은 거동). select()가 이 값을 바꿀 때도 이 핸들러가 도는데,
+        // 그때는 계산 결과가 이미 선택된 날짜와 같아서 아무 일도 안 일어난다.
+        .onChange(of: visibleWeekStart) { _, weekStart in
+            guard let current = selectedDate else { return }
+            let weekdayOffset = calendar.dateComponents(
+                [.day],
+                from: WeekWindow.normalized(current),
+                to: current
+            ).day ?? 0
+            guard let moved = calendar.date(byAdding: .day, value: weekdayOffset, to: weekStart),
+                  moved != current
+            else { return }
+            selectedDate = moved
+            let month = CalendarMonth.containing(moved)
+            if month != visibleMonth { visibleMonth = month }
+        }
+        // 지운 캘린더의 id가 숨김 목록에 남아 있어도 동작에 영향은 없지만,
+        // 나중에 같은 id가 재사용될 일은 없으니 그냥 정리해둔다.
+        .onChange(of: calendars.map(\.id), initial: true) { _, ids in
+            let alive = Set(ids.map(\.uuidString))
+            let pruned = hiddenIDs.intersection(alive)
+            guard pruned != hiddenIDs else { return }
+            hiddenCalendarIDs = CalendarSelection.raw(from: pruned)
         }
         .sheet(isPresented: $showsSettings) {
             SettingsScreen()
         }
     }
 
+    // MARK: - 동작
+
     private func select(_ day: Date) {
+        let normalized = calendar.startOfDay(for: day)
+        // 격자에서 처음 들어올 때만 기억한다 — 압축 상태에서 스트립의 다른 날짜를
+        // 눌러 이동하는 동안 이 값이 덮어써지면 "들어온 자리"를 잃는다.
+        if selectedDate == nil { monthBeforeSelection = visibleMonth }
+
         // 이전/다음 달의 흐린 날짜를 탭해도 그 달로 넘어가면서 선택되게 한다.
-        if !calendar.isDate(day, equalTo: displayedMonth, toGranularity: .month) {
-            displayedMonth = day
-        }
-        selectedDate = day
+        let month = CalendarMonth.containing(normalized)
+        if month != visibleMonth { visibleMonth = month }
+        // selectedDate를 먼저 정하는 게 중요하다 — visibleWeekStart의 onChange가
+        // 이 값을 기준으로 요일을 유지하므로, 순서가 바뀌면 엉뚱한 날로 튄다.
+        selectedDate = normalized
+        visibleWeekStart = WeekWindow.normalized(normalized)
         tutorialManager.userDidSelectDate()
     }
 
     private func collapse() {
+        if let origin = monthBeforeSelection { visibleMonth = origin }
+        monthBeforeSelection = nil
         selectedDate = nil
     }
 
-    /// 압축된 주간 스트립을 좌우로 밀어 주 단위로 이동. 달이 바뀌면 표시 중인
-    /// 달도 같이 옮겨야 전체 달력으로 돌아갔을 때 엉뚱한 달이 보이지 않는다.
-    private func shiftSelectedDate(by delta: Int) {
-        guard let current = selectedDate,
-              let next = calendar.date(byAdding: .day, value: delta, to: current)
-        else { return }
-        selectedDate = next
-        if !calendar.isDate(next, equalTo: displayedMonth, toGranularity: .month) {
-            displayedMonth = next
+    private func goToToday() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            // "오늘"은 들어온 자리와 무관하게 오늘로 가는 버튼이라, 기억해둔 달을
+            // 되돌리면 안 된다 — 지우고 간다.
+            monthBeforeSelection = nil
+            visibleMonth = .containing(Date())
+            visibleWeekStart = WeekWindow.normalized(Date())
+            selectedDate = nil
         }
+    }
+
+    // MARK: - 헤더
+
+    private var topChrome: some View {
+        VStack(spacing: 0) {
+            monthHeader
+                .padding(.horizontal, Metrics.spacingMD)
+                .padding(.top, Metrics.spacingSM)
+
+            weekdayHeader
+                .padding(.horizontal, Metrics.spacingSM)
+                .padding(.top, Metrics.spacingLG)
+                .padding(.bottom, Metrics.spacingSM)
+        }
+        .background(
+            GeometryReader { headerProxy in
+                Color.clear
+                    .onAppear { topChromeHeight = headerProxy.size.height }
+                    .onChange(of: headerProxy.size.height) { _, newValue in
+                        topChromeHeight = newValue
+                    }
+            }
+        )
     }
 
     private var monthHeader: some View {
@@ -365,30 +199,34 @@ struct CalendarScreen: View {
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 // 자릿수가 1→2로 바뀌어도(9월→10월) 폭이 툭 끊기지 않고 스르륵
                 // 늘어나도록 SwiftUI의 숫자 전용 콘텐츠 트랜지션을 쓴다.
-                Text("\(calendar.component(.month, from: displayedMonth))")
+                Text("\(visibleMonth.month)")
                     .font(.system(size: 38, weight: .bold).monospacedDigit())
-                    .contentTransition(.numericText(value: Double(calendar.component(.month, from: displayedMonth))))
+                    .contentTransition(.numericText(value: Double(visibleMonth.month)))
 
                 Text("월")
                     .font(.moscoTitle())
                     .foregroundStyle(MoscoPalette.textSecondary)
 
                 // 올해가 아닌 달을 보고 있을 때만 연도를 붙인다.
-                if !calendar.isDate(displayedMonth, equalTo: Date(), toGranularity: .year) {
-                    Text(verbatim: "\(calendar.component(.year, from: displayedMonth))년")
+                if visibleMonth.year != calendar.component(.year, from: Date()) {
+                    Text(verbatim: "\(visibleMonth.year)년")
                         .font(.moscoCaption())
                         .foregroundStyle(MoscoPalette.textSecondary)
                         .transition(.opacity)
                 }
             }
             .foregroundStyle(MoscoPalette.textPrimary)
-            // 0.3초 easeInOut은 스와이프 속도에 비해 굼떠서 숫자가 뒤늦게 따라오는
-            // 느낌을 준다. 페이지 스냅(response 0.28)보다 살짝 빠른 스프링으로
-            // 맞춰서, 손을 떼면 숫자가 먼저 도착해 있는 것처럼 보이게 한다.
-            .animation(.spring(response: 0.25, dampingFraction: 0.9), value: displayedMonth)
+            .animation(.spring(response: 0.25, dampingFraction: 0.9), value: visibleMonth)
+
+            // 날짜를 고른 상태에선 감춘다 — 뒤로가기 화살표와 D-day 배지가 같은
+            // 줄을 쓰는데 칩까지 넣으면 "오늘" 버튼이 두 줄로 깨진다. 그 상태에선
+            // 하루에 집중하는 중이고, 한 번 나가면 다시 보인다.
+            if selectedDate == nil {
+                calendarChip
+                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
+            }
 
             // 날짜를 골라 리스트로 들어와 있으면, 오늘 기준 며칠인지 배지로 보여준다.
-            // 월 숫자 바로 옆(spacing 4) 대신 별도 여백을 둬서 눌려 붙어 보이지 않게 한다.
             if let selectedDate {
                 Text(dDayLabel(for: selectedDate))
                     .font(.moscoCaption().weight(.semibold))
@@ -402,9 +240,85 @@ struct CalendarScreen: View {
 
             Spacer()
 
+            HelpButton(title: "달력", topics: HelpContent.calendar)
             settingsButton
             todayButton
         }
+    }
+
+    /// 어떤 캘린더를 볼지 고르는 칩. 하나만 고르는 게 아니라 **체크로 켜고 끈다** —
+    /// 그래서 "통합"이라는 별도 항목이 없다. 전부 켜져 있으면 그게 곧 전체 보기다.
+    private var calendarChip: some View {
+        Menu {
+            ForEach(calendars) { calendar in
+                Button {
+                    toggleVisibility(of: calendar)
+                } label: {
+                    Label(
+                        calendar.name,
+                        systemImage: CalendarSelection.isVisible(calendar, hidden: hiddenIDs)
+                            ? "checkmark.circle.fill"
+                            : "circle"
+                    )
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(chipColor)
+                    .frame(width: 7, height: 7)
+                Text(chipLabel)
+                    .font(.moscoCaption().weight(.semibold))
+                    .foregroundStyle(MoscoPalette.textPrimary)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(MoscoPalette.textSecondary)
+            }
+            .padding(.horizontal, 10)
+            // 라벨 글자가 "전체"/"기본"/"2개"로 바뀌면 폭도 같이 변한다. 그 변화가
+            // 애니메이션으로 흐르면 유리 배경이 따라오지 못해 한 프레임 사각형으로
+            // 보였다가 캡슐로 돌아온다 — 폭에 하한을 줘서 흔들림 자체를 줄인다.
+            .frame(minWidth: 52, minHeight: 28)
+        }
+        .moscoGlass(in: Capsule())
+        // 유리가 한 프레임 네모로 그려지더라도 여기서 잘려 캡슐 밖으로 안 나온다.
+        .clipShape(Capsule())
+        // 선택이 바뀌는 순간의 크기 변화는 애니메이션 없이 즉시 반영한다.
+        .animation(nil, value: chipLabel)
+    }
+
+    private var hiddenIDs: Set<String> {
+        CalendarSelection.hidden(from: hiddenCalendarIDs)
+    }
+
+    private var visibleCalendars: [TodoCalendar] {
+        CalendarSelection.visible(calendars, hidden: hiddenIDs)
+    }
+
+    /// 하나만 켜져 있으면 그 이름을, 전부면 "전체", 그 사이면 개수를 보여준다.
+    private var chipLabel: String {
+        if visibleCalendars.count == calendars.count { return "전체" }
+        if let only = visibleCalendars.first, visibleCalendars.count == 1 { return only.name }
+        return "\(visibleCalendars.count)개"
+    }
+
+    private var chipColor: Color {
+        guard visibleCalendars.count == 1, let only = visibleCalendars.first else {
+            return MoscoPalette.textSecondary.opacity(0.5)
+        }
+        return CategoryColorPalette.color(forHex: only.colorHex)
+    }
+
+    private func toggleVisibility(of calendar: TodoCalendar) {
+        var hidden = hiddenIDs
+        let key = calendar.id.uuidString
+        if hidden.contains(key) {
+            hidden.remove(key)
+        } else {
+            hidden.insert(key)
+        }
+        hiddenCalendarIDs = CalendarSelection.raw(from: hidden)
     }
 
     private var settingsButton: some View {
@@ -458,13 +372,6 @@ struct CalendarScreen: View {
                     .foregroundStyle(MoscoPalette.textSecondary)
                     .frame(maxWidth: .infinity)
             }
-        }
-    }
-
-    private func goToToday() {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            displayedMonth = Date()
-            selectedDate = nil
         }
     }
 

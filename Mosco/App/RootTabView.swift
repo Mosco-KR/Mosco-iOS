@@ -11,6 +11,15 @@ struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Query private var categories: [TodoCategory]
+    @Query private var calendars: [TodoCalendar]
+    /// 시드는 앱 실행당 한 번만. `onAppear`은 여러 번 불릴 수 있다.
+    @State private var didSeed = false
+    /// 앱을 켜면 달력부터 — 할 일과 메모는 거기서 한 번씩 옆으로 가면 된다.
+    @State private var selectedTab: Tab = .calendar
+
+    private enum Tab: Hashable {
+        case todo, calendar, upcoming
+    }
     /// 알림 재예약의 입력 — 할 일이나 카테고리 설정이 바뀌면 이 배열도 바뀌므로,
     /// 이걸 지켜보다가 통째로 다시 계산한다.
     @Query private var todos: [TodoItem]
@@ -38,16 +47,104 @@ struct RootTabView: View {
         .joined(separator: ";")
     }
 
+    /// 기본 카테고리·캘린더를 보장하고, 아직 어느 캘린더에도 안 들어간 할 일을
+    /// 기본 캘린더로 옮긴다.
+    ///
+    /// **`@Query` 배열이 아니라 `modelContext`에서 직접 조회하는 게 핵심이다.**
+    /// 예전엔 `calendars.isEmpty`로 판단했는데, `onAppear`이 쿼리 결과가 갱신되기
+    /// 전에 한 번 더 돌면 방금 넣은 걸 못 보고 또 넣었다 — 앱을 지웠다 다시 깔면
+    /// "기본" 캘린더가 두 개가 되던 원인이다. 컨텍스트 조회는 아직 저장 안 된
+    /// 삽입까지 함께 보여주므로 이 창이 없다.
+    private func seedIfNeeded() {
+        guard !didSeed else { return }
+        didSeed = true
+
+        let existingCategories = (try? modelContext.fetch(FetchDescriptor<TodoCategory>())) ?? []
+        if existingCategories.isEmpty {
+            modelContext.insert(
+                TodoCategory(name: "할 일", colorHex: Self.defaultCategoryColorHex, sortOrder: 0, isDefault: true)
+            )
+        }
+
+        let existingCalendars = (try? modelContext.fetch(FetchDescriptor<TodoCalendar>())) ?? []
+        let fallback = existingCalendars.min { $0.createdAt < $1.createdAt } ?? {
+            let created = TodoCalendar(
+                name: "기본",
+                colorHex: Self.defaultCategoryColorHex,
+                sortOrder: 0,
+                isDefault: true
+            )
+            modelContext.insert(created)
+            return created
+        }()
+        fallback.isDefault = true
+
+        // 캘린더 기능이 생기기 전에 만든 할 일은 `calendar`가 nil이라, 특정 캘린더를
+        // 끄는 순간 통째로 사라진 것처럼 보인다. 소속을 지정하는 UI가 따로 없으므로
+        // nil은 항상 "아직 배정 안 됨"이지 "일부러 비워둠"이 아니다.
+        let allTodos = (try? modelContext.fetch(FetchDescriptor<TodoItem>())) ?? []
+        for todo in allTodos where todo.calendar == nil {
+            todo.calendar = fallback
+        }
+    }
+
+    /// 기본 캘린더·기본 카테고리는 각각 하나만 있어야 한다. 둘 이상이면 가장
+    /// 먼저 만들어진 것만 남기고 나머지의 소속 항목을 옮긴 뒤 지운다.
+    ///
+    /// 정렬 기준에 `id`까지 넣는 건 **여러 기기가 같은 결론에 도달하게** 하려는
+    /// 것이다. `createdAt`만 보면 기기 시계가 다를 때 서로 상대를 지워버릴 수 있다.
+    private func mergeDuplicateDefaults() {
+        let duplicateCalendars = calendars
+            .filter(\.isDefault)
+            .sorted { stableOrder(($0.createdAt, $0.id), ($1.createdAt, $1.id)) }
+        if duplicateCalendars.count > 1, let keeper = duplicateCalendars.first {
+            for duplicate in duplicateCalendars.dropFirst() {
+                // `TodoCalendar.delete`는 기본 캘린더를 지키려고 isDefault면 아무것도
+                // 안 한다 — 지울 쪽의 기본 표시를 먼저 내려야 그 안전장치를 통과한다.
+                duplicate.isDefault = false
+                TodoCalendar.delete(duplicate, reassigningTodosTo: keeper, in: modelContext)
+            }
+        }
+
+        let duplicateCategories = categories
+            .filter(\.isDefault)
+            .sorted { stableOrder(($0.createdAt, $0.id), ($1.createdAt, $1.id)) }
+        if duplicateCategories.count > 1, let keeper = duplicateCategories.first {
+            for duplicate in duplicateCategories.dropFirst() {
+                duplicate.isDefault = false
+                TodoCategory.delete(duplicate, reassigningTodosTo: keeper, in: modelContext)
+            }
+        }
+    }
+
+    private func stableOrder(_ lhs: (Date, UUID), _ rhs: (Date, UUID)) -> Bool {
+        if lhs.0 != rhs.0 { return lhs.0 < rhs.0 }
+        return lhs.1.uuidString < rhs.1.uuidString
+    }
+
     var body: some View {
         // .environment()를 overlay 뒤에 체이닝하는 대신, ZStack 전체를 감싼
         // 가장 바깥 수식자로 둔다 — TabView + 오버레이 양쪽 다 확실히 그 아래
         // 자손이 되게 해서, 환경 전파 순서를 둘러싼 애매함을 없앤다.
         ZStack {
-            TabView {
-                CalendarScreen()
-                    .tabItem { Label("캘린더", systemImage: "calendar") }
+            // 라벨 텍스트 없이 아이콘만 — `Label` 대신 `Image`를 주면 시스템이
+            // 아이콘 전용 탭으로 그린다. 접근성 이름은 `accessibilityLabel`로 남긴다
+            // (텍스트를 지운다고 VoiceOver 사용자까지 못 읽게 하면 안 된다).
+            TabView(selection: $selectedTab) {
                 TodayTodoScreen()
-                    .tabItem { Label("오늘 할 일", systemImage: "list.bullet") }
+                    .tabItem { Image(systemName: "list.bullet") }
+                    .accessibilityLabel("할 일")
+                    .tag(Tab.todo)
+
+                CalendarScreen()
+                    .tabItem { Image(systemName: "calendar") }
+                    .accessibilityLabel("달력")
+                    .tag(Tab.calendar)
+
+                UpcomingScreen()
+                    .tabItem { Image(systemName: "calendar.badge.clock") }
+                    .accessibilityLabel("다가오는")
+                    .tag(Tab.upcoming)
             }
             // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다 — 앱 테마(바이올렛)가
             // 선택된 탭 색상에도 이어지도록 지정.
@@ -75,9 +172,13 @@ struct RootTabView: View {
                 weatherStore.retry()
             }
         }
-        .onAppear {
-            guard categories.isEmpty else { return }
-            modelContext.insert(TodoCategory(name: "할 일", colorHex: Self.defaultCategoryColorHex, sortOrder: 0, isDefault: true))
-        }
+        .onAppear(perform: seedIfNeeded)
+        // 중복 정리는 **켤 때 한 번이 아니라 목록이 바뀔 때마다** 돌아야 한다.
+        // iCloud를 켠 뒤로는 이런 순서가 실제로 벌어진다: 앱을 새로 깔면 로컬이
+        // 비어 있으니 기본 캘린더·카테고리를 즉시 만드는데, 그 **뒤에** 클라우드에서
+        // 예전 기본값이 내려온다 — 그래서 "기본"이 둘, "할 일"이 둘이 된다.
+        // 실행 시점에 한 번만 보면 그 도착을 못 본다.
+        .onChange(of: calendars, initial: true) { _, _ in mergeDuplicateDefaults() }
+        .onChange(of: categories, initial: true) { _, _ in mergeDuplicateDefaults() }
     }
 }

@@ -44,7 +44,9 @@ extension Date {
     /// 하루 단위로 안정적인 딕셔너리 키(같은 날이면 항상 같은 문자열) — 그리드 셀
     /// 프레임을 좌표 공간에서 조회할 때, 고스트 이동 애니메이션의 출발/도착 지점을
     /// 찾는 용도로 쓴다.
-    var dayKey: String {
+    /// 캘린더 스냅샷 계산이 메인 스레드 밖에서 이 값을 쓴다 — 순수 계산이라
+    /// 액터에 묶일 이유가 없다(프로젝트 기본 격리가 MainActor라 명시해야 한다).
+    nonisolated var dayKey: String {
         String(Int(Calendar.current.startOfDay(for: self).timeIntervalSince1970))
     }
 }
