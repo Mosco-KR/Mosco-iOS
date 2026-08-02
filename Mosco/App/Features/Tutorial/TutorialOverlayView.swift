@@ -99,10 +99,6 @@ struct TutorialOverlayView: View {
             .offset(x: x, y: y)
             .contentShape(Rectangle())
             // 흡수만 하고 아무 일도 안 한다 — "여긴 지금 누를 곳이 아니다".
-            .onTapGesture {
-                // 안내 단계는 읽고 아무 데나 누르면 넘어간다.
-                manager.userDidAcknowledgeHint()
-            }
             // 손가락을 끄는 단계에서는 아예 터치를 안 받는다. 이 뷰가 살아 있으면
             // 탭뿐 아니라 드래그도 함께 먹어서, 정작 밀어야 할 대상이 안 밀린다.
             .allowsHitTesting(manager.step.blocksInteraction)
@@ -167,8 +163,11 @@ struct TutorialOverlayView: View {
             // 잡으면 되므로 정확할 필요는 없다.
             let cardHeight: CGFloat = 96
 
-            let below = min(hole.maxY + 20, height - bottomBand - cardHeight)
-            let above = min(height - hole.minY + 20, height - topBand - cardHeight)
+            // 가리키는 화살표는 구멍 **위**에 그려진다. 카드를 평소 간격으로
+            // 붙이면 그 화살표가 카드 뒤에 깔려 아예 안 보인다.
+            let gap: CGFloat = manager.step.gesture == .pointAt ? 58 : 20
+            let below = min(hole.maxY + gap, height - bottomBand - cardHeight)
+            let above = min(height - hole.minY + gap, height - topBand - cardHeight)
 
             VStack(spacing: 0) {
                 if !placeAbove { Spacer().frame(height: max(topBand, below)) }
@@ -178,7 +177,9 @@ struct TutorialOverlayView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: placeAbove ? .bottom : .top)
         }
         .ignoresSafeArea()
-        .allowsHitTesting(false)
+        // 평소엔 카드가 터치를 통과시켜야 조명한 자리가 눌린다. 안내 단계만
+        // 예외로, 그 단계를 끝내는 '다음' 버튼이 이 카드 안에 있다.
+        .allowsHitTesting(manager.step.isHint)
     }
 
     private var instructionBody: some View {
@@ -197,6 +198,19 @@ struct TutorialOverlayView: View {
                 Text(detail)
                     .font(.moscoCaption())
                     .foregroundStyle(.white.opacity(0.7))
+            }
+
+            // 해볼 것 없이 알려주기만 하는 단계는 끝을 사용자가 정해야 한다.
+            // 예전엔 "아무 데나 누르면 넘어가요"라고 적어뒀는데, 지나가는 탭에
+            // 단계가 넘어가는 것도, 그걸 문구로 설명해야 하는 것도 어색했다.
+            if manager.step.isHint {
+                Button("다음", action: manager.advance)
+                    .font(.moscoCaption().weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 8)
+                    .background(MoscoPalette.accent, in: Capsule())
+                    .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -223,15 +237,15 @@ struct TutorialOverlayView: View {
         case .selectDate:
             ("날짜를 눌러보세요", nil)
         case .writeWithTime:
-            ("\"오후 3시 회의\"라고 적어보세요", "다 적으면 위에 시간 칩이 떠요")
+            ("\"오후 3시 회의\"라고 적어보세요", "다 적고, 위에 뜨는 \"오후 3시\" 칩을 눌러주세요")
         case .categoryHint:
-            ("카테고리는 자동으로 정해져요", "제목을 보고 골라줘요. 직접 고르려면 이 버튼을 눌러요.\n아무 데나 누르면 넘어가요.")
+            ("카테고리는 자동으로 정해져요", "제목을 보고 골라줘요. 직접 고르려면 이 버튼을 눌러요.")
         case .sendTodo:
             ("전송 버튼을 눌러보세요", nil)
         case .completeTodo:
             ("동그라미를 눌러 완료해보세요", nil)
         case .longPressTodo:
-            ("할 일을 꾹 눌러보세요", "메모·디데이처럼 화면에 안 보이는 기능이 여기 있어요")
+            ("할 일을 꾹 눌러 \"디데이로 표시\"를 골라보세요", "메모·캘린더 옮기기도 이 메뉴에 있어요")
         case .deleteTodo:
             ("메뉴를 닫고, 왼쪽으로 밀어 지워보세요", nil)
         case .swipeWeek:
@@ -254,7 +268,7 @@ struct TutorialOverlayView: View {
             (
                 "hand.wave.fill",
                 "Mosco에 오신 걸 환영해요",
-                "밝게 표시된 곳을 따라 누르면 돼요.",
+                "기본 기능을 직접 해보는 짧은 안내를 시작할게요.\n밝게 표시된 곳만 누르면 돼요.",
                 "시작하기"
             )
         }

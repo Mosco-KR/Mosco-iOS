@@ -80,7 +80,7 @@ final class TutorialManager {
             switch self {
             // 카테고리 단계는 버튼을 누르면 그 위로 목록 팝업이 뜬다 — 팝업까지
             // 밝히더라도 차단이 걸려 있으면 그 안의 항목이 안 눌려 진행이 막힌다.
-            case .swipeWeek, .deleteTodo, .writeWithTime: false
+            case .swipeWeek, .deleteTodo, .longPressTodo, .writeWithTime: false
             default: true
             }
         }
@@ -158,7 +158,7 @@ final class TutorialManager {
         advance()
     }
 
-    /// 안내 단계는 아무 데나 누르면 넘어간다.
+    /// 안내 단계의 '다음' 버튼.
     func userDidAcknowledgeHint() {
         guard isActive, step.isHint else { return }
         advance()
@@ -168,10 +168,13 @@ final class TutorialManager {
         advanceIfWaiting(for: .completeTodo)
     }
 
-    /// 셀을 꾹 눌러 메뉴가 열렸을 때. 메모·디데이·캘린더 옮기기처럼 화면에
-    /// 버튼으로 나와 있지 않은 기능이 전부 여기 있는데, 한 번 열어보지 않으면
-    /// 있는 줄을 모른다.
-    func userDidLongPressTodo() {
+    /// 꾹 눌러 연 메뉴에서 디데이를 켰을 때.
+    ///
+    /// "메뉴가 열렸는가"가 아니라 **결과**를 본다. contextMenu는 열렸다는 걸
+    /// 알려주지 않아서 길게 누르기를 따로 듣게 했었는데, 그 제스처가 메뉴를
+    /// 여는 UIKit 인터랙션과 부딪혀 메뉴 자체가 안 열렸다. 모델이 바뀌는 걸
+    /// 보면 부딪힐 것이 없고, 별이 붙는 눈에 보이는 결과로 단계가 끝난다.
+    func userDidMarkDDay() {
         advanceIfWaiting(for: .longPressTodo)
     }
 
