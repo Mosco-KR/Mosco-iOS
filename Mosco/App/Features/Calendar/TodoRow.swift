@@ -90,23 +90,20 @@ struct TodoRow: View {
         .padding(.horizontal, 14)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
-        // 카테고리 색은 체크박스 자체가 이미 나타내니, 카드 배경은 아주 옅은
-        // 톤만 얹어서 유리 위에 은은하게 비치는 정도로만 — 색이 "칠해진"
-        // 느낌이 아니라 "비치는" 느낌이 되게 한다.
-        .background(accentColor.opacity(isDone ? 0.02 : 0.06))
-        .moscoGlass(in: shape)
+        // 완료된 항목은 내용만 흐려진다. 배경보다 뒤에 놓아서 카드 자체는
+        // 불투명하게 남는다 — 카드까지 반투명해지면 뒤가 비쳐 얼룩져 보인다.
+        .opacity(isDone ? 0.55 : 1)
+        // **여기엔 리퀴드 글래스를 쓰지 않는다.** 유리는 매 프레임 뒤 배경을
+        // 다시 읽어 흐리는 작업이라, 화면에 N개가 깔리는 리스트 셀에 붙이면
+        // 그 비용이 셀 수만큼 늘어난다(달력 막대에서 이미 같은 이유로 걷어냈다).
+        // 유리는 화면 위에 떠 있는 소수의 요소에만 쓴다 — GlassSurface 주석의 원칙.
+        //
+        // 대신 불투명한 표면 위에 카테고리 색을 아주 옅게 한 겹 얹는다. 색이
+        // "칠해진" 게 아니라 "비치는" 느낌은 그대로 남으면서, 그리는 비용은
+        // 단색 채우기 두 번이 전부다.
+        .background(accentColor.opacity(isDone ? 0.03 : 0.07), in: shape)
+        .background(MoscoPalette.surface, in: shape)
         .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.4), lineWidth: 0.5))
-        .clipShape(shape)
-        // 완료된 항목은 카드 전체를 눌러서 확실히 구분되게 — 다만 이미 반투명한
-        // 글래스 위에 opacity를 또 낮추면(이중 투명) 얼룩진 것처럼 보여서, 대신
-        // 불투명한 스크림을 얹어 톤만 죽인다. allowsHitTesting(false)가 없으면
-        // 이 스크림(반투명해도 실제 뷰라 터치를 가로챈다)이 체크박스를 덮어서,
-        // 완료 후엔 다시 눌러도 해제가 안 되는 버그가 있었다.
-        .overlay(
-            shape
-                .fill(MoscoPalette.canvas.opacity(isDone ? 0.5 : 0))
-                .allowsHitTesting(false)
-        )
         .shadow(color: .black.opacity(isDone ? 0.02 : 0.06), radius: 12, y: 5)
         .scaleEffect(isDone ? 0.985 : 1)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isDone)
