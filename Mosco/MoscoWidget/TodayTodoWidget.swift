@@ -122,7 +122,7 @@ struct TodayTodoWidgetView: View {
 
             if entry.todos.isEmpty {
                 Spacer()
-                Text("오늘 할 일이 없어요")
+                Text("오늘 할 일 없음")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)

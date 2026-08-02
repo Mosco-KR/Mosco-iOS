@@ -104,13 +104,13 @@ struct CategoryEditorSheet: View {
                     } header: {
                         Text("알림")
                     } footer: {
-                        Text("이 카테고리의 할 일 중 시작 시간이 있는 것만 알려드려요.")
+                        Text("시작 시간이 있는 할 일에만 알림이 와요.")
                     }
                 }
 
                 if existing?.isDefault == true {
                     Section {
-                        Text("기본 카테고리는 삭제할 수 없어요. 이름과 색은 자유롭게 바꿀 수 있어요.")
+                        Text("기본 카테고리는 삭제할 수 없어요. 이름과 색은 바꿀 수 있어요.")
                             .font(.moscoCaption())
                             .foregroundStyle(MoscoPalette.textSecondary)
                     }

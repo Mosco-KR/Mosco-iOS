@@ -263,7 +263,7 @@ struct SettingsScreen: View {
             ))
 
             if weatherStore.isEnabled, weatherStore.unavailableReason == .locationDenied {
-                Button("설정에서 위치 권한 허용하기") {
+                Button("설정에서 위치 허용하기") {
                     openSystemSettings()
                 }
             }
@@ -297,7 +297,7 @@ struct SettingsScreen: View {
         } header: {
             Text("가이드")
         } footer: {
-            Text("처음 봤던 안내를 다시 볼 수 있어요.")
+            Text("기본 기능 안내를 처음부터 다시 해볼 수 있어요.")
         }
     }
 
@@ -306,16 +306,16 @@ struct SettingsScreen: View {
     @ViewBuilder
     private var resetSection: some View {
         Section {
-            Button("모든 데이터 초기화", role: .destructive) {
+            Button("모든 데이터 삭제", role: .destructive) {
                 showsResetFirstConfirm = true
             }
         } header: {
             Text("데이터")
         } footer: {
-            Text("한 번 지우면 되돌릴 수 없어요.")
+            Text("한 번 삭제하면 되돌릴 수 없어요.")
         }
         .confirmationDialog(
-            "모든 데이터를 지울까요?",
+            "모든 데이터를 삭제할까요?",
             isPresented: $showsResetFirstConfirm,
             titleVisibility: .visible
         ) {
@@ -325,14 +325,14 @@ struct SettingsScreen: View {
             Text("할 일, 카테고리, 캘린더가 모두 사라져요.")
         }
         .confirmationDialog(
-            "정말 지울까요? 되돌릴 수 없어요",
+            "정말 삭제할까요?",
             isPresented: $showsResetSecondConfirm,
             titleVisibility: .visible
         ) {
-            Button("전부 지우기", role: .destructive) { resetAllData() }
+            Button("전부 삭제", role: .destructive) { resetAllData() }
             Button("취소", role: .cancel) {}
         } message: {
-            Text("동기화를 쓰고 있다면 다른 기기에서도 함께 사라져요.")
+            Text("되돌릴 수 없어요. 동기화 중이라면 다른 기기에서도 사라져요.")
         }
     }
 

@@ -71,7 +71,7 @@ struct EventScheduleSheet: View {
                 Section {
                     Toggle("날짜 설정", isOn: $hasDate.animation())
                 } footer: {
-                    Text(hasDate ? "" : "날짜 없이 \"할 일\" 탭에만 담아둘 수 있어요.")
+                    Text(hasDate ? "" : "날짜를 정하지 않으면 '언젠가 할 일'에 담겨요.")
                 }
 
                 if hasDate {
@@ -93,9 +93,9 @@ struct EventScheduleSheet: View {
                         }
                     } footer: {
                         if repeatRule != .none {
-                            Text(isAllDay ? "반복 일정은 반복 규칙에 맞는 날마다 종일로 생겨요." : "반복 일정은 반복 규칙에 맞는 날마다 이 시간에 생겨요.")
+                            Text(isAllDay ? "정한 규칙에 맞는 날마다 종일로 생겨요." : "정한 규칙에 맞는 날마다 이 시간에 생겨요.")
                         } else {
-                            Text("종료를 끄면 하루짜리 할 일이에요.")
+                            Text("종료를 끄면 하루짜리가 돼요.")
                         }
                     }
 
@@ -128,7 +128,7 @@ struct EventScheduleSheet: View {
                     }
                 }
             }
-            .navigationTitle("일정 설정")
+            .navigationTitle("날짜와 시간")
             .navigationBarTitleDisplayMode(.inline)
             // 시스템 로케일과 무관하게 날짜 피커가 항상 한국어("2026. 7. 30.")로
             // 나오게 하고, 종일을 껐다 켤 때 시간 부분이 딱딱 튀지 않게 같은

@@ -174,14 +174,14 @@ struct TodoRow: View {
         // 반복 일정은 하나를 지우면 모든 날짜의 인스턴스가 같이 사라지므로,
         // 확인 문구에서 그걸 먼저 알려준다. 한 번짜리는 확인 없이 바로 지운다.
         .confirmationDialog(
-            "반복 일정 전체를 삭제할까요?",
+            "모든 반복을 삭제할까요?",
             isPresented: $showsDeleteConfirmation,
             titleVisibility: .visible
         ) {
             Button("삭제", role: .destructive) { onDelete?() }
             Button("취소", role: .cancel) {}
         } message: {
-            Text("이 일정은 반복 일정이라 모든 날짜에서 함께 삭제돼요.")
+            Text("이 할 일은 반복돼요. 하루만 골라 삭제할 수는 없어요.")
         }
     }
 

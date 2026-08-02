@@ -184,7 +184,7 @@ struct TodayTodoScreen: View {
                 }
 
                 if !fixedTodos.isEmpty {
-                    section("시간이 정해진 할 일", subtitle: "시작 시각이 정해져 있어요", items: fixedTodos)
+                    section("시간이 정해진 할 일", subtitle: "시작 시간이 정해져 있어요", items: fixedTodos)
                 }
 
                 if !unplannedTodos.isEmpty {
@@ -220,7 +220,7 @@ struct TodayTodoScreen: View {
         ContentUnavailableView(
             "오늘은 비어 있어요",
             systemImage: "checkmark.circle",
-            description: Text("아래에 적으면 바로 오늘 할 일이 돼요")
+            description: Text("아래에 적으면 오늘 할 일이 돼요")
         )
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
@@ -232,7 +232,7 @@ struct TodayTodoScreen: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(MoscoPalette.must)
             VStack(alignment: .leading, spacing: 2) {
-                Text("할 일이 \(incompleteToday.count)개예요")
+                Text("하루에 하기엔 많아 보여요")
                     .font(.moscoCaption().weight(.semibold))
                     .foregroundStyle(MoscoPalette.textPrimary)
                 Text("몇 개는 다른 날로 옮길 수 있어요.")
@@ -280,7 +280,7 @@ struct TodayTodoScreen: View {
             .onMove { move(unplannedTodos, from: $0, to: $1) }
             .onDelete { delete(unplannedTodos, at: $0) }
         } header: {
-            plainHeader("시간을 안 정한 할 일", subtitle: "시간대를 고르면 아래로 옮겨져요", count: unplannedTodos.count)
+            plainHeader("시간을 안 정한 할 일", subtitle: "고르면 그 시간대 칸으로 옮겨져요", count: unplannedTodos.count)
         }
     }
 

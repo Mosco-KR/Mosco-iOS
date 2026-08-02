@@ -160,7 +160,7 @@ struct UpcomingScreen: View {
             // 큰 제목을 쓴다. 인라인 제목은 높이만 가져가고 사라지지도 않아서
             // 예전엔 아예 뺐는데, 그러니 위쪽이 휑하게 비었다. 큰 제목은 가만히
             // 있을 때 그 자리를 채우고 스크롤하면 접혀 없어진다.
-            .navigationTitle("다가오는")
+            .navigationTitle("앞으로 2주")
             .navigationBarTitleDisplayMode(.large)
             // 검색창은 처음부터 자리를 차지하지 않는다. 이 화면에 오는 이유는
             // 대개 "앞으로 뭐 있지"를 보려는 것이지 찾으려는 게 아니다.
@@ -213,7 +213,7 @@ struct UpcomingScreen: View {
                     row(todo, on: todo.date.map { calendar.startOfDay(for: $0) })
                 }
             } header: {
-                Text("찾은 할 일 \(searchResults.count)개")
+                Text("검색 결과 \(searchResults.count)개")
                     .font(.moscoCaption())
                     .foregroundStyle(MoscoPalette.textSecondary)
             }

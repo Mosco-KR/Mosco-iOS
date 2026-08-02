@@ -72,7 +72,7 @@ struct QuickAddView: View {
 
             dateButton
 
-            TextField("무엇을 하실 건가요?", text: $title, axis: .vertical)
+            TextField("할 일을 적어보세요", text: $title, axis: .vertical)
                 .font(.moscoBody())
                 .lineLimit(1...4)
                 .focused($isTitleFocused)

@@ -56,12 +56,12 @@ struct CalendarEditorSheet: View {
                 } header: {
                     Text("색상")
                 } footer: {
-                    Text("캘린더 색은 상단 선택기에서 구분용으로만 써요. 달력에 그려지는 할 일 막대 색은 카테고리 색을 따라가요.")
+                    Text("이 색은 위쪽 선택기에서만 써요. 달력의 할 일 막대는 카테고리 색을 따라가요.")
                 }
 
                 if existing?.isDefault == true {
                     Section {
-                        Text("기본 캘린더는 삭제할 수 없어요. 이름과 색은 자유롭게 바꿀 수 있어요.")
+                        Text("기본 캘린더는 삭제할 수 없어요. 이름과 색은 바꿀 수 있어요.")
                             .font(.moscoCaption())
                             .foregroundStyle(MoscoPalette.textSecondary)
                     }

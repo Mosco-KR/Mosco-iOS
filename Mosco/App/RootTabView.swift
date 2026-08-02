@@ -143,7 +143,7 @@ struct RootTabView: View {
 
                 UpcomingScreen()
                     .tabItem { Image(systemName: "calendar.badge.clock") }
-                    .accessibilityLabel("다가오는 일정")
+                    .accessibilityLabel("앞으로 2주")
                     .tag(Tab.upcoming)
             }
             // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다 — 앱 테마(바이올렛)가
