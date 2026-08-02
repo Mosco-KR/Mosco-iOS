@@ -51,17 +51,19 @@ struct TodoRow: View {
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // 이 줄에는 규칙이 있다. **이름이 있는 것은 글자 칩**(카테고리·
-                // 캘린더·시각)이고, **켜고 끄는 표시는 아이콘**이다(반복·디데이).
-                // 아이콘 쪽은 카테고리 색을 따라가 이 행이 한 가지 색으로 읽힌다.
+                // **한 행에서 카테고리 색이 쓰이는 자리는 체크 동그라미 하나뿐이다.**
+                // 왼쪽 한 열에 모여 있어 목록을 훑을 때 색이 세로로 정렬돼 읽히고,
+                // 나머지는 전부 중립색이라 눈이 쉰다. 예전엔 칩·아이콘·메모 버튼까지
+                // 전부 색을 따라가서 한 행에 색이 여섯 군데씩 흩어졌다.
+                //
+                // 여기 칩들은 **무엇인지 이름으로 말한다** — 색까지 입힐 이유가 없다.
                 HStack(spacing: 6) {
                     CategoryTag(category: todo.category)
 
                     if showsCalendarTag, let calendar = todo.calendar {
-                        TagChip(
-                            label: calendar.name,
-                            tint: CategoryColorPalette.color(forHex: calendar.colorHex)
-                        )
+                        // 캘린더 색은 위쪽 선택기에서만 쓴다(설정 화면이 그렇게
+                        // 안내하고 있다). 여기서 또 칠하면 카테고리 색과 경쟁한다.
+                        TagChip(label: calendar.name, tint: MoscoPalette.textSecondary)
                     }
 
                     if let scheduleLabel {
@@ -75,7 +77,7 @@ struct TodoRow: View {
                     if todo.isDDay {
                         Image(systemName: "star.fill")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(accentColor)
+                            .foregroundStyle(MoscoPalette.textSecondary)
                     }
 
                     // 반복 일정은 한 번짜리와 겉모습이 같아서, 목록에서 이게
@@ -84,7 +86,7 @@ struct TodoRow: View {
                     if todo.repeatRule != .none {
                         Image(systemName: "repeat")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(accentColor)
+                            .foregroundStyle(MoscoPalette.textSecondary)
                     }
 
                     Spacer(minLength: 0)
@@ -192,18 +194,20 @@ struct TodoRow: View {
     /// 화면 안과 행 길게 누르기로 옮겼다 — 길게 누르기는 좌우 스와이프와 달리
     /// 날짜 넘기기 제스처와 충돌하지 않는다.
     ///
-    /// 메모가 있으면 아이콘이 카테고리 색으로 또렷해져서, 열어보지 않아도 메모
-    /// 유무가 구분된다.
+    /// 메모가 있으면 아이콘이 또렷해져서, 열어보지 않아도 유무가 구분된다.
+    /// 구분은 **색이 아니라 진하기**로 한다 — 메모가 있다는 건 그 할 일이 어느
+    /// 카테고리인지와 아무 상관이 없는데, 여기에 카테고리 색을 칠해두니 행마다
+    /// 오른쪽 끝에도 색이 하나씩 더 붙어 화면이 산만했다.
     private var detailButton: some View {
         Button {
             showsMemoEditor = true
         } label: {
             Image(systemName: hasMemo ? "note.text" : "square.and.pencil")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(hasMemo ? accentColor : MoscoPalette.textSecondary)
+                .foregroundStyle(MoscoPalette.textSecondary)
                 .frame(width: 28, height: 28)
                 .background(
-                    (hasMemo ? accentColor : MoscoPalette.textSecondary).opacity(hasMemo ? 0.16 : 0.07),
+                    MoscoPalette.textSecondary.opacity(hasMemo ? 0.14 : 0.07),
                     in: Circle()
                 )
                 .opacity(hasMemo ? 1 : 0.45)
