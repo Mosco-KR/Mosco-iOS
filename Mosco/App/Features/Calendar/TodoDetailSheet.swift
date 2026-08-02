@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 /// 할 일에 붙는 메모를 쓰는 화면. 어떤 할 일의 메모인지 알 수 있게 제목·카테고리·
 /// 일정 요약을 위에 두고, 나머지 세로를 전부 입력 영역에 준다.
@@ -16,10 +17,25 @@ struct TodoDetailSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var memo: String
+    /// 키보드가 화면 아래에서 덮는 높이. 안전영역 아래 여백은 빼둔다 — 그만큼은
+    /// 원래도 내용이 들어가지 않는 자리라 두 번 빼면 편집기가 필요 이상으로 짧아진다.
+    @State private var keyboardHeight: CGFloat = 0
 
     init(todo: TodoItem) {
         self.todo = todo
         _memo = State(initialValue: todo.memo ?? "")
+    }
+
+    private static func overlap(from note: Notification) -> CGFloat {
+        guard
+            let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+            let window = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .flatMap(\.windows)
+                .first(where: \.isKeyWindow)
+        else { return 0 }
+
+        return max(0, window.bounds.maxY - frame.minY - window.safeAreaInsets.bottom)
     }
 
     var body: some View {
@@ -58,12 +74,33 @@ struct TodoDetailSheet: View {
             }
             .padding(Metrics.spacingMD)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            // 키보드가 가리는 만큼 **입력 영역을 줄인다**.
+            //
+            // 기본 회피 동작은 화면을 통째로 밀어 올리는데, 그러면 그 안에서
+            // TextEditor가 커서를 따라 또 스크롤해서 두 움직임이 겹쳐 길게 쓸수록
+            // 화면이 출렁였다. 그렇다고 회피를 끄기만 하면(예전 코드) 편집기 아래쪽이
+            // 키보드에 덮여 커서가 키보드 뒤로 내려간다.
+            //
+            // 밀지 말고 줄이면 둘 다 없다. 바깥은 제자리에 있고, 편집기는 줄어든
+            // 영역 안에서 제 스크롤로 커서를 따라간다 — 움직이는 건 하나뿐이다.
+            .padding(.bottom, keyboardHeight)
             .background(MoscoPalette.canvas.opacity(0.5))
-            // 키보드가 뜨면 바깥 컨테이너가 안전영역을 줄여 화면을 밀어 올리고,
-            // 그 안에서 TextEditor가 커서를 따라 또 스크롤한다 — 두 움직임이
-            // 겹쳐서 길게 쓸수록 화면이 위아래로 출렁였다. 바깥은 가만히 두고
-            // 스크롤은 TextEditor 하나만 하게 한다.
             .ignoresSafeArea(.keyboard, edges: .bottom)
+            .animation(.easeOut(duration: 0.25), value: keyboardHeight)
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: UIResponder.keyboardWillChangeFrameNotification
+                )
+            ) { note in
+                keyboardHeight = Self.overlap(from: note)
+            }
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: UIResponder.keyboardWillHideNotification
+                )
+            ) { _ in
+                keyboardHeight = 0
+            }
             .navigationTitle("메모")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
