@@ -668,6 +668,15 @@ struct QuickAddView: View {
             todo.calendar = targetCalendar ?? calendars.first(where: \.isDefault)
             modelContext.insert(todo)
             tutorialManager.userDidAddTodo()
+            Analytics.log(
+                .todoCreated(
+                    source: "quick_add",
+                    hasTime: todo.startTime != nil,
+                    hasRepeat: todo.repeatRule != .none,
+                    isMultiDay: todo.isMultiDay,
+                    titleLength: trimmed.count
+                )
+            )
         }
 
         // 여기서 별도 학습/피드백 기록은 필요 없다 — 카테고리에 방금 이 제목이

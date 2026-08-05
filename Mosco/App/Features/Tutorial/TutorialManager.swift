@@ -97,17 +97,22 @@ final class TutorialManager {
 
     func advance() {
         guard let next = Step(rawValue: step.rawValue + 1) else {
+            Analytics.log(.tutorialFinished(completed: true))
             finish()
             return
         }
         withAnimation(.easeInOut(duration: 0.3)) {
             step = next
         }
+        // 어느 단계에서 사람들이 멈추는지 보려면 단계별 도달을 세야 한다.
+        Analytics.log(.tutorialStepShown(step: String(describing: next)))
     }
 
     /// 시작 카드에서만 내민다 — 도중에 빠져나갈 문이 계속 보이면 어려워서가
     /// 아니라 그냥 눈에 띄어서 누르게 된다.
     func skipAll() {
+        // 끝까지 간 것과 중간에 나간 것을 갈라야 튜토리얼이 어디서 버려지는지 보인다.
+        Analytics.log(.tutorialFinished(completed: false))
         finish()
     }
 

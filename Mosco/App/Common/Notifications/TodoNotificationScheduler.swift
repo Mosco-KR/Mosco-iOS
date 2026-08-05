@@ -57,6 +57,8 @@ final class TodoNotificationScheduler {
     func requestAuthorization() async -> Bool {
         let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
         await refreshAuthorizationStatus()
+        // 거부율이 높으면 권한을 묻는 시점 자체를 다시 봐야 한다.
+        Analytics.log(.notificationPermission(granted: granted))
         return granted
     }
 
