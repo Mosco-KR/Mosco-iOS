@@ -28,7 +28,7 @@ struct FirebaseAnalyticsSink: AnalyticsSink {
         }
         if !didConfigure {
             assertBundleIDMatches(plistAt: path)
-            enableDebugViewInDebugBuilds()
+            clearDebugModeInReleaseBuilds()
             FirebaseApp.configure()
             didConfigure = true
             logSetupState()
@@ -40,44 +40,43 @@ struct FirebaseAnalyticsSink: AnalyticsSink {
     /// 결국 켜는 것이 이 값이다.
     private static let debugModeKey = "/google/measurement_debug_mode"
 
-    /// 디버그 빌드는 DebugView 모드로, 릴리스 빌드는 **반드시 일반 모드로** 붙인다.
+    /// 릴리스 빌드에서 디버그 모드가 남아 있지 않게 지운다.
     ///
-    /// 디버그 쪽을 실행 인자 대신 코드로 켜는 건, 그 인자가 Xcode 스킴에 들어
-    /// 있어야 하는데 **Xcode가 켜진 동안 바뀐 스킴 파일은 읽히지 않기** 때문이다 —
-    /// 스킴을 고쳐놓고도 왜 안 되는지 한참 헤매게 되는 자리다.
+    /// 이 값은 `UserDefaults`에 **남는다.** 같은 기기에 디버그 빌드를 한 번
+    /// 올렸다가 릴리스 빌드로 덮으면 컨테이너를 공유하므로 켜진 상태가 이어지고,
+    /// 그 기기의 실사용 이벤트가 전부 디버그로 분류돼 **일반 리포트에서 통째로
+    /// 빠진다.** 조용히 그렇게 되므로 나중에 "왜 데이터가 적지"로만 나타난다.
     ///
-    /// 릴리스에서 굳이 `false`를 쓰는 게 이 함수의 핵심이다. 이 값은
-    /// `UserDefaults`에 **남는다.** 같은 기기에 디버그 빌드를 한 번 올렸다가
-    /// 릴리스 빌드를 덮어씌우면 컨테이너를 공유하므로 켜진 상태가 그대로
-    /// 이어지고, 그 기기에서 나가는 실사용 이벤트가 전부 디버그로 분류돼
-    /// **일반 리포트에서 통째로 빠진다.** 지우는 쪽을 안 쓰면 조용히 그렇게 된다.
-    ///
-    /// 공개 API가 아니라 Firebase가 그 인자를 처리하는 방식에 기대는 것이지만,
-    /// 릴리스에서 하는 일이 "끄기"뿐이라 위험이 없다.
-    private static func enableDebugViewInDebugBuilds() {
-        #if DEBUG
-        if !ProcessInfo.processInfo.arguments.contains("-FIRDebugEnabled") {
-            UserDefaults.standard.set(true, forKey: debugModeKey)
-        }
-        #else
+    /// 반대로 디버그 쪽을 여기서 켜지는 **않는다.** 이 키를 true로 써넣는 방법이
+    /// 한때 통했지만 지금 SDK에서는 먹지 않는다 — 실제로 켜보고 DebugView가
+    /// 끝까지 비어 있는 걸 확인했다. Firebase가 확실히 보는 건 실행 인자
+    /// `-FIRDebugEnabled` 하나뿐이라, 그건 스킴에서 줘야 한다.
+    private static func clearDebugModeInReleaseBuilds() {
+        #if !DEBUG
         UserDefaults.standard.set(false, forKey: debugModeKey)
         #endif
     }
 
     /// 설정이 실제로 어떤 상태인지 한 줄로 찍는다.
     ///
-    /// DebugView에 아무것도 안 뜰 때 원인이 늘 이 셋 중 하나인데(plist 번들 ID
-    /// 불일치 / `-FIRDebugEnabled` 누락 / plist 자체가 번들에 없음), 셋 다 조용히
-    /// 실패하거나 다른 로그에 파묻힌다. 추측하지 않아도 되게 직접 확인해서 남긴다.
+    /// **Firebase가 보는 것만 본다.** 예전엔 우리가 방금 써넣은 UserDefaults 키를
+    /// 도로 읽어서 "켜짐"이라고 찍었는데, 그건 우리가 뭘 시도했는지를 말할 뿐
+    /// Firebase가 그걸 받아들였는지는 말해주지 않는다 — DebugView가 비어 있는데
+    /// 로그만 "켜짐"이라 원인을 엉뚱한 데서 찾게 만들었다. 확실한 신호는 실행
+    /// 인자뿐이므로 그것만 보고, 없으면 무엇을 해야 하는지까지 적는다.
     private static func logSetupState() {
         #if DEBUG
-        let byArgument = ProcessInfo.processInfo.arguments.contains("-FIRDebugEnabled")
-        let byDefaults = UserDefaults.standard.bool(forKey: "/google/measurement_debug_mode")
         let bundleID = Bundle.main.bundleIdentifier ?? "?"
-        let mode = byArgument ? "켜짐(실행 인자)"
-            : byDefaults ? "켜짐(디버그 빌드 기본)"
-            : "꺼짐 → DebugView에 안 보입니다"
-        print("[Mosco][Analytics] Firebase 설정 완료 — 번들 ID: \(bundleID), DebugView 모드: \(mode)")
+        if ProcessInfo.processInfo.arguments.contains("-FIRDebugEnabled") {
+            print("[Mosco][Analytics] Firebase 설정 완료 — 번들 ID: \(bundleID), DebugView: 켜짐")
+        } else {
+            print("""
+            [Mosco][Analytics] Firebase 설정 완료 — 번들 ID: \(bundleID)
+            [Mosco][Analytics] DebugView: 꺼짐 — 실행 인자 -FIRDebugEnabled 가 없습니다.
+            [Mosco][Analytics] Xcode > Product > Scheme > Edit Scheme > Run > Arguments 에서
+            [Mosco][Analytics] 'Arguments Passed On Launch'에 -FIRDebugEnabled 를 추가하세요.
+            """)
+        }
         #endif
     }
 
