@@ -67,6 +67,11 @@ enum AnalyticsEvent {
     case categoryCreated(count: Int)
     case calendarCreated(count: Int)
     case dDaySet
+    /// 앱스토어 리뷰창을 띄워달라고 시스템에 요청했다. **실제로 떴는지는 알 수
+    /// 없다** — 시스템이 연 3회 한도 안에서 스스로 정하고 결과를 알려주지 않는다.
+    /// 그래서 이건 "리뷰를 받았다"가 아니라 "부탁할 조건이 얼마나 자주 차는가"를
+    /// 재는 값이다.
+    case reviewPromptRequested
     /// 캘린더를 껐다 켰다 — 여러 캘린더를 정말 나눠 쓰는지. 안 쓰면 이 층 자체가
     /// 사람들에게 없는 개념이라는 뜻이다.
     case calendarFilterChanged(visibleCount: Int, totalCount: Int)
@@ -109,6 +114,7 @@ enum AnalyticsEvent {
         case .categoryCreated: "category_created"
         case .calendarCreated: "calendar_created"
         case .dDaySet: "dday_set"
+        case .reviewPromptRequested: "review_prompt_requested"
         case .calendarFilterChanged: "calendar_filter_changed"
         case .notificationPermission: "notification_permission"
         case .dataScale: "data_scale"
@@ -161,6 +167,8 @@ enum AnalyticsEvent {
         case let .calendarCreated(count):
             ["total_count": String(count)]
         case .dDaySet:
+            [:]
+        case .reviewPromptRequested:
             [:]
         case let .calendarFilterChanged(visibleCount, totalCount):
             ["visible_count": String(visibleCount), "total_count": String(totalCount)]

@@ -167,6 +167,8 @@ struct RootTabView: View {
         .environment(weatherStore)
         .environment(notificationScheduler)
         .task {
+            // 처음 쓴 날을 기록해둔다 — 리뷰는 며칠 써본 뒤에만 부탁한다.
+            ReviewPrompt.registerLaunch()
             Analytics.log(.appOpened(isColdStart: true))
             // 사람들이 실제로 몇 건을 들고 쓰는지 모르면 성능 작업의 목표를
             // 정할 수 없다 — 지금까지 전부 추측이었다.

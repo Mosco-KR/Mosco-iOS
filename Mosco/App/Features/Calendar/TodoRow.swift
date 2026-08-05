@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import StoreKit
 
 struct TodoRow: View {
     @Bindable var todo: TodoItem
@@ -22,6 +23,8 @@ struct TodoRow: View {
     var isTutorialAnchor: Bool = false
 
     @Environment(TutorialManager.self) private var tutorialManager
+    /// 앱스토어 리뷰 요청. 시스템이 연 3회 한도 안에서 실제로 띄울지 정한다.
+    @Environment(\.requestReview) private var requestReview
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @State private var showsMemoEditor = false
     @State private var showsDeleteConfirmation = false
@@ -188,6 +191,21 @@ struct TodoRow: View {
         }
     }
 
+    /// 할 일을 끝낸 직후는 앱이 사용자에게 뭔가를 해준 순간이라, 리뷰를 부탁하기
+    /// 가장 좋은 자리다. 조건이 다 찼는지는 `ReviewPrompt`가 정한다.
+    ///
+    /// 바로 띄우지 않고 조금 기다리는 건 체크 애니메이션(스프링 0.35초) 위로
+    /// 시스템 시트가 덮치지 않게 하려는 것이다 — 방금 누른 결과를 눈으로 확인한
+    /// 다음에 물어야 부탁으로 읽힌다.
+    private func askForReviewIfEarned() {
+        guard ReviewPrompt.recordCompletionAndAsk() else { return }
+        Task {
+            try? await Task.sleep(for: .seconds(1.2))
+            requestReview()
+            Analytics.log(.reviewPromptRequested)
+        }
+    }
+
     private var hasMemo: Bool { todo.memo != nil }
 
     /// 누르면 곧바로 상세 화면(메모)을 연다. 예전엔 메뉴를 띄웠는데, 메모 아이콘을
@@ -232,13 +250,15 @@ struct TodoRow: View {
             }
             tutorialManager.userDidCompleteTodo()
             // isDone은 방금 뒤집기 **전** 값이라, 새 상태는 그 반대다.
+            let nowCompleted = !isDone
             Analytics.log(
                 .taskCompleted(
                     source: "app",
-                    completed: !isDone,
+                    completed: nowCompleted,
                     isRepeating: todo.repeatRule != .none
                 )
             )
+            if nowCompleted { askForReviewIfEarned() }
         } label: {
             ZStack {
                 Circle()
