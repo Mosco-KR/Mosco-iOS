@@ -36,9 +36,11 @@ struct DayCell: View {
     private var numberColor: Color {
         if isToday { return .white }
         if isSelected { return MoscoPalette.accent }
-        let base: Color = (weekendKind == .sunday || holidayName != nil) ? MoscoPalette.must
-            : weekendKind == .saturday ? MoscoPalette.could
-            : MoscoPalette.textPrimary
+        // 색 규칙 자체는 Shared에 있다 — 위젯 달력도 같은 판단을 써야 한다.
+        let base = CalendarDayTone(
+            isSaturday: weekendKind == .saturday,
+            isSundayOrHoliday: weekendKind == .sunday || holidayName != nil
+        ).color
         return isDimmed ? base.opacity(0.4) : base
     }
 

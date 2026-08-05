@@ -5,6 +5,7 @@ import WidgetKit
 struct MoscoWidgetBundle: WidgetBundle {
     var body: some Widget {
         TodayTodoWidget()
-        CalendarWidget()
+        WeekCalendarWidget()
+        MonthCalendarWidget()
     }
 }

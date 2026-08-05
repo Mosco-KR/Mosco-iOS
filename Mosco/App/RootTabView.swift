@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 /// 네이티브 TabView 그대로 — iOS 26+에서는 탭 바가 시스템이 알아서 리퀴드
 /// 글래스로 그려준다. "오늘" 버튼은 이제 CalendarScreen의 헤더 오른쪽에
@@ -166,15 +167,28 @@ struct RootTabView: View {
         .environment(weatherStore)
         .environment(notificationScheduler)
         .task {
+            Analytics.log(.appOpened(isColdStart: true))
+            // 위젯은 익스텐션이라 직접 못 보낸다 — App Group에 쌓아둔 걸 여기서 비운다.
+            Analytics.flushPendingFromExtensions()
             // 실패해도(권한 거부/케이퍼빌리티 미설정) 조용히 넘어가고 날씨만 안 보인다.
             weatherStore.loadIfNeeded()
             await notificationScheduler.refreshAuthorizationStatus()
+        }
+        .onChange(of: selectedTab, initial: true) { _, tab in
+            Analytics.log(.tabViewed(tab: String(describing: tab)))
         }
         // 할 일이 추가·수정·삭제되거나 카테고리 알림 설정이 바뀌면 통째로 다시 예약한다.
         .task(id: rescheduleKey) {
             await notificationScheduler.reschedule(todos: todos)
         }
         .onChange(of: scenePhase) { _, phase in
+            // 위젯은 자정에만 스스로 다시 그린다 — 그 사이 앱에서 할 일을 고쳐도
+            // 홈 화면은 옛날 것을 계속 보여준다. 편집이 끝나고 앱을 벗어나는
+            // 시점이 다시 그리기 가장 좋은 자리다(편집 중에 매번 깨우면 시스템이
+            // 갱신 예산을 금세 소진한다).
+            if phase == .background {
+                WidgetCenter.shared.reloadAllTimelines()
+            }
             // 설정 앱에서 권한을 바꾸고 돌아왔을 수 있다 — 돌아올 때마다 맞춰준다.
             guard phase == .active else { return }
             Task {

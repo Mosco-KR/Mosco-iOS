@@ -24,6 +24,10 @@ nonisolated struct CalendarSnapshot: Equatable, Sendable {
 }
 
 /// 할 일 목록 → 스냅샷. 순수 함수라 메인 스레드 밖에서 돈다.
+///
+/// 이 파일이 `Shared`에 있는 건 **위젯도 같은 막대 배치를 써야** 하기 때문이다.
+/// 위젯이 자기만의 계산을 들고 있으면, 같은 달을 앱과 위젯이 서로 다른 줄에
+/// 그리게 된다(특히 겹치는 일정의 행 배정과 다일 일정의 이어짐 처리).
 nonisolated enum CalendarSnapshotBuilder {
     /// 계산해둘 범위의 반경(개월). 페이저는 훨씬 넓은 범위를 넘길 수 있지만,
     /// 무한한 반복을 미리 다 펼칠 수는 없으니 보고 있는 달 주변만 계산하고
@@ -57,6 +61,51 @@ nonisolated enum CalendarSnapshotBuilder {
         }
 
         return CalendarSnapshot(version: version, months: months)
+    }
+
+    /// 한 달만 필요한 곳(위젯)을 위한 진입점. 앱은 ±8개월을 미리 펼쳐두지만,
+    /// 위젯은 한 번 그리고 죽으므로 격자에 실제로 보이는 범위만 펼친다.
+    static func monthLayout(
+        todos: [TodoSnapshot],
+        month: CalendarMonth,
+        calendar: Calendar = .current
+    ) -> MonthEventLayout {
+        let grid = MonthLayout.make(month, calendar: calendar)
+        guard let first = grid.weeks.first?.dates.first,
+              let last = grid.weeks.last?.dates.last,
+              let end = calendar.date(byAdding: .day, value: 1, to: last)
+        else { return .empty }
+
+        let events = CalendarEventExpander.expand(
+            todos: todos,
+            in: DateInterval(start: first, end: end),
+            calendar: calendar
+        )
+        return layout(for: grid, positioned: EventRowAssigner.assign(events))
+    }
+
+    /// 한 주만 필요한 곳(주간 위젯)을 위한 진입점. 격자가 아니라 독립된 한 줄이라
+    /// 일곱 칸 모두를 "이번 달"로 취급한다 — 흐리게 낮출 바깥 날짜라는 개념이 없다.
+    static func weekBars(
+        todos: [TodoSnapshot],
+        weekStart: Date,
+        calendar: Calendar = .current
+    ) -> WeekBars {
+        let start = calendar.startOfDay(for: weekStart)
+        let dates = (0..<7).map { calendar.date(byAdding: .day, value: $0, to: start) ?? start }
+        guard let last = dates.last, let end = calendar.date(byAdding: .day, value: 1, to: last) else {
+            return .empty
+        }
+
+        let events = CalendarEventExpander.expand(
+            todos: todos,
+            in: DateInterval(start: start, end: end),
+            calendar: calendar
+        )
+        return bars(
+            in: MonthLayout.WeekRow(dates: dates, inMonth: Array(repeating: true, count: 7)),
+            positioned: EventRowAssigner.assign(events)
+        )
     }
 
     /// 한 달 격자에 대해 주별 막대 자리를 확정한다.

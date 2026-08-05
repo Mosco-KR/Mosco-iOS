@@ -1,8 +1,10 @@
 import SwiftUI
 import WidgetKit
 
-/// 오늘 할 일을 보여주는 위젯. 홈 화면(소·중)과 잠금화면(인라인·원형·사각) 모두 지원한다.
-/// 탭하면 앱이 열리는 것 말고 위젯 자체가 하는 동작은 없다.
+/// 오늘 할 일을 보여주는 위젯.
+///
+/// 각 줄의 체크 동그라미는 진짜 버튼이라, **위젯에서 바로 완료 처리**된다
+/// (`ToggleTodoCompletionIntent`). 앱은 열리지 않는다.
 struct TodayTodoWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "MoscoTodayTodo", provider: TodayTodoProvider()) { entry in
@@ -10,17 +12,17 @@ struct TodayTodoWidget: Widget {
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("오늘 할 일")
-        .description("오늘 해야 할 일을 모아서 보여줘요.")
-        .supportedFamilies([
-            .systemSmall, .systemMedium,
-            .accessoryInline, .accessoryCircular, .accessoryRectangular
-        ])
+        .description("오늘 해야 할 일을 블록으로 모아서 보여줘요.")
+        // 2x2(소형)를 뺐다 — 네 줄에 제목만 겨우 들어가서, 중형과 견줘 새로
+        // 알려주는 게 없었다. 잠금화면 가족들은 잠금화면을 월 달력 하나로
+        // 정리하면서 함께 뺐다.
+        .supportedFamilies([.systemMedium, .systemLarge])
     }
 }
 
 struct TodayTodoEntry: TimelineEntry {
     let date: Date
-    let todos: [TodoSnapshot]
+    let todos: [WidgetTodo]
     /// 완료까지 포함한 그날 전체 개수 — "3/5" 같은 요약에 쓴다.
     let totalCount: Int
     let completedCount: Int
@@ -31,8 +33,8 @@ struct TodayTodoProvider: TimelineProvider {
         TodayTodoEntry(
             date: .now,
             todos: [
-                TodoSnapshot(id: UUID(), title: "팀 회의", isCompleted: false, categoryColorHex: nil, timeLabel: "오후 2시"),
-                TodoSnapshot(id: UUID(), title: "장보기", isCompleted: false, categoryColorHex: nil, timeLabel: nil)
+                WidgetTodo(id: UUID(), title: "팀 회의", isCompleted: false, categoryColorHex: nil, timeLabel: "오후 2시"),
+                WidgetTodo(id: UUID(), title: "장보기", isCompleted: false, categoryColorHex: nil, timeLabel: nil)
             ],
             totalCount: 2,
             completedCount: 0
@@ -45,8 +47,10 @@ struct TodayTodoProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodayTodoEntry>) -> Void) {
         Task { @MainActor in
+            AnalyticsBuffer.record(.widgetRendered(kind: "today_todo", family: "\(context.family)"))
             // 날짜가 바뀌면 "오늘"이 달라지므로 자정에 다시 그린다. 그 사이 앱에서
-            // 할 일을 고치면 앱이 reloadAllTimelines로 따로 깨운다.
+            // 할 일을 고치면 앱이 백그라운드로 갈 때 타임라인을 다시 잡는다
+            // (`RootTabView`의 scenePhase 처리).
             let entry = makeEntry()
             let nextMidnight = Calendar.current.startOfDay(for: .now.addingTimeInterval(86_400))
             completion(Timeline(entries: [entry], policy: .after(nextMidnight)))
@@ -59,7 +63,7 @@ struct TodayTodoProvider: TimelineProvider {
         let all = WidgetStore.todos(on: today, limit: 50)
         return TodayTodoEntry(
             date: .now,
-            todos: Array(all.prefix(6)),
+            todos: Array(all.prefix(10)),
             totalCount: all.count,
             completedCount: all.count { $0.isCompleted }
         )
@@ -73,49 +77,19 @@ struct TodayTodoWidgetView: View {
     private var remaining: Int { entry.totalCount - entry.completedCount }
 
     var body: some View {
-        switch family {
-        case .accessoryInline:
-            // 잠금화면 한 줄짜리는 글자만 허용된다.
-            Text(remaining > 0 ? "할 일 \(remaining)개 남음" : "할 일 완료")
-
-        case .accessoryCircular:
-            ZStack {
-                AccessoryWidgetBackground()
-                VStack(spacing: 0) {
-                    Image(systemName: "checklist")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("\(remaining)")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                }
-            }
-
-        case .accessoryRectangular:
-            VStack(alignment: .leading, spacing: 2) {
-                Text(remaining > 0 ? "오늘 할 일 \(remaining)개" : "오늘 할 일 없음")
-                    .font(.headline)
-                ForEach(entry.todos.filter { !$0.isCompleted }.prefix(2)) { todo in
-                    Text(todo.title)
-                        .font(.caption)
-                        .lineLimit(1)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-
-        default:
-            homeScreenBody
-        }
+        homeScreenBody
     }
 
     private var homeScreenBody: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("오늘 할 일")
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
                 if entry.totalCount > 0 {
                     Text("\(entry.completedCount)/\(entry.totalCount)")
-                        .font(.caption2.weight(.semibold).monospacedDigit())
+                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
             }
@@ -128,9 +102,21 @@ struct TodayTodoWidgetView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                 Spacer()
             } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(entry.todos.prefix(family == .systemSmall ? 3 : 5)) { todo in
-                        row(todo)
+                // 줄 간격이 줄 자체의 높이를 정한다 — 카드 배경을 걷어낸 지금은
+                // 이 간격만으로 목록의 밀도가 결정된다.
+                VStack(alignment: .leading, spacing: 7) {
+                    ForEach(entry.todos.prefix(visibleCount)) { todo in
+                        WidgetTodoRow(
+                            todo: todo,
+                            day: today,
+                            fontSize: family == .systemSmall ? 11 : 13,
+                            showsTime: family != .systemSmall
+                        )
+                    }
+                    if entry.totalCount > visibleCount {
+                        Text("+\(entry.totalCount - visibleCount)개 더")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 0)
@@ -138,25 +124,13 @@ struct TodayTodoWidgetView: View {
         }
     }
 
-    private func row(_ todo: TodoSnapshot) -> some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(todo.color)
-                .frame(width: 6, height: 6)
-                .opacity(todo.isCompleted ? 0.4 : 1)
+    private var today: Date { Calendar.current.startOfDay(for: entry.date) }
 
-            Text(todo.title)
-                .font(.caption)
-                .strikethrough(todo.isCompleted)
-                .foregroundStyle(todo.isCompleted ? .secondary : .primary)
-                .lineLimit(1)
-
-            if family != .systemSmall, let timeLabel = todo.timeLabel {
-                Spacer(minLength: 4)
-                Text(timeLabel)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+    private var visibleCount: Int {
+        switch family {
+        case .systemSmall: 4
+        case .systemLarge: 12
+        default: 5
         }
     }
 }
