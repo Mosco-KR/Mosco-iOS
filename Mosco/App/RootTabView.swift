@@ -186,6 +186,12 @@ struct RootTabView: View {
         .onChange(of: selectedTab, initial: true) { _, tab in
             Analytics.log(.tabViewed(tab: String(describing: tab)))
         }
+        // 위젯이 실어 보낸 표시를 읽어 어느 위젯으로 들어왔는지 남긴다.
+        // 위젯은 원래 눌러도 그냥 앱이 열릴 뿐이라 구분할 방법이 없었다.
+        .onOpenURL { url in
+            guard let kind = WidgetDeepLink.kind(from: url) else { return }
+            Analytics.log(.widgetTapped(kind: kind))
+        }
         // 할 일이 추가·수정·삭제되거나 카테고리 알림 설정이 바뀌면 통째로 다시 예약한다.
         .task(id: rescheduleKey) {
             await notificationScheduler.reschedule(todos: todos)

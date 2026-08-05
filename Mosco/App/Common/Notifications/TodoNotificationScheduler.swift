@@ -151,12 +151,25 @@ final class TodoNotificationScheduler {
 
     /// 앱이 떠 있을 때도 알림을 배너로 띄운다. iOS 기본값은 "포그라운드면 안 띄움"이라,
     /// 앱을 보고 있는 동안 시작 시간이 되면 아무 일도 안 일어난 것처럼 보였다.
+    ///
+    /// 알림 **탭**도 여기서 받는다. 예전엔 `willPresent`만 구현돼 있어서, 알림이
+    /// 실제로 사람을 앱으로 데려오는지 알 방법이 없었다 — 예약만 하고 효과를
+    /// 모르면 알림 설계를 고칠 근거가 없다.
     private final class ForegroundNotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
         func userNotificationCenter(
             _ center: UNUserNotificationCenter,
             willPresent notification: UNNotification
         ) async -> UNNotificationPresentationOptions {
             [.banner, .sound, .list]
+        }
+
+        func userNotificationCenter(
+            _ center: UNUserNotificationCenter,
+            didReceive response: UNNotificationResponse
+        ) async {
+            // 알림을 밀어서 지운 건(dismissAction) 연 게 아니다.
+            guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
+            await MainActor.run { Analytics.log(.notificationOpen) }
         }
     }
 

@@ -683,15 +683,21 @@ struct QuickAddView: View {
             todo.calendar = targetCalendar ?? calendars.first(where: \.isDefault)
             modelContext.insert(todo)
             tutorialManager.userDidAddTodo()
-            Analytics.log(
-                .todoCreated(
-                    source: "quick_add",
-                    hasTime: todo.startTime != nil,
-                    repeatRule: todo.repeatRule.rawValue,
-                    isMultiDay: todo.isMultiDay,
-                    titleLength: trimmed.count
+            // 날짜가 있으면 달력에 자리를 갖는 "일정", 없으면 할 일 탭에만
+            // 있는 백로그 "할 일" — 이 앱에서 둘은 실제로 다른 것이다.
+            if todo.date == nil {
+                Analytics.log(.taskCreated(source: "quick_add", titleLength: trimmed.count))
+            } else {
+                Analytics.log(
+                    .scheduleCreated(
+                        source: "quick_add",
+                        hasTime: todo.startTime != nil,
+                        repeatRule: todo.repeatRule.rawValue,
+                        isMultiDay: todo.isMultiDay,
+                        titleLength: trimmed.count
+                    )
                 )
-            )
+            }
         }
 
         // 여기서 별도 학습/피드백 기록은 필요 없다 — 카테고리에 방금 이 제목이

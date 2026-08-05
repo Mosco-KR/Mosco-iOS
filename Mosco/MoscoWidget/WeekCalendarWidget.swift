@@ -9,6 +9,7 @@ struct WeekCalendarWidget: Widget {
         StaticConfiguration(kind: "MoscoWeekCalendar", provider: WeekCalendarProvider()) { entry in
             WeekCalendarWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(WidgetDeepLink.url(kind: "week_calendar"))
         }
         .configurationDisplayName("주간 달력")
         .description("이번 주 일곱 칸에 할 일 블록을 보여줘요.")

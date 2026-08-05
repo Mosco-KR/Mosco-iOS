@@ -233,7 +233,7 @@ struct TodoRow: View {
             tutorialManager.userDidCompleteTodo()
             // isDone은 방금 뒤집기 **전** 값이라, 새 상태는 그 반대다.
             Analytics.log(
-                .todoCompletionToggled(
+                .taskCompleted(
                     source: "app",
                     completed: !isDone,
                     isRepeating: todo.repeatRule != .none

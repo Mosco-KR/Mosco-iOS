@@ -13,6 +13,7 @@ struct MonthCalendarWidget: Widget {
         StaticConfiguration(kind: "MoscoCalendar", provider: MonthCalendarProvider()) { entry in
             MonthCalendarWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(WidgetDeepLink.url(kind: "month_calendar"))
         }
         .configurationDisplayName("월 달력")
         .description("이번 달 달력에 할 일 블록을 함께 보여줘요.")

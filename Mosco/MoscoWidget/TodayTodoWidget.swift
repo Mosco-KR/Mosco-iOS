@@ -10,13 +10,13 @@ struct TodayTodoWidget: Widget {
         StaticConfiguration(kind: "MoscoTodayTodo", provider: TodayTodoProvider()) { entry in
             TodayTodoWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(WidgetDeepLink.url(kind: "today_todo"))
         }
         .configurationDisplayName("오늘 할 일")
         .description("오늘 해야 할 일을 블록으로 모아서 보여줘요.")
-        // 2x2(소형)를 뺐다 — 네 줄에 제목만 겨우 들어가서, 중형과 견줘 새로
-        // 알려주는 게 없었다. 잠금화면 가족들은 잠금화면을 월 달력 하나로
-        // 정리하면서 함께 뺐다.
-        .supportedFamilies([.systemMedium, .systemLarge])
+        // 대형을 뺐다 — 오늘 할 일이 12줄까지 늘어날 일은 드물어서 아래가 늘
+        // 비었다. 소·중형이면 오늘치는 다 들어간다.
+        .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
 

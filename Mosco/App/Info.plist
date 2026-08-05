@@ -22,6 +22,19 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>지금 계신 곳의 날씨를 캘린더에 함께 보여드리기 위해 위치를 사용합니다.</string>
+	<!-- 위젯을 눌러 들어왔는지 앱이 알려면 위젯이 URL을 실어 보내야 하고,
+	     그 스킴이 여기 등록돼 있어야 한다(WidgetDeepLink 참고). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.Mosco.App</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mosco</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

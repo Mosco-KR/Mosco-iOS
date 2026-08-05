@@ -20,11 +20,14 @@ enum AnalyticsEvent {
 
     // MARK: 핵심 행동
 
-    /// 할 일 생성. 어디서 만들었는지가 제일 중요하다(빠른 추가 vs 상세 시트).
-    case todoCreated(source: String, hasTime: Bool, repeatRule: String, isMultiDay: Bool, titleLength: Int)
+    /// 생성. 이 앱에서 "일정"과 "할 일"은 실제로 다른 것이다 — 날짜가 있으면
+    /// 달력에 자리를 갖는 일정이고, 없으면 할 일 탭에만 있는 백로그다. 둘을 한
+    /// 이벤트로 뭉치면 "달력을 쓰는가, 목록을 쓰는가"라는 제일 큰 질문이 사라진다.
+    case scheduleCreated(source: String, hasTime: Bool, repeatRule: String, isMultiDay: Bool, titleLength: Int)
+    case taskCreated(source: String, titleLength: Int)
     /// 완료/해제. `source`로 앱과 위젯을 가른다.
-    case todoCompletionToggled(source: String, completed: Bool, isRepeating: Bool)
-    case todoDeleted(source: String, count: Int)
+    case taskCompleted(source: String, completed: Bool, isRepeating: Bool)
+    case taskDeleted(source: String, count: Int)
     case todoEdited(field: String)
     /// 끌어서 순서 바꾸기 — 이 기능이 실제로 쓰이는지.
     case todoReordered(source: String)
@@ -44,8 +47,15 @@ enum AnalyticsEvent {
     // MARK: 기능 채택
 
     /// 위젯이 실제로 그려짐 — 어떤 위젯·크기가 정말 쓰이는지 알 수 있는 유일한 신호다.
-    /// 위젯은 홈 화면에 올려둔 걸 앱이 알 방법이 없어서, 그리는 순간을 세는 수밖에 없다.
+    /// 위젯을 홈 화면에 **추가한 순간**은 iOS가 앱에 알려주지 않는다. 그리는
+    /// 순간을 세는 게 "올려두고 쓰는 사람이 있다"에 가장 가까운 신호다.
     case widgetRendered(kind: String, family: String)
+    /// 위젯을 눌러 앱이 열렸다. 위젯이 보기용으로만 쓰이는지, 앱 진입로로도
+    /// 쓰이는지를 가른다.
+    case widgetTapped(kind: String)
+    /// 알림을 눌러 앱이 열렸다. 알림이 실제로 사람을 데려오는지 — 예약만 하고
+    /// 효과를 모르면 알림 설계를 고칠 근거가 없다.
+    case notificationOpen
     case categoryCreated(count: Int)
     case calendarCreated(count: Int)
     case dDaySet
@@ -74,17 +84,20 @@ enum AnalyticsEvent {
 
     var name: String {
         switch self {
-        case .appOpened: "app_opened"
+        case .appOpened: "app_open"
         case .tabViewed: "tab_viewed"
-        case .todoCreated: "todo_created"
-        case .todoCompletionToggled: "todo_completion_toggled"
-        case .todoDeleted: "todo_deleted"
+        case .scheduleCreated: "create_schedule"
+        case .taskCreated: "create_task"
+        case .taskCompleted: "complete_task"
+        case .taskDeleted: "delete_task"
         case .todoEdited: "todo_edited"
         case .todoReordered: "todo_reordered"
         case .categorySuggested: "category_suggested"
         case .categoryOverridden: "category_overridden"
         case .timeSuggestionApplied: "time_suggestion_applied"
         case .widgetRendered: "widget_rendered"
+        case .widgetTapped: "widget_tapped"
+        case .notificationOpen: "notification_open"
         case .categoryCreated: "category_created"
         case .calendarCreated: "calendar_created"
         case .dDaySet: "dday_set"
@@ -94,7 +107,7 @@ enum AnalyticsEvent {
         case .monthNavigated: "month_navigated"
         case .storeLocalFallback: "store_local_fallback"
         case .tutorialStepShown: "tutorial_step_shown"
-        case .tutorialFinished: "tutorial_finished"
+        case .tutorialFinished: "onboarding_complete"
         }
     }
 
@@ -104,7 +117,7 @@ enum AnalyticsEvent {
             ["is_cold_start": String(isColdStart)]
         case let .tabViewed(tab):
             ["tab": tab]
-        case let .todoCreated(source, hasTime, repeatRule, isMultiDay, titleLength):
+        case let .scheduleCreated(source, hasTime, repeatRule, isMultiDay, titleLength):
             [
                 "source": source,
                 "has_time": String(hasTime),
@@ -113,9 +126,11 @@ enum AnalyticsEvent {
                 // 길이만. 제목 자체는 개인 정보라 보내지 않는다.
                 "title_length_bucket": Self.bucket(titleLength)
             ]
-        case let .todoCompletionToggled(source, completed, isRepeating):
+        case let .taskCreated(source, titleLength):
+            ["source": source, "title_length_bucket": Self.bucket(titleLength)]
+        case let .taskCompleted(source, completed, isRepeating):
             ["source": source, "completed": String(completed), "is_repeating": String(isRepeating)]
-        case let .todoDeleted(source, count):
+        case let .taskDeleted(source, count):
             ["source": source, "count": String(count)]
         case let .todoEdited(field):
             ["field": field]
@@ -129,6 +144,10 @@ enum AnalyticsEvent {
             [:]
         case let .widgetRendered(kind, family):
             ["kind": kind, "family": family]
+        case let .widgetTapped(kind):
+            ["kind": kind]
+        case .notificationOpen:
+            [:]
         case let .categoryCreated(count):
             ["total_count": String(count)]
         case let .calendarCreated(count):

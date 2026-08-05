@@ -95,7 +95,7 @@ enum WidgetStore {
         todo.setCompleted(nowCompleted, on: day)
         try? context.save()
         AnalyticsBuffer.record(
-            .todoCompletionToggled(
+            .taskCompleted(
                 source: "widget",
                 completed: nowCompleted,
                 isRepeating: todo.repeatRule != .none

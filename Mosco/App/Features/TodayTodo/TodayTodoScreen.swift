@@ -595,6 +595,6 @@ struct TodayTodoScreen: View {
 
     private func delete(_ todo: TodoItem) {
         modelContext.delete(todo)
-        Analytics.log(.todoDeleted(source: "today_tab", count: 1))
+        Analytics.log(.taskDeleted(source: "today_tab", count: 1))
     }
 }
