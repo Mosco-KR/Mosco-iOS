@@ -28,11 +28,32 @@ struct FirebaseAnalyticsSink: AnalyticsSink {
         }
         if !didConfigure {
             assertBundleIDMatches(plistAt: path)
+            enableDebugViewInDebugBuilds()
             FirebaseApp.configure()
             didConfigure = true
             logSetupState()
         }
         return FirebaseAnalyticsSink()
+    }
+
+    /// 디버그 빌드는 항상 DebugView 모드로 붙인다.
+    ///
+    /// 원래 방법은 실행 인자 `-FIRDebugEnabled`인데, 그건 Xcode 스킴에 들어 있어야
+    /// 하고 **Xcode가 켜진 동안 바뀐 스킴 파일은 읽히지 않는다** — 스킴을 고쳐놓고도
+    /// 왜 안 되는지 한참 헤매게 되는 자리다. 그 인자가 하는 일이 결국 이 기본값을
+    /// 켜두는 것이라, 코드에서 직접 켠다.
+    ///
+    /// 덤이 더 크다. 지금까지 디버그 빌드의 이벤트가 **실서비스 지표에 그대로
+    /// 섞여 들어가고 있었다.** 디버그 모드로 보낸 이벤트는 DebugView로 가고 일반
+    /// 리포트에서는 빠지므로, 개발 중에 만든 잡음이 통계를 오염시키지 않는다.
+    ///
+    /// 공개 API가 아니라 Firebase가 그 인자를 처리하는 방식에 기대는 것이므로,
+    /// 릴리스 빌드에는 절대 넣지 않는다.
+    private static func enableDebugViewInDebugBuilds() {
+        #if DEBUG
+        guard !ProcessInfo.processInfo.arguments.contains("-FIRDebugEnabled") else { return }
+        UserDefaults.standard.set(true, forKey: "/google/measurement_debug_mode")
+        #endif
     }
 
     /// 설정이 실제로 어떤 상태인지 한 줄로 찍는다.
@@ -42,12 +63,13 @@ struct FirebaseAnalyticsSink: AnalyticsSink {
     /// 실패하거나 다른 로그에 파묻힌다. 추측하지 않아도 되게 직접 확인해서 남긴다.
     private static func logSetupState() {
         #if DEBUG
-        let debugMode = ProcessInfo.processInfo.arguments.contains("-FIRDebugEnabled")
+        let byArgument = ProcessInfo.processInfo.arguments.contains("-FIRDebugEnabled")
+        let byDefaults = UserDefaults.standard.bool(forKey: "/google/measurement_debug_mode")
         let bundleID = Bundle.main.bundleIdentifier ?? "?"
-        print("""
-        [Mosco][Analytics] Firebase 설정 완료 — 번들 ID: \(bundleID), \
-        DebugView 모드: \(debugMode ? "켜짐" : "꺼짐(-FIRDebugEnabled 인자 없음 → DebugView에 안 보입니다)")
-        """)
+        let mode = byArgument ? "켜짐(실행 인자)"
+            : byDefaults ? "켜짐(디버그 빌드 기본)"
+            : "꺼짐 → DebugView에 안 보입니다"
+        print("[Mosco][Analytics] Firebase 설정 완료 — 번들 ID: \(bundleID), DebugView 모드: \(mode)")
         #endif
     }
 
