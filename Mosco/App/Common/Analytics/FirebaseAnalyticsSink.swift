@@ -33,39 +33,32 @@ struct FirebaseAnalyticsSink: AnalyticsSink {
         return FirebaseAnalyticsSink()
     }
 
-    /// DebugView가 비어 있을 때 원인을 여기서 끝낸다.
+    /// 앱 쪽에서 **확인 가능한 것만** 찍는다.
     ///
-    /// 이 셋이 전부 조용히 실패한다 — 이벤트는 정상 발생하고, 업로드도 204로
-    /// 성공하고, 콘솔에만 아무것도 안 뜬다. 그래서 하나씩 눈으로 확인할 수 있게
-    /// 찍는다. 특히 마지막(GA 속성 연결)은 Firebase가 경고조차 안 준다.
+    /// 한때 plist의 `MEASUREMENT_ID`가 없는 걸로 "GA가 연결 안 됐다"고 경고했는데,
+    /// 그 키는 애초에 **iOS plist에 없는 키**였다(Firebase 공식 예제에도 없다).
+    /// 확인할 수 없는 것을 추측해서 경고하면 엉뚱한 곳을 파게 만든다 —
+    /// 실제로 그렇게 시간을 버렸다. 그래서 여기서는 번들 ID와 실행 인자,
+    /// 둘 다 이 프로세스 안에서 참/거짓이 확정되는 것만 본다.
+    ///
+    /// 이 둘이 통과하면 앱 쪽은 끝이다. 그 뒤로도 DebugView가 비어 있다면
+    /// 원인은 콘솔(속성 선택·기기 선택·데이터 필터)에 있고, 코드로는 알 수 없다.
     private static func logSetupState() {
         #if DEBUG
-        let plist = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist")
-            .flatMap { NSDictionary(contentsOfFile: $0) }
+        let plistBundleID = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist")
+            .flatMap { NSDictionary(contentsOfFile: $0) }?["BUNDLE_ID"] as? String
 
-        if plist?["BUNDLE_ID"] as? String != Bundle.main.bundleIdentifier {
-            print("[Mosco][Analytics] ⚠️ plist가 이 앱의 것이 아닙니다. 번들 ID로 앱을 등록하고 받으세요.")
+        if plistBundleID != Bundle.main.bundleIdentifier {
+            print("[Mosco][Analytics] ⚠️ plist가 이 앱의 것이 아닙니다(\(plistBundleID ?? "없음")).")
         }
 
-        if !ProcessInfo.processInfo.arguments.contains("-FIRDebugEnabled") {
+        if ProcessInfo.processInfo.arguments.contains("-FIRDebugEnabled") {
+            print("[Mosco][Analytics] 준비됨 · DebugView 켜짐")
+        } else {
             print("""
             [Mosco][Analytics] ⚠️ DebugView 꺼짐 — 실행 인자가 없습니다.
             [Mosco][Analytics]    Product > Scheme > Edit Scheme > Run > Arguments 에
-            [Mosco][Analytics]    -FIRDebugEnabled 추가 (스킴 파일에는 있지만 Xcode가
-            [Mosco][Analytics]    켜진 채로는 다시 읽지 않습니다)
-            """)
-        }
-
-        // plist에 MEASUREMENT_ID가 없고 IS_ANALYTICS_ENABLED가 false면, 이 Firebase
-        // 프로젝트에 Google Analytics 속성이 붙어 있지 않다는 뜻이다. 그러면 이벤트가
-        // 수집 엔드포인트까지 가서 204를 받고도 저장될 곳이 없어 **DebugView도 일반
-        // 리포트도 영영 비어 있다.** SDK는 이걸 오류로 알려주지 않는다.
-        if plist?["MEASUREMENT_ID"] == nil, plist?["IS_ANALYTICS_ENABLED"] as? Bool != true {
-            print("""
-            [Mosco][Analytics] ⚠️ 이 Firebase 프로젝트에 Google Analytics가 연결돼 있지 않습니다.
-            [Mosco][Analytics]    콘솔 > 프로젝트 설정 > 통합 > Google Analytics 사용 설정 후
-            [Mosco][Analytics]    GoogleService-Info.plist를 다시 받아 교체하세요.
-            [Mosco][Analytics]    (새 plist에는 MEASUREMENT_ID가 생깁니다)
+            [Mosco][Analytics]    -FIRDebugEnabled 를 추가하세요.
             """)
         }
         #endif
