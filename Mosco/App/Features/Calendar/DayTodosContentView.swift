@@ -43,6 +43,7 @@ struct DayTodosContentView: View {
             onSelect: { editingTodo = $0 },
             onDelete: { todos in
                 for todo in todos { modelContext.delete(todo) }
+                Analytics.log(.todoDeleted(source: "calendar_day_list", count: todos.count))
                 tutorialManager.userDidDeleteTodo()
             }
         )

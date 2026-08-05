@@ -21,11 +21,25 @@ enum AnalyticsEvent {
     // MARK: 핵심 행동
 
     /// 할 일 생성. 어디서 만들었는지가 제일 중요하다(빠른 추가 vs 상세 시트).
-    case todoCreated(source: String, hasTime: Bool, hasRepeat: Bool, isMultiDay: Bool, titleLength: Int)
+    case todoCreated(source: String, hasTime: Bool, repeatRule: String, isMultiDay: Bool, titleLength: Int)
     /// 완료/해제. `source`로 앱과 위젯을 가른다.
     case todoCompletionToggled(source: String, completed: Bool, isRepeating: Bool)
-    case todoDeleted(source: String)
+    case todoDeleted(source: String, count: Int)
     case todoEdited(field: String)
+    /// 끌어서 순서 바꾸기 — 이 기능이 실제로 쓰이는지.
+    case todoReordered(source: String)
+
+    // MARK: 자동 추천이 값을 하는지
+
+    /// 제목을 보고 카테고리를 자동 배정하는 ML 분류기가 돌았고, 결과가 있었는지.
+    /// 이 앱은 임베딩 분류기와 학습 파이프라인(MLTraining/)을 통째로 안고 있는데,
+    /// 그게 값을 하는지 판단할 근거가 지금까지 하나도 없었다.
+    case categorySuggested(matched: Bool)
+    /// 자동 배정된 카테고리를 사람이 바꿨다 — 위 이벤트와 짝이 되어야 의미가 있다.
+    /// 이 비율이 높으면 분류기가 오히려 방해가 되고 있다는 뜻이다.
+    case categoryOverridden
+    /// 제목에서 찾아낸 시간 표현을 실제로 적용했다.
+    case timeSuggestionApplied
 
     // MARK: 기능 채택
 
@@ -35,8 +49,23 @@ enum AnalyticsEvent {
     case categoryCreated(count: Int)
     case calendarCreated(count: Int)
     case dDaySet
+    /// 캘린더를 껐다 켰다 — 여러 캘린더를 정말 나눠 쓰는지. 안 쓰면 이 층 자체가
+    /// 사람들에게 없는 개념이라는 뜻이다.
+    case calendarFilterChanged(visibleCount: Int, totalCount: Int)
     /// 알림 권한 요청 결과 — 거부율이 높으면 요청 시점을 다시 봐야 한다.
     case notificationPermission(granted: Bool)
+
+    // MARK: 규모와 건강 상태
+
+    /// 앱을 열 때 한 번. 사람들이 실제로 몇 건을 들고 쓰는지 모르면 성능 작업의
+    /// 목표를 정할 수 없다 — 지금까지 전부 추측이었다.
+    case dataScale(todoCount: Int, categoryCount: Int, calendarCount: Int)
+    /// 몇 달을 앞뒤로 넘겨보는지. 스냅샷 계산 범위(±8개월)가 맞게 잡혔는지와,
+    /// "다가오는" 탭이 정말 필요한지에 대한 근거가 된다.
+    case monthNavigated(offsetFromToday: Int)
+    /// iCloud 저장소를 못 열어 로컬 전용으로 물러났다. 지금은 조용히 넘어가서
+    /// 동기화가 안 되는 사용자가 얼마나 되는지 아무도 모른다.
+    case storeLocalFallback
 
     // MARK: 온보딩
 
@@ -51,11 +80,19 @@ enum AnalyticsEvent {
         case .todoCompletionToggled: "todo_completion_toggled"
         case .todoDeleted: "todo_deleted"
         case .todoEdited: "todo_edited"
+        case .todoReordered: "todo_reordered"
+        case .categorySuggested: "category_suggested"
+        case .categoryOverridden: "category_overridden"
+        case .timeSuggestionApplied: "time_suggestion_applied"
         case .widgetRendered: "widget_rendered"
         case .categoryCreated: "category_created"
         case .calendarCreated: "calendar_created"
         case .dDaySet: "dday_set"
+        case .calendarFilterChanged: "calendar_filter_changed"
         case .notificationPermission: "notification_permission"
+        case .dataScale: "data_scale"
+        case .monthNavigated: "month_navigated"
+        case .storeLocalFallback: "store_local_fallback"
         case .tutorialStepShown: "tutorial_step_shown"
         case .tutorialFinished: "tutorial_finished"
         }
@@ -67,21 +104,29 @@ enum AnalyticsEvent {
             ["is_cold_start": String(isColdStart)]
         case let .tabViewed(tab):
             ["tab": tab]
-        case let .todoCreated(source, hasTime, hasRepeat, isMultiDay, titleLength):
+        case let .todoCreated(source, hasTime, repeatRule, isMultiDay, titleLength):
             [
                 "source": source,
                 "has_time": String(hasTime),
-                "has_repeat": String(hasRepeat),
+                "repeat_rule": repeatRule,
                 "is_multi_day": String(isMultiDay),
                 // 길이만. 제목 자체는 개인 정보라 보내지 않는다.
                 "title_length_bucket": Self.bucket(titleLength)
             ]
         case let .todoCompletionToggled(source, completed, isRepeating):
             ["source": source, "completed": String(completed), "is_repeating": String(isRepeating)]
-        case let .todoDeleted(source):
-            ["source": source]
+        case let .todoDeleted(source, count):
+            ["source": source, "count": String(count)]
         case let .todoEdited(field):
             ["field": field]
+        case let .todoReordered(source):
+            ["source": source]
+        case let .categorySuggested(matched):
+            ["matched": String(matched)]
+        case .categoryOverridden:
+            [:]
+        case .timeSuggestionApplied:
+            [:]
         case let .widgetRendered(kind, family):
             ["kind": kind, "family": family]
         case let .categoryCreated(count):
@@ -90,8 +135,21 @@ enum AnalyticsEvent {
             ["total_count": String(count)]
         case .dDaySet:
             [:]
+        case let .calendarFilterChanged(visibleCount, totalCount):
+            ["visible_count": String(visibleCount), "total_count": String(totalCount)]
         case let .notificationPermission(granted):
             ["granted": String(granted)]
+        case let .dataScale(todoCount, categoryCount, calendarCount):
+            [
+                // 정확한 개수는 필요 없고 규모만 알면 된다.
+                "todo_count_bucket": Self.countBucket(todoCount),
+                "category_count": String(categoryCount),
+                "calendar_count": String(calendarCount)
+            ]
+        case let .monthNavigated(offsetFromToday):
+            ["offset_from_today": String(offsetFromToday)]
+        case .storeLocalFallback:
+            [:]
         case let .tutorialStepShown(step):
             ["step": step]
         case let .tutorialFinished(completed):
@@ -106,6 +164,19 @@ enum AnalyticsEvent {
         case ..<10: "5-9"
         case ..<20: "10-19"
         default: "20+"
+        }
+    }
+
+    /// 보유 건수도 마찬가지다. "몇 건대인지"만 알면 성능 목표를 정할 수 있고,
+    /// 정확한 수는 개인을 특정하는 데만 쓸모가 있다.
+    private static func countBucket(_ count: Int) -> String {
+        switch count {
+        case 0: "0"
+        case ..<10: "1-9"
+        case ..<50: "10-49"
+        case ..<200: "50-199"
+        case ..<1000: "200-999"
+        default: "1000+"
         }
     }
 }

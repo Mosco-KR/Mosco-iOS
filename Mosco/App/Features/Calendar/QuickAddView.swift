@@ -43,6 +43,9 @@ struct QuickAddView: View {
     /// 점이 로딩 표시를 보여주고, 전송은 막는다(판별 결과가 반영되기 전에
     /// 보내버리는 걸 막기 위해).
     @State private var isClassifying = false
+    /// 지금 카테고리가 분류기가 골라준 것인지. 사람이 이걸 뒤집는 비율이
+    /// 분류기가 값을 하는지에 대한 유일한 근거다.
+    @State private var categoryWasSuggested = false
     @State private var classifyTask: Task<Void, Never>?
     private let classifier: CategoryClassifying = EmbeddingCategoryClassifier()
     /// 입력창(글래스 캡슐) 자체의 실측 크기 — 시간 추천 팝업의 높이와 최대 너비를
@@ -178,6 +181,7 @@ struct QuickAddView: View {
                     newCategory.notifiesBeforeStart = draft.notifiesBeforeStart
                     newCategory.notificationLeadMinutes = draft.notificationLeadMinutes
                     modelContext.insert(newCategory)
+                    Analytics.log(.categoryCreated(count: categories.count + 1))
                     category = newCategory
                 }
             )
@@ -318,6 +322,12 @@ struct QuickAddView: View {
         )
         .contentShape(Capsule())
         .onTapGesture {
+            // 분류기가 골라준 걸 사람이 다른 걸로 바꿨을 때만 센다. 같은 걸 다시
+            // 누른 건 뒤집은 게 아니다.
+            if categoryWasSuggested, candidate.id != category?.id {
+                Analytics.log(.categoryOverridden)
+                categoryWasSuggested = false
+            }
             category = candidate
             withAnimation(.easeInOut(duration: 0.15)) {
                 showCategoryOptions = false
@@ -364,7 +374,11 @@ struct QuickAddView: View {
             guard !Task.isCancelled else { return }
             if let result {
                 category = result
+                // 사람이 나중에 이 배정을 뒤집는지 보려고 표시해둔다 —
+                // `categoryOverridden`과 짝이 되어야 분류기의 값을 잴 수 있다.
+                categoryWasSuggested = true
             }
+            Analytics.log(.categorySuggested(matched: result != nil))
             isClassifying = false
         }
     }
@@ -588,6 +602,7 @@ struct QuickAddView: View {
     /// 시간을 확정하면 제목에서 시간 텍스트를 걷어내고 시작(및 종료) 시간으로 설정한다.
     /// 아직 날짜가 없으면(할 일 탭 백로그) 오늘을 기준일로 삼는다.
     private func apply(_ option: SuggestionOption, suggestion: TimeSuggestion) {
+        Analytics.log(.timeSuggestionApplied)
         let anchor = startDate ?? calendar.startOfDay(for: Date())
         if startDate == nil { startDate = anchor }
         if endDate == nil { endDate = anchor }
@@ -672,7 +687,7 @@ struct QuickAddView: View {
                 .todoCreated(
                     source: "quick_add",
                     hasTime: todo.startTime != nil,
-                    hasRepeat: todo.repeatRule != .none,
+                    repeatRule: todo.repeatRule.rawValue,
                     isMultiDay: todo.isMultiDay,
                     titleLength: trimmed.count
                 )

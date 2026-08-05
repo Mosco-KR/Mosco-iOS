@@ -168,6 +168,15 @@ struct RootTabView: View {
         .environment(notificationScheduler)
         .task {
             Analytics.log(.appOpened(isColdStart: true))
+            // 사람들이 실제로 몇 건을 들고 쓰는지 모르면 성능 작업의 목표를
+            // 정할 수 없다 — 지금까지 전부 추측이었다.
+            Analytics.log(
+                .dataScale(
+                    todoCount: todos.count,
+                    categoryCount: categories.count,
+                    calendarCount: calendars.count
+                )
+            )
             // 위젯은 익스텐션이라 직접 못 보낸다 — App Group에 쌓아둔 걸 여기서 비운다.
             Analytics.flushPendingFromExtensions()
             // 실패해도(권한 거부/케이퍼빌리티 미설정) 조용히 넘어가고 날씨만 안 보인다.

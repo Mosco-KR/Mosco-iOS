@@ -95,6 +95,11 @@ struct CalendarScreen: View {
         .background(TodoQueryBridge(store: store))
         .onChange(of: visibleMonth) { _, month in
             store.focus(on: month)
+            // 오늘로부터 몇 달 떨어진 곳을 보는지. 스냅샷 계산 범위(±8개월)가
+            // 실제 사용과 맞는지 판단할 근거가 된다.
+            Analytics.log(
+                .monthNavigated(offsetFromToday: CalendarMonth.containing(Date()).distance(to: month))
+            )
         }
         // 주 페이저가 좌우로 넘어가면 선택 날짜를 **같은 요일 자리**로 옮긴다
         // (iOS 캘린더와 같은 거동). select()가 이 값을 바꿀 때도 이 핸들러가 도는데,
@@ -321,6 +326,12 @@ struct CalendarScreen: View {
             hidden.insert(key)
         }
         hiddenCalendarIDs = CalendarSelection.raw(from: hidden)
+        Analytics.log(
+            .calendarFilterChanged(
+                visibleCount: calendars.count - hidden.count,
+                totalCount: calendars.count
+            )
+        )
     }
 
     private var settingsButton: some View {

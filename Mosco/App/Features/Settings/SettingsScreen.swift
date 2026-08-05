@@ -140,6 +140,7 @@ struct SettingsScreen: View {
                     category.notifiesBeforeStart = draft.notifiesBeforeStart
                     category.notificationLeadMinutes = draft.notificationLeadMinutes
                     modelContext.insert(category)
+                    Analytics.log(.categoryCreated(count: categories.count + 1))
                 }
             },
             onDelete: target.category.map { editing in
@@ -163,6 +164,7 @@ struct SettingsScreen: View {
                     modelContext.insert(
                         TodoCalendar(name: draft.name, colorHex: draft.colorHex, sortOrder: calendars.count)
                     )
+                    Analytics.log(.calendarCreated(count: calendars.count + 1))
                 }
             },
             onDelete: target.calendar.map { editing in

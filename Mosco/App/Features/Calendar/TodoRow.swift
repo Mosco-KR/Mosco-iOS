@@ -126,6 +126,7 @@ struct TodoRow: View {
             }
 
             Button {
+                if !todo.isDDay { Analytics.log(.dDaySet) }
                 todo.isDDay.toggle()
             } label: {
                 Label(
