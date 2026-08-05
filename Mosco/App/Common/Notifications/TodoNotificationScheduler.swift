@@ -169,7 +169,7 @@ final class TodoNotificationScheduler {
         ) async {
             // 알림을 밀어서 지운 건(dismissAction) 연 게 아니다.
             guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
-            await MainActor.run { Analytics.log(.notificationOpen) }
+            await MainActor.run { Analytics.log(.notificationOpened) }
         }
     }
 

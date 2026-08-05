@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.Mosco.App.MoscoWidget</string>
+	<string>com.Mosco.App</string>
 	<key>PROJECT_ID</key>
 	<string>mosco-9b82d</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:60933038705:ios:9c8252b2792c72090d71d0</string>
+	<string>1:60933038705:ios:90d8ebfe72c761770d71d0</string>
 </dict>
 </plist>

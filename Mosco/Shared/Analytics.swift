@@ -13,7 +13,12 @@ import OSLog
 enum AnalyticsEvent {
     // MARK: 사용 흐름
 
-    /// 앱이 전면으로 올라옴. 세션 수·리텐션의 기준.
+    /// 앱이 전면으로 올라옴.
+    ///
+    /// 이름이 `app_open`이 아니라 `app_launch`인 건 Firebase가 **`app_open`을
+    /// 자동으로 수집**하기 때문이다. 같은 이름으로 우리도 보내면 둘이 한 지표에
+    /// 섞여서 어느 쪽이 센 건지 구분할 수 없게 된다. `app_open`은 Firebase 것을
+    /// 그대로 쓰고, 여기서는 콜드 스타트 여부까지 담은 우리 것을 따로 남긴다.
     case appOpened(isColdStart: Bool)
     /// 탭 이동 — 세 탭 중 실제로 쓰는 게 무엇인지.
     case tabViewed(tab: String)
@@ -55,7 +60,10 @@ enum AnalyticsEvent {
     case widgetTapped(kind: String)
     /// 알림을 눌러 앱이 열렸다. 알림이 실제로 사람을 데려오는지 — 예약만 하고
     /// 효과를 모르면 알림 설계를 고칠 근거가 없다.
-    case notificationOpen
+    ///
+    /// 이름 뒤에 `ed`가 붙은 건 취향이 아니다. `notification_open`은 Firebase의
+    /// **예약어**(FCM 자동 이벤트)라 그 이름으로 보내면 조용히 버려진다.
+    case notificationOpened
     case categoryCreated(count: Int)
     case calendarCreated(count: Int)
     case dDaySet
@@ -84,7 +92,7 @@ enum AnalyticsEvent {
 
     var name: String {
         switch self {
-        case .appOpened: "app_open"
+        case .appOpened: "app_launch"
         case .tabViewed: "tab_viewed"
         case .scheduleCreated: "create_schedule"
         case .taskCreated: "create_task"
@@ -97,7 +105,7 @@ enum AnalyticsEvent {
         case .timeSuggestionApplied: "time_suggestion_applied"
         case .widgetRendered: "widget_rendered"
         case .widgetTapped: "widget_tapped"
-        case .notificationOpen: "notification_open"
+        case .notificationOpened: "notification_opened"
         case .categoryCreated: "category_created"
         case .calendarCreated: "calendar_created"
         case .dDaySet: "dday_set"
@@ -146,7 +154,7 @@ enum AnalyticsEvent {
             ["kind": kind, "family": family]
         case let .widgetTapped(kind):
             ["kind": kind]
-        case .notificationOpen:
+        case .notificationOpened:
             [:]
         case let .categoryCreated(count):
             ["total_count": String(count)]

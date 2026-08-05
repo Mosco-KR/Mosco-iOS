@@ -30,8 +30,25 @@ struct FirebaseAnalyticsSink: AnalyticsSink {
             assertBundleIDMatches(plistAt: path)
             FirebaseApp.configure()
             didConfigure = true
+            logSetupState()
         }
         return FirebaseAnalyticsSink()
+    }
+
+    /// 설정이 실제로 어떤 상태인지 한 줄로 찍는다.
+    ///
+    /// DebugView에 아무것도 안 뜰 때 원인이 늘 이 셋 중 하나인데(plist 번들 ID
+    /// 불일치 / `-FIRDebugEnabled` 누락 / plist 자체가 번들에 없음), 셋 다 조용히
+    /// 실패하거나 다른 로그에 파묻힌다. 추측하지 않아도 되게 직접 확인해서 남긴다.
+    private static func logSetupState() {
+        #if DEBUG
+        let debugMode = ProcessInfo.processInfo.arguments.contains("-FIRDebugEnabled")
+        let bundleID = Bundle.main.bundleIdentifier ?? "?"
+        print("""
+        [Mosco][Analytics] Firebase 설정 완료 — 번들 ID: \(bundleID), \
+        DebugView 모드: \(debugMode ? "켜짐" : "꺼짐(-FIRDebugEnabled 인자 없음 → DebugView에 안 보입니다)")
+        """)
+        #endif
     }
 
     /// plist에 적힌 번들 ID가 이 앱과 다르면 이벤트가 **다른 앱 등록으로 흘러가서**
