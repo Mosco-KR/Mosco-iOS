@@ -231,43 +231,45 @@ struct ConsoleAnalyticsSink: AnalyticsSink {
     }
 }
 
-/// 이벤트 창구.
+/// 이벤트 창구. 앱은 `log(_:)`만 알고, 어디로 보내는지는 sink가 정한다 —
+/// 분석 도구를 바꿀 때 호출부를 하나도 안 건드리려는 것이다.
 ///
-/// **아직 실제 분석 도구는 붙어 있지 않다.** SDK를 정하면 그 SDK를 감싼
-/// `AnalyticsSink`를 하나 만들어 `Analytics.register(_:)`로 꽂으면 되고,
-/// 이 파일 밖은 손댈 게 없다.
-///
-/// 수집 동의를 받기 전이라면 `isEnabled`를 false로 두면 전부 조용히 버려진다 —
-/// 호출부에 조건문을 흩어놓지 않으려는 것이다.
+/// 수집 동의를 받기 전이라면 `isEnabled`를 false로 두면 전부 조용히 버려진다.
 @MainActor
 enum Analytics {
     /// 동의를 받기 전/거부한 사용자는 여기서 막는다.
     static var isEnabled = true
 
+    /// 콘솔 sink는 개발 중에만. 릴리스에서는 Firebase만 남는다.
+    #if DEBUG
     private static var sinks: [any AnalyticsSink] = [ConsoleAnalyticsSink()]
+    #else
+    private static var sinks: [any AnalyticsSink] = []
+    #endif
 
     static func register(_ sink: any AnalyticsSink) {
         sinks.append(sink)
     }
 
     static func log(_ event: AnalyticsEvent) {
-        guard isEnabled else { return }
-        for sink in sinks {
-            sink.send(name: event.name, parameters: event.parameters)
-        }
+        send(name: event.name, parameters: event.parameters)
     }
 
     /// 위젯이 App Group에 쌓아둔 이벤트를 비워서 함께 보낸다.
     /// 앱이 전면으로 올라올 때 부른다(`RootTabView`).
+    ///
+    /// 꺼져 있어도 비우기는 한다 — 안 그러면 동의하지 않은 사용자의 기기에
+    /// 이벤트가 무한정 쌓인다.
     static func flushPendingFromExtensions() {
-        guard isEnabled else {
-            AnalyticsBuffer.drain()
-            return
-        }
         for pending in AnalyticsBuffer.drain() {
-            for sink in sinks {
-                sink.send(name: pending.name, parameters: pending.parameters)
-            }
+            send(name: pending.name, parameters: pending.parameters)
+        }
+    }
+
+    private static func send(name: String, parameters: [String: String]) {
+        guard isEnabled else { return }
+        for sink in sinks {
+            sink.send(name: name, parameters: parameters)
         }
     }
 }

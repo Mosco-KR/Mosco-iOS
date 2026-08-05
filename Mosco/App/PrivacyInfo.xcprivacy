@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  이 앱이 무엇을 수집하고, 왜 특정 시스템 API를 쓰는지 Apple에 신고하는 파일.
+	  2024년 5월부터 필수이고, 없으면 App Store Connect 업로드 단계에서 막힌다.
+
+	  여기 적은 내용은 App Store Connect의 "앱 개인정보 보호" 설문과 **일치해야**
+	  한다. 둘이 어긋나면 심사에서 지적받는다.
+
+	  수집 항목의 근거는 Shared/Analytics.swift 하나다 — 거기 enum에 없는 이벤트는
+	  나가지 않으므로, 이 파일을 고칠 일이 생기면 항상 그 파일부터 본다.
+	-->
+
+	<!-- 광고 추적을 하지 않는다. IDFA를 쓰지 않고, App Tracking Transparency
+	     동의창도 띄우지 않는다. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<!--
+		  Firebase Analytics가 앱 인스턴스 ID를 만들어 쓴다.
+		  사용자 계정이 없는 앱이라(로그인 없음) 사람의 신원과 연결되지 않는다.
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeDeviceID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+
+		<!--
+		  어떤 화면을 보고 무엇을 눌렀는지(이벤트 이름과 그 모양).
+		  할 일 제목·메모·카테고리 이름 같은 입력 내용은 보내지 않는다.
+		  제목은 길이를 구간("5-9" 등)으로 뭉개서만 보낸다.
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+
+		<!--
+		  날씨를 보여주려고 위치를 쓴다. 대략적 위치만 필요하고, 기기 밖으로
+		  나가지 않으며 저장하지도 않는다. 권한을 거부해도 날씨만 안 보이고
+		  나머지 기능은 그대로 동작한다.
+		-->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<!--
+		  UserDefaults를 두 곳에서 쓴다.
+		  · 앱 설정(알림 스위치, 숨긴 캘린더, 리뷰 요청 기록) → CA92.1
+		  · 위젯이 남긴 이벤트를 앱이 비우는 App Group 저장소 → 1C8F.1
+		-->
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
