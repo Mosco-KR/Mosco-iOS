@@ -269,12 +269,45 @@ struct SettingsScreen: View {
                     openSystemSettings()
                 }
             }
+
+            weatherAttributionLink
         } header: {
             Text("날씨")
         } footer: {
             weatherFooter
         }
     }
+
+    /// Apple 날씨 데이터 출처 표기.
+    ///
+    /// WeatherKit을 쓰면 Apple 상표( Weather)와 법적 고지 링크를 **화면에 반드시
+    /// 표시해야 한다**(App Store 가이드라인 5.2.5). 없으면 리젝된다 — 실제로 1.0(3)이
+    /// 이것 때문에 반려됐다.
+    ///
+    /// 날씨 토글을 꺼도 계속 보여준다. 심사자가 토글이 꺼진 상태로 볼 수도 있는데,
+    /// 그때 출처가 사라지면 "표기가 없다"는 같은 결론으로 돌아간다.
+    private var weatherAttributionLink: some View {
+        Link(destination: Self.weatherAttributionURL) {
+            HStack(spacing: 6) {
+                // verbatim으로 넣는다 — 는 사설 영역 문자라, 지역화 문자열로
+                // 다루면 다른 걸로 치환되거나 깨질 수 있다.
+                Text(verbatim: "\u{F8FF} Weather")
+                    .foregroundStyle(MoscoPalette.textPrimary)
+                Spacer(minLength: 0)
+                Text("데이터 출처")
+                    .font(.footnote)
+                    .foregroundStyle(MoscoPalette.textSecondary)
+                Image(systemName: "arrow.up.right")
+                    .font(.footnote)
+                    .foregroundStyle(MoscoPalette.textSecondary)
+            }
+        }
+    }
+
+    /// Apple이 지정한 날씨 데이터 법적 고지 주소.
+    private static let weatherAttributionURL = URL(
+        string: "https://weatherkit.apple.com/legal-attribution.html"
+    )!
 
     @ViewBuilder
     private var weatherFooter: some View {
