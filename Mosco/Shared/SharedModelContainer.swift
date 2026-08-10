@@ -21,6 +21,14 @@ enum SharedModelContainer {
     /// 실행 인자로 명시할 때만 저장소를 버린다(개발용).
     static let resetLaunchArgument = "-MoscoResetStore"
 
+    /// iCloud와 함께 저장소를 열었는지. `false`면 이 기기의 데이터는 **어디에도
+    /// 백업되지 않는다** — 앱을 지우면 그대로 사라진다.
+    ///
+    /// 지금까지 이 물러섬은 `print`와 분석 이벤트로만 남아서, 정작 그 처지에 놓인
+    /// 사용자는 아무것도 알 수 없었다. 설정 화면이 이 값을 읽어 알려준다.
+    /// `make()`가 불리기 전에는 아직 아무것도 시도하지 않은 상태라 `nil`이다.
+    private(set) nonisolated(unsafe) static var isCloudSyncActive: Bool?
+
     static func make() -> ModelContainer {
         #if DEBUG
         // 예전엔 스키마가 안 맞으면 **자동으로** 저장소를 지웠다. iCloud를 켠
@@ -33,6 +41,7 @@ enum SharedModelContainer {
         #endif
 
         if let container = try? ModelContainer(for: schema, configurations: makeConfiguration()) {
+            isCloudSyncActive = true
             return container
         }
 
@@ -41,6 +50,7 @@ enum SharedModelContainer {
         // 기기에 iCloud 계정이 없을 때. 그 사정으로 앱이 아예 안 뜨게 두는 건 과하므로
         // 로컬 전용으로 물러나서 계속 쓸 수 있게 한다(동기화만 안 된다).
         if let local = try? ModelContainer(for: schema, configurations: localOnlyConfiguration()) {
+            isCloudSyncActive = false
             // 지금까지 이 물러섬은 콘솔에만 남았다 — 동기화가 안 되는 사용자가
             // 얼마나 되는지 아무도 몰랐다. 앱 실행 초반이라 sink가 아직 안 붙었을
             // 수 있으므로 버퍼에 적어두고 앱이 나중에 함께 보낸다.

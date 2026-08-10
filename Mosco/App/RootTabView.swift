@@ -8,6 +8,7 @@ import WidgetKit
 struct RootTabView: View {
     @State private var weatherStore = WeatherStore()
     @State private var notificationScheduler = TodoNotificationScheduler()
+    @State private var cloudSyncStore = CloudSyncStore()
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Query private var categories: [TodoCategory]
@@ -150,6 +151,7 @@ struct RootTabView: View {
         }
         .environment(weatherStore)
         .environment(notificationScheduler)
+        .environment(cloudSyncStore)
         .task {
             // 처음 쓴 날을 기록해둔다 — 리뷰는 며칠 써본 뒤에만 부탁한다.
             ReviewPrompt.registerLaunch()
@@ -168,6 +170,7 @@ struct RootTabView: View {
             // 실패해도(권한 거부/케이퍼빌리티 미설정) 조용히 넘어가고 날씨만 안 보인다.
             weatherStore.loadIfNeeded()
             await notificationScheduler.refreshAuthorizationStatus()
+            await cloudSyncStore.refresh()
         }
         .onChange(of: selectedTab, initial: true) { _, tab in
             Analytics.log(.tabViewed(tab: String(describing: tab)))
@@ -194,6 +197,8 @@ struct RootTabView: View {
             Task {
                 await notificationScheduler.reschedule(todos: todos)
                 weatherStore.retry()
+                // 설정 앱에서 iCloud에 로그인하고 돌아왔을 수 있다.
+                await cloudSyncStore.refresh()
             }
         }
         .onAppear(perform: seedIfNeeded)

@@ -11,6 +11,7 @@ struct SettingsScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(WeatherStore.self) private var weatherStore
     @Environment(TodoNotificationScheduler.self) private var notificationScheduler
+    @Environment(CloudSyncStore.self) private var cloudSyncStore
     /// 카테고리·캘린더의 "새로 만들기"와 "고치기"를 전부 하나의 상태로 합쳤다.
     ///
     /// 같은 계층에 `.sheet`를 두 개 붙이면 뒤에 붙은 것만 살아난다(카테고리를 눌러도
@@ -100,6 +101,7 @@ struct SettingsScreen: View {
 
                 notificationSection
                 weatherSection
+                syncSection
                 resetSection
             }
             .navigationTitle("설정")
@@ -316,6 +318,71 @@ struct SettingsScreen: View {
             Text("가져오지 못했어요. 잠시 후 다시 시도할게요.")
         case .disabledByUser, .none:
             Text("주간 달력과 '오늘' 버튼에 함께 보여줘요.")
+        }
+    }
+
+    /// iCloud 동기화가 되고 있는지 그대로 보여준다.
+    ///
+    /// 켜고 끄는 토글이 아니라 **상태 표시**다 — 동기화는 앱이 정하는 게 아니라
+    /// 계정과 저장소 사정으로 정해진다. 여기서 사용자가 알아야 하는 건 "이 기기의
+    /// 할 일이 백업되고 있는가" 하나이고, 안 되고 있다면 앱을 지웠을 때 무슨 일이
+    /// 벌어지는지까지 미리 알려주는 게 맞다.
+    @ViewBuilder
+    private var syncSection: some View {
+        Section {
+            HStack(spacing: 6) {
+                Text("iCloud 동기화")
+                    .foregroundStyle(MoscoPalette.textPrimary)
+                Spacer(minLength: 0)
+                Image(systemName: syncSymbol)
+                    .font(.footnote)
+                Text(syncLabel)
+                    .font(.footnote)
+            }
+            .foregroundStyle(cloudSyncStore.state.isSyncing ? MoscoPalette.accent : MoscoPalette.textSecondary)
+
+            // 계정이 없을 때만 설정 앱으로 보낸다 — 나머지 경우는 사용자가
+            // 기기에서 할 수 있는 게 없어서, 보내봐야 헛걸음이 된다.
+            if cloudSyncStore.state == .noAccount {
+                Button("설정에서 iCloud 로그인하기") {
+                    openSystemSettings()
+                }
+            }
+        } header: {
+            Text("백업")
+        } footer: {
+            syncFooter
+        }
+        .task { await cloudSyncStore.refresh() }
+    }
+
+    private var syncSymbol: String {
+        cloudSyncStore.state.isSyncing ? "checkmark.icloud.fill" : "exclamationmark.icloud"
+    }
+
+    private var syncLabel: String {
+        switch cloudSyncStore.state {
+        case .active: "켜짐"
+        case .noAccount: "iCloud 로그인 필요"
+        case .restricted: "사용할 수 없음"
+        case .localOnly: "이 기기에만 저장 중"
+        case .unknown: "확인 중"
+        }
+    }
+
+    @ViewBuilder
+    private var syncFooter: some View {
+        switch cloudSyncStore.state {
+        case .active:
+            Text("할 일이 iCloud에 저장돼요. 기기를 바꾸거나 앱을 다시 깔아도 그대로 남아요.")
+        case .noAccount:
+            Text("iCloud에 로그인하지 않아 이 기기에만 저장돼요. 앱을 지우면 함께 사라집니다.")
+        case .restricted:
+            Text("기기 설정이 iCloud 사용을 막고 있어요. 이 기기에만 저장되며, 앱을 지우면 함께 사라집니다.")
+        case .localOnly:
+            Text("iCloud 저장소를 열지 못해 이 기기에만 저장하고 있어요. 앱을 지우면 함께 사라집니다.")
+        case .unknown:
+            Text("iCloud 상태를 확인하고 있어요.")
         }
     }
 
