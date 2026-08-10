@@ -77,7 +77,7 @@ struct UpcomingScreen: View {
             .scrollClipDisabled()
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 14, trailing: 0))
+            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: Metrics.listSectionGap, trailing: 0))
         } header: {
             Text("디데이")
                 .font(.moscoCaption().weight(.semibold))
@@ -174,6 +174,11 @@ struct UpcomingScreen: View {
             }
         }
         .listStyle(.plain)
+        // 날짜마다 섹션이 하나씩 생기는 화면이라, 시스템 기본 섹션 간격을 그대로
+        // 두면 빈 날 하나가 할 일이 있는 날만큼 자리를 차지한다 — 2주치를 훑어야
+        // 하는 화면에서 그건 정작 볼 것을 화면 밖으로 밀어낸다. 간격은 셀의
+        // 위아래 여백(listRowInsets)으로만 정하고, 시스템 몫은 걷어낸다.
+        .listSectionSpacing(Metrics.spacingSM)
         .scrollContentBackground(.hidden)
     }
 
@@ -260,7 +265,17 @@ struct UpcomingScreen: View {
                         .foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 2, leading: Metrics.spacingMD, bottom: 10, trailing: Metrics.spacingMD))
+                        // 빈 날은 셀보다 낮게 잡는다 — 2주치를 훑는 화면이라
+                        // 빈 날이 셀만큼 자리를 차지하면 정작 할 일이 있는 날이
+                        // 화면 밖으로 밀린다.
+                        .listRowInsets(
+                            EdgeInsets(
+                                top: 2,
+                                leading: Metrics.spacingMD,
+                                bottom: Metrics.spacingSM,
+                                trailing: Metrics.spacingMD
+                            )
+                        )
                 } else {
                     ForEach(items) { todo in
                         row(todo, on: day)
@@ -311,6 +326,10 @@ struct UpcomingScreen: View {
             Spacer()
         }
         .font(.moscoCaption().weight(.semibold))
+        // 헤더가 바로 앞 구역의 마지막 셀에 붙어 있으면 어디서 날짜가 바뀌는지
+        // 안 보인다 — 셀 사이 간격보다 넉넉하게 띄운다.
+        .padding(.top, Metrics.spacingSM)
+        .padding(.bottom, Metrics.spacingXS)
     }
 
     private func row(_ todo: TodoItem, on day: Date?) -> some View {
@@ -324,7 +343,14 @@ struct UpcomingScreen: View {
         )
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 4, leading: Metrics.spacingMD, bottom: 4, trailing: Metrics.spacingMD))
+        .listRowInsets(
+            EdgeInsets(
+                top: Metrics.listRowGap,
+                leading: Metrics.spacingMD,
+                bottom: Metrics.listRowGap,
+                trailing: Metrics.spacingMD
+            )
+        )
         // "다른 날로 미루기"를 여기서 바로 할 수 있어야 이 화면이 제 값을 한다.
         // 반복 일정은 원본을 옮기면 모든 날짜가 함께 움직여서 빼둔다.
         .swipeActions(edge: .leading, allowsFullSwipe: false) {

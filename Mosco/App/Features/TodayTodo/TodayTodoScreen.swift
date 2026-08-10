@@ -244,7 +244,7 @@ struct TodayTodoScreen: View {
         .background(MoscoPalette.must.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
+        .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
     }
 
     /// 시각 순으로 늘어놓는 섹션이라 순서를 손으로 바꿀 수 없다 — 삭제만 연다.
@@ -274,7 +274,7 @@ struct TodayTodoScreen: View {
                 }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
+                .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
             }
             .onMove { move(unplannedTodos, from: $0, to: $1) }
             .onDelete { delete(unplannedTodos, at: $0) }
@@ -318,7 +318,7 @@ struct TodayTodoScreen: View {
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
+                .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                     Button {
                         pullIntoToday(todo)
@@ -377,7 +377,7 @@ struct TodayTodoScreen: View {
                     }
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
+                    .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
                 }
                 .onMove { move(backlogTodos, from: $0, to: $1) }
                 .onDelete { delete(backlogTodos, at: $0) }
@@ -423,7 +423,7 @@ struct TodayTodoScreen: View {
         )
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
+        .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
         // 시간대를 바꾸는 건 자주 하는 일이 아니라 스와이프에 숨긴다 — 모든 행에
         // 칩을 세 개씩 달면 목록이 통째로 무거워진다.
         .swipeActions(edge: .leading, allowsFullSwipe: false) {

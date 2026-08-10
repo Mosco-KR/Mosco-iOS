@@ -11,8 +11,10 @@ struct TodoRow: View {
     /// 어느 날짜의 인스턴스로 보고 있는지(하루치 리스트에서 전달). 반복 일정이면
     /// 완료 체크가 이 날짜의 인스턴스에만 적용된다 — 다른 날의 반복은 그대로.
     var occurrenceDate: Date? = nil
-    /// 셀 몸통을 누르면 수정할 수 있게 채팅형 입력창을 다시 띄우는 콜백.
-    /// (체크박스는 별도 버튼이라 이 탭과 겹치지 않는다)
+    /// 수정 — 채팅형 입력창을 다시 띄우거나 상세를 연다. 꾹 눌러 나오는 메뉴의
+    /// "수정"에서 부른다. 예전엔 셀 몸통 탭이 이걸 맡았는데, 그러면 완료가
+    /// 26pt 동그라미 안으로 밀려나 매번 정확히 겨눠야 했다 — 목록에서 제일 자주
+    /// 하는 일이 제일 어려운 조작이 되어 있었다.
     var onTap: (() -> Void)? = nil
     /// 이 할 일을 지운다. nil이면 삭제 메뉴를 감춘다.
     var onDelete: (() -> Void)? = nil
@@ -38,8 +40,13 @@ struct TodoRow: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
-        HStack(alignment: .center, spacing: 12) {
-            checkButton
+        HStack(alignment: .center, spacing: 10) {
+            // 막대와 체크는 한 덩어리로 붙여둔다 — 둘 사이가 벌어지면 왼쪽 끝에
+            // 요소가 두 개 흩어진 것처럼 보인다.
+            categoryBar
+                .padding(.trailing, -2)
+
+            checkMark
 
             // 1행: 제목 그대로, 2행: 카테고리(항상 맨 앞) + 날짜/시간을 하나로 합친 태그.
             VStack(alignment: .leading, spacing: 6) {
@@ -57,7 +64,8 @@ struct TodoRow: View {
                 //
                 // 여기 칩들은 **무엇인지 이름으로 말한다** — 색까지 입힐 이유가 없다.
                 HStack(spacing: 6) {
-                    CategoryTag(category: todo.category)
+                    // 색 점은 끈다 — 왼쪽 막대가 이미 같은 말을 하고 있다.
+                    CategoryTag(category: todo.category, showsColorDot: false)
 
                     if showsCalendarTag, let calendar = todo.calendar {
                         // 캘린더 색은 위쪽 선택기에서만 쓴다(설정 화면이 그렇게
@@ -95,9 +103,14 @@ struct TodoRow: View {
             detailButton
         }
         .padding(.vertical, 13)
-        .padding(.horizontal, 14)
+        // 왼쪽은 막대가 자리를 채우므로 안쪽 여백을 줄인다.
+        .padding(.leading, 9)
+        .padding(.trailing, 14)
         .contentShape(Rectangle())
-        .onTapGesture { onTap?() }
+        // **셀 전체가 완료 버튼이다.** 목록에서 제일 자주 하는 일이라 제일 넓은
+        // 히트 영역을 준다. 수정은 꾹 눌러 나오는 메뉴로 옮겼다 — 자주 하는
+        // 조작일수록 겨누기 쉬워야 한다.
+        .onTapGesture(perform: toggleCompletion)
         // 완료된 항목은 내용만 흐려진다. 배경보다 뒤에 놓아서 카드 자체는
         // 불투명하게 남는다 — 카드까지 반투명해지면 뒤가 비쳐 얼룩져 보인다.
         .opacity(isDone ? 0.55 : 1)
@@ -108,16 +121,24 @@ struct TodoRow: View {
         //
         // 카드 배경은 **중립색 하나**다. 예전엔 여기에도 카테고리 색을 옅게
         // 깔았는데, 목록이 길어지면 카드마다 바탕색이 달라 화면 전체가 알록달록해
-        // 눈이 피로했다. 색은 체크 동그라미와 카테고리 칩에만 — 찾을 때 필요한
-        // 자리에만 점처럼 찍는다.
+        // 눈이 피로했다. 색은 왼쪽 막대 하나에만 — 찾을 때 필요한 자리에만 찍는다.
         .background(MoscoPalette.surface, in: shape)
         .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.4), lineWidth: 0.5))
         .shadow(color: .black.opacity(isDone ? 0.02 : 0.06), radius: 12, y: 5)
         .scaleEffect(isDone ? 0.985 : 1)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isDone)
-        // 목록에서 바로 지우고 싶을 때를 위한 지름길. 길게 누르기라 좌우 스와이프
-        // (날짜 넘기기)와 안 겹친다. 평소엔 안 보이니 행도 복잡해지지 않는다.
+        // 몸통 탭이 완료로 가면서, 나머지 조작은 전부 이 메뉴가 맡는다. 평소엔
+        // 안 보이니 행도 복잡해지지 않는다.
         .contextMenu {
+            // 맨 위에 둔다 — 몸통 탭에서 밀려난 조작이라 제일 먼저 눈에 띄어야 한다.
+            if onTap != nil {
+                Button {
+                    onTap?()
+                } label: {
+                    Label("수정", systemImage: "pencil")
+                }
+            }
+
             Button {
                 showsMemoEditor = true
             } label: {
@@ -228,44 +249,61 @@ struct TodoRow: View {
         .animation(.easeOut(duration: 0.2), value: hasMemo)
     }
 
-    /// 체크박스가 완료 컨트롤이면서 동시에 카테고리 색 표시도 겸한다 —
-    /// 미완료일 땐 카테고리 색 테두리만 있는 빈 원(그 카테고리라는 걸 미리 보여줌),
-    /// 완료하면 그 색으로 꽉 채워지고 흰 체크가 팝 인 되는 스프링 애니메이션.
-    private var checkButton: some View {
-        Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
-                if let occurrenceDate {
-                    todo.setCompleted(!isDone, on: occurrenceDate)
-                } else {
-                    todo.isCompleted.toggle()
-                }
-            }
-            // isDone은 방금 뒤집기 **전** 값이라, 새 상태는 그 반대다.
-            let nowCompleted = !isDone
-            Analytics.log(
-                .taskCompleted(
-                    source: "app",
-                    completed: nowCompleted,
-                    isRepeating: todo.repeatRule != .none
-                )
-            )
-            if nowCompleted { askForReviewIfEarned() }
-        } label: {
-            ZStack {
-                Circle()
-                    .fill(isDone ? accentColor : Color.clear)
-                Circle()
-                    .strokeBorder(accentColor, lineWidth: isDone ? 0 : 1.75)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.white)
-                    .opacity(isDone ? 1 : 0)
-                    .scaleEffect(isDone ? 1 : 0.4)
-            }
-            .frame(width: 26, height: 26)
+    /// 셀 왼쪽 끝의 카테고리 색 막대 — 달력 격자의 일정 블록과 같은 표기다.
+    /// 목록을 훑을 때 색이 세로 한 줄로 정렬돼 읽히고, 달력에서 보던 색이 목록에서도
+    /// 같은 자리에 있어 두 화면이 한 앱처럼 이어진다.
+    ///
+    /// **한 행에서 카테고리 색이 쓰이는 자리는 이 막대 하나뿐이다.** 예전엔 체크
+    /// 동그라미가 그 자리였는데, 색을 두 군데 쓰면 어느 쪽이 무슨 뜻인지 알 수 없게
+    /// 된다 — 자리가 옮겨간 것이지 늘어난 게 아니다.
+    private var categoryBar: some View {
+        Capsule()
+            .fill(accentColor)
+            .frame(width: 4)
+            // 셀 높이에서 위아래로 조금 물러난다 — 끝까지 채우면 카드 모서리의
+            // 둥근 곡선과 부딪혀 막대 끝이 잘려 보인다.
+            .padding(.vertical, 2)
+    }
+
+    /// 완료 표시. **버튼이 아니라 표시 전용이다** — 누르는 건 셀 전체가 받는다.
+    /// 예전엔 이게 26pt 버튼이라 매번 정확히 겨눠야 했다.
+    ///
+    /// 색은 중립색이다. 카테고리 색은 왼쪽 막대가 맡고, 여기서 알고 싶은 건
+    /// "끝냈는가" 하나뿐이다.
+    private var checkMark: some View {
+        ZStack {
+            Circle()
+                .fill(isDone ? MoscoPalette.textSecondary : Color.clear)
+            Circle()
+                .strokeBorder(MoscoPalette.textSecondary.opacity(isDone ? 0 : 0.45), lineWidth: 1.75)
+            Image(systemName: "checkmark")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(MoscoPalette.surface)
+                .opacity(isDone ? 1 : 0)
+                .scaleEffect(isDone ? 1 : 0.4)
         }
-        .buttonStyle(.plain)
-        .contentShape(Circle())
+        .frame(width: 26, height: 26)
+    }
+
+    /// 셀을 눌렀을 때. 반복 일정이면 보고 있는 날짜의 인스턴스만 뒤집는다.
+    private func toggleCompletion() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+            if let occurrenceDate {
+                todo.setCompleted(!isDone, on: occurrenceDate)
+            } else {
+                todo.isCompleted.toggle()
+            }
+        }
+        // isDone은 방금 뒤집기 **전** 값이라, 새 상태는 그 반대다.
+        let nowCompleted = !isDone
+        Analytics.log(
+            .taskCompleted(
+                source: "app",
+                completed: nowCompleted,
+                isRepeating: todo.repeatRule != .none
+            )
+        )
+        if nowCompleted { askForReviewIfEarned() }
     }
 
     /// 날짜/시간 관련 정보를 태그 하나로 합치는 정책:
