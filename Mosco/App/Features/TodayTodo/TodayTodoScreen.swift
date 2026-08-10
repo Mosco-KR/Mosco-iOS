@@ -268,7 +268,8 @@ struct TodayTodoScreen: View {
                         todo: todo,
                         occurrenceDate: today,
                         onTap: { editingTodo = todo },
-                        onDelete: { delete(todo) }
+                        onDelete: { delete(todo) },
+                        analyticsSource: "today_plan"
                     )
                     slotPicker(for: todo)
                 }
@@ -314,7 +315,8 @@ struct TodayTodoScreen: View {
                     todo: todo,
                     showsDate: true,
                     onTap: { editingTodo = todo },
-                    onDelete: { delete(todo) }
+                    onDelete: { delete(todo) },
+                    analyticsSource: "today_plan"
                 )
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
@@ -363,7 +365,8 @@ struct TodayTodoScreen: View {
                         TodoRow(
                             todo: todo,
                             onTap: { editingTodo = todo },
-                            onDelete: { delete(todo) }
+                            onDelete: { delete(todo) },
+                            analyticsSource: "today_plan"
                         )
                         Button {
                             pullIntoToday(todo)
@@ -419,7 +422,8 @@ struct TodayTodoScreen: View {
             todo: todo,
             occurrenceDate: today,
             onTap: { editingTodo = todo },
-            onDelete: { delete(todo) }
+            onDelete: { delete(todo) },
+            analyticsSource: "today_plan"
         )
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)

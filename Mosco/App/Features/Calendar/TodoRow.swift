@@ -22,11 +22,17 @@ struct TodoRow: View {
     /// 있으면 전부 같은 캘린더라 칩이 자리만 차지한다.
     var showsCalendarTag: Bool = false
 
+    /// 이 화면이 어디인지 — 복제 이벤트에 그대로 실어 보낸다.
+    var analyticsSource: String = "app"
+
     /// 앱스토어 리뷰 요청. 시스템이 연 3회 한도 안에서 실제로 띄울지 정한다.
     @Environment(\.requestReview) private var requestReview
+    @Environment(\.modelContext) private var modelContext
+    @Environment(TodoClipboard.self) private var clipboard
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @State private var showsMemoEditor = false
     @State private var showsDeleteConfirmation = false
+    @State private var showsDuplicatePicker = false
 
     private var isDone: Bool {
         if let occurrenceDate { return todo.isCompleted(on: occurrenceDate) }
@@ -155,6 +161,23 @@ struct TodoRow: View {
                 )
             }
 
+            // 같은 일이 이따금 되풀이될 때. 반복 규칙을 걸면 원본 하나가 모든
+            // 날짜를 대표해서 한 날만 고치거나 지울 수 없는데, 이런 일은 각각
+            // 따로 서 있어야 한다.
+            Button {
+                showsDuplicatePicker = true
+            } label: {
+                Label("다른 날로 복제…", systemImage: "calendar.badge.plus")
+            }
+
+            // 날짜를 아직 못 정했을 때. 복사해두고 달력을 넘겨 다니다가 원하는
+            // 날에 붙여넣는다 — 시트 안의 달력으로는 다른 일정도 날씨도 못 본다.
+            Button {
+                clipboard.copy(todo)
+            } label: {
+                Label("복사", systemImage: "doc.on.doc")
+            }
+
             // 만들 때 고른 캘린더를 나중에 바꿀 방법이 없었다 — 옮기려면 지우고
             // 다시 만드는 수밖에 없었다.
             if calendars.count > 1 {
@@ -189,6 +212,12 @@ struct TodoRow: View {
         }
         .sheet(isPresented: $showsMemoEditor) {
             TodoDetailSheet(todo: todo)
+        }
+        .sheet(isPresented: $showsDuplicatePicker) {
+            DuplicateDatePicker(todo: todo) { date in
+                modelContext.insert(todo.duplicated(to: date))
+                Analytics.log(.taskDuplicated(source: analyticsSource, method: "picker"))
+            }
         }
         // 반복 일정은 하나를 지우면 모든 날짜의 인스턴스가 같이 사라지므로,
         // 확인 문구에서 그걸 먼저 알려준다. 한 번짜리는 확인 없이 바로 지운다.

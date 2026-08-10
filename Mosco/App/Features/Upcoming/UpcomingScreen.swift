@@ -339,7 +339,8 @@ struct UpcomingScreen: View {
             showsDate: !trimmedQuery.isEmpty,
             occurrenceDate: day,
             onTap: { detailTodo = todo },
-            onDelete: nil
+            onDelete: nil,
+            analyticsSource: "upcoming"
         )
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)

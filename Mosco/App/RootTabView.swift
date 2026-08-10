@@ -9,6 +9,7 @@ struct RootTabView: View {
     @State private var weatherStore = WeatherStore()
     @State private var notificationScheduler = TodoNotificationScheduler()
     @State private var cloudSyncStore = CloudSyncStore()
+    @State private var todoClipboard = TodoClipboard()
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Query private var categories: [TodoCategory]
@@ -152,6 +153,7 @@ struct RootTabView: View {
         .environment(weatherStore)
         .environment(notificationScheduler)
         .environment(cloudSyncStore)
+        .environment(todoClipboard)
         .task {
             // 처음 쓴 날을 기록해둔다 — 리뷰는 며칠 써본 뒤에만 부탁한다.
             ReviewPrompt.registerLaunch()

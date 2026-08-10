@@ -33,6 +33,10 @@ enum AnalyticsEvent {
     /// 완료/해제. `source`로 앱과 위젯을 가른다.
     case taskCompleted(source: String, completed: Bool, isRepeating: Bool)
     case taskDeleted(source: String, count: Int)
+    /// 같은 할 일을 다른 날로 복제. `method`로 두 동선(날짜 시트 / 복사·붙여넣기)을
+    /// 가른다 — 둘 다 만든 이상, 어느 쪽이 실제로 쓰이는지 알아야 나중에 하나를
+    /// 접을 수 있다.
+    case taskDuplicated(source: String, method: String)
     case todoEdited(field: String)
     /// 끌어서 순서 바꾸기 — 이 기능이 실제로 쓰이는지.
     case todoReordered(source: String)
@@ -98,6 +102,7 @@ enum AnalyticsEvent {
         case .taskCreated: "create_task"
         case .taskCompleted: "complete_task"
         case .taskDeleted: "delete_task"
+        case .taskDuplicated: "duplicate_task"
         case .todoEdited: "todo_edited"
         case .todoReordered: "todo_reordered"
         case .categorySuggested: "category_suggested"
@@ -139,6 +144,8 @@ enum AnalyticsEvent {
             ["source": source, "completed": String(completed), "is_repeating": String(isRepeating)]
         case let .taskDeleted(source, count):
             ["source": source, "count": String(count)]
+        case let .taskDuplicated(source, method):
+            ["source": source, "method": method]
         case let .todoEdited(field):
             ["field": field]
         case let .todoReordered(source):
