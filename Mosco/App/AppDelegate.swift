@@ -16,7 +16,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // 분석 도구는 실행 초반에 붙여야 첫 화면의 이벤트도 잡힌다.
         // Firebase 패키지나 GoogleService-Info.plist가 아직 없으면 nil이 오고,
         // 그때는 콘솔 sink만 남아서 앱은 그대로 돈다.
-        if let firebase = FirebaseAnalyticsSink.configure() {
+        if FirebaseAnalyticsSink.shouldSend, let firebase = FirebaseAnalyticsSink.configure() {
             Analytics.register(firebase)
         }
         return true
