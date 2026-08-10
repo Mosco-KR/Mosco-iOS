@@ -6,7 +6,6 @@ import WidgetKit
 /// 글래스로 그려준다. "오늘" 버튼은 이제 CalendarScreen의 헤더 오른쪽에
 /// 고정된 글래스 버튼으로 있어서, 여기서는 따로 얹을 게 없다.
 struct RootTabView: View {
-    @State private var tutorialManager = TutorialManager()
     @State private var weatherStore = WeatherStore()
     @State private var notificationScheduler = TodoNotificationScheduler()
     @Environment(\.modelContext) private var modelContext
@@ -124,9 +123,6 @@ struct RootTabView: View {
     }
 
     var body: some View {
-        // .environment()를 overlay 뒤에 체이닝하는 대신, ZStack 전체를 감싼
-        // 가장 바깥 수식자로 둔다 — TabView + 오버레이 양쪽 다 확실히 그 아래
-        // 자손이 되게 해서, 환경 전파 순서를 둘러싼 애매함을 없앤다.
         ZStack {
             // 라벨 텍스트 없이 아이콘만 — `Label` 대신 `Image`를 주면 시스템이
             // 아이콘 전용 탭으로 그린다. 접근성 이름은 `accessibilityLabel`로 남긴다
@@ -152,18 +148,6 @@ struct RootTabView: View {
             .tint(MoscoPalette.accent)
 
         }
-        // 튜토리얼이 "지금 눌러야 할 자리"를 알려면 그 요소들의 화면 좌표가 필요하다.
-        // 각 화면이 `.tutorialAnchor(...)`로 등록한 좌표를 여기서 한꺼번에 받는다.
-        .overlayPreferenceValue(TutorialAnchorKey.self) { anchors in
-            GeometryReader { proxy in
-                TutorialOverlayView(
-                    rects: anchors.mapValues { proxy[$0] },
-                    screenSize: proxy.size
-                )
-            }
-            .ignoresSafeArea()
-        }
-        .environment(tutorialManager)
         .environment(weatherStore)
         .environment(notificationScheduler)
         .task {

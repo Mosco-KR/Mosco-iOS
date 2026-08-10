@@ -36,7 +36,6 @@ struct TodayTodoScreen: View {
     /// "다른 날" 칩으로 날짜를 옮기는 중인 항목.
     @State private var reschedulingTodo: TodoItem?
     @State private var rescheduleDate = Date()
-    @Environment(TutorialManager.self) private var tutorialManager
 
     private let calendar = Calendar.current
     private var today: Date { calendar.startOfDay(for: .now) }

@@ -13,7 +13,6 @@ struct DayTodosContentView: View {
     let date: Date
 
     @Environment(\.modelContext) private var modelContext
-    @Environment(TutorialManager.self) private var tutorialManager
     /// 기존 항목을 누르면 여기 채워지고, 하단 QuickAddView가 새로 만들기 대신
     /// 이 항목을 고치는 채팅형 입력창으로 바뀐다.
     @State private var editingTodo: TodoItem?
@@ -44,7 +43,6 @@ struct DayTodosContentView: View {
             onDelete: { todos in
                 for todo in todos { modelContext.delete(todo) }
                 Analytics.log(.taskDeleted(source: "calendar_day_list", count: todos.count))
-                tutorialManager.userDidDeleteTodo()
             }
         )
     }
@@ -89,19 +87,17 @@ private struct DayTodoList: View {
             } else {
                 // 리스트에서 날짜를 넘기던 스와이프를 걷어냈으므로, 좌우 스와이프를
                 // 원래 자리인 스와이프 삭제로 되돌린다.
-                ForEach(Array(todosForDay.enumerated()), id: \.element.id) { index, todo in
+                ForEach(todosForDay) { todo in
                     TodoRow(
                         todo: todo,
                         occurrenceDate: date,
                         onTap: { onSelect(todo) },
                         onDelete: { onDelete([todo]) },
-                        showsCalendarTag: showsCalendarTag,
-                        isTutorialAnchor: index == 0
+                        showsCalendarTag: showsCalendarTag
                     )
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(top: 6, leading: Metrics.spacingMD, bottom: 6, trailing: Metrics.spacingMD))
-                    .tutorialAnchor(index == 0 ? .firstTodoRow : nil)
                 }
                 .onDelete { offsets in
                     onDelete(offsets.map { todosForDay[$0] })

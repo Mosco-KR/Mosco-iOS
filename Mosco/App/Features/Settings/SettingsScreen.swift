@@ -11,7 +11,6 @@ struct SettingsScreen: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(WeatherStore.self) private var weatherStore
     @Environment(TodoNotificationScheduler.self) private var notificationScheduler
-    @Environment(TutorialManager.self) private var tutorialManager
     /// 카테고리·캘린더의 "새로 만들기"와 "고치기"를 전부 하나의 상태로 합쳤다.
     ///
     /// 같은 계층에 `.sheet`를 두 개 붙이면 뒤에 붙은 것만 살아난다(카테고리를 눌러도
@@ -101,7 +100,6 @@ struct SettingsScreen: View {
 
                 notificationSection
                 weatherSection
-                guideSection
                 resetSection
             }
             .navigationTitle("설정")
@@ -318,21 +316,6 @@ struct SettingsScreen: View {
             Text("가져오지 못했어요. 잠시 후 다시 시도할게요.")
         case .disabledByUser, .none:
             Text("주간 달력과 '오늘' 버튼에 함께 보여줘요.")
-        }
-    }
-
-    /// 튜토리얼을 건너뛴 사람도, 새로 생긴 기능을 못 본 사람도 여기서 다시 볼 수 있다.
-    @ViewBuilder
-    private var guideSection: some View {
-        Section {
-            Button("튜토리얼 다시 보기") {
-                dismiss()
-                tutorialManager.restart()
-            }
-        } header: {
-            Text("가이드")
-        } footer: {
-            Text("기본 기능 안내를 처음부터 다시 해볼 수 있어요.")
         }
     }
 

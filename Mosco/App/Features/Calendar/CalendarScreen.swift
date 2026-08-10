@@ -10,7 +10,6 @@ import SwiftData
 /// 심지어 달을 넘기기만 해도 화면 전체 body가 다시 돌면서 그 계산들이 프레임
 /// 안으로 딸려 들어왔다.
 struct CalendarScreen: View {
-    @Environment(TutorialManager.self) private var tutorialManager
     @Environment(WeatherStore.self) private var weatherStore
 
     @State private var store = CalendarSnapshotStore()
@@ -60,7 +59,6 @@ struct CalendarScreen: View {
                             visibleMonth: $visibleMonth,
                             onSelect: select
                         )
-                        .tutorialAnchor(.monthGrid)
                     } else {
                         WeekPagerView(
                             width: pageSize.width,
@@ -71,7 +69,6 @@ struct CalendarScreen: View {
                             onSelect: select,
                             onExpand: collapse
                         )
-                        .tutorialAnchor(.weekStrip)
                     }
                 }
                 .padding(.horizontal, Metrics.spacingSM)
@@ -117,7 +114,6 @@ struct CalendarScreen: View {
             selectedDate = moved
             let month = CalendarMonth.containing(moved)
             if month != visibleMonth { visibleMonth = month }
-            tutorialManager.userDidSwipeWeek()
         }
         // 지운 캘린더의 id가 숨김 목록에 남아 있어도 동작에 영향은 없지만,
         // 나중에 같은 id가 재사용될 일은 없으니 그냥 정리해둔다.
@@ -147,7 +143,6 @@ struct CalendarScreen: View {
         // 이 값을 기준으로 요일을 유지하므로, 순서가 바뀌면 엉뚱한 날로 튄다.
         selectedDate = normalized
         visibleWeekStart = WeekWindow.normalized(normalized)
-        tutorialManager.userDidSelectDate()
     }
 
     private func collapse() {

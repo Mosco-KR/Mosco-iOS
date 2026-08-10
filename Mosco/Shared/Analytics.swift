@@ -90,11 +90,6 @@ enum AnalyticsEvent {
     /// 동기화가 안 되는 사용자가 얼마나 되는지 아무도 모른다.
     case storeLocalFallback
 
-    // MARK: 온보딩
-
-    case tutorialStepShown(step: String)
-    case tutorialFinished(completed: Bool)
-
     var name: String {
         switch self {
         case .appOpened: "app_launch"
@@ -120,8 +115,6 @@ enum AnalyticsEvent {
         case .dataScale: "data_scale"
         case .monthNavigated: "month_navigated"
         case .storeLocalFallback: "store_local_fallback"
-        case .tutorialStepShown: "tutorial_step_shown"
-        case .tutorialFinished: "onboarding_complete"
         }
     }
 
@@ -185,10 +178,6 @@ enum AnalyticsEvent {
             ["offset_from_today": String(offsetFromToday)]
         case .storeLocalFallback:
             [:]
-        case let .tutorialStepShown(step):
-            ["step": step]
-        case let .tutorialFinished(completed):
-            ["completed": String(completed)]
         }
     }
 

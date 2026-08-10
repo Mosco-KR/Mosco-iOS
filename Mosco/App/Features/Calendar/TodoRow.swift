@@ -19,10 +19,7 @@ struct TodoRow: View {
     /// 여러 캘린더를 함께 보고 있을 때만 소속 캘린더 칩을 붙인다 — 하나만 보고
     /// 있으면 전부 같은 캘린더라 칩이 자리만 차지한다.
     var showsCalendarTag: Bool = false
-    /// 목록의 첫 행에만 켠다 — 튜토리얼이 "이 동그라미"를 정확히 가리킬 수 있게.
-    var isTutorialAnchor: Bool = false
 
-    @Environment(TutorialManager.self) private var tutorialManager
     /// 앱스토어 리뷰 요청. 시스템이 연 3회 한도 안에서 실제로 띄울지 정한다.
     @Environment(\.requestReview) private var requestReview
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
@@ -43,7 +40,6 @@ struct TodoRow: View {
 
         HStack(alignment: .center, spacing: 12) {
             checkButton
-                .tutorialAnchor(isTutorialAnchor ? .firstTodoCheck : nil)
 
             // 1행: 제목 그대로, 2행: 카테고리(항상 맨 앞) + 날짜/시간을 하나로 합친 태그.
             VStack(alignment: .leading, spacing: 6) {
@@ -170,10 +166,6 @@ struct TodoRow: View {
                 }
             }
         }
-        // 튜토리얼의 꾹 누르기 단계는 메뉴가 열렸는지가 아니라 이 결과를 본다.
-        .onChange(of: todo.isDDay) { _, isOn in
-            if isOn { tutorialManager.userDidMarkDDay() }
-        }
         .sheet(isPresented: $showsMemoEditor) {
             TodoDetailSheet(todo: todo)
         }
@@ -248,7 +240,6 @@ struct TodoRow: View {
                     todo.isCompleted.toggle()
                 }
             }
-            tutorialManager.userDidCompleteTodo()
             // isDone은 방금 뒤집기 **전** 값이라, 새 상태는 그 반대다.
             let nowCompleted = !isDone
             Analytics.log(

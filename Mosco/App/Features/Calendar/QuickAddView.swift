@@ -13,7 +13,6 @@ struct QuickAddView: View {
     @Binding var editingTodo: TodoItem?
 
     @Environment(\.modelContext) private var modelContext
-    @Environment(TutorialManager.self) private var tutorialManager
     @Query(sort: \TodoCategory.sortOrder) private var categories: [TodoCategory]
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @Query private var allTodos: [TodoItem]
@@ -81,12 +80,9 @@ struct QuickAddView: View {
                 .focused($isTitleFocused)
                 .submitLabel(.send)
                 .onSubmit(save)
-                .tutorialAnchor(.composeField)
 
             categoryButton
-                .tutorialAnchor(.categoryButton)
             sendButton
-                .tutorialAnchor(.sendButton)
         }
         .animation(.easeOut(duration: 0.2), value: isEditing)
         // 보이는 캘린더가 하나면 묻지 않고 거기에 넣는다. 둘 이상일 때만 물어본다 —
@@ -143,7 +139,6 @@ struct QuickAddView: View {
         .overlay(alignment: .bottomTrailing) {
             if showCategoryOptions {
                 categoryOptionsPopup
-                    .tutorialAnchor(.categoryPopup)
                     .offset(y: -54)
                     .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomTrailing)))
             }
@@ -151,7 +146,6 @@ struct QuickAddView: View {
         .overlay(alignment: .bottomLeading) {
             if let suggestion = timeSuggestion {
                 timeSuggestionPopup(suggestion)
-                    .tutorialAnchor(.timeSuggestion)
                     .offset(y: -54)
                     .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomLeading)))
             }
@@ -619,7 +613,6 @@ struct QuickAddView: View {
             title = title.replacingOccurrences(of: "  ", with: " ")
         }
         title = title.trimmingCharacters(in: .whitespaces)
-        tutorialManager.userDidApplyTimeSuggestion()
     }
 
     /// 지금 화면에 보이도록 켜둔 캘린더들.
@@ -682,7 +675,6 @@ struct QuickAddView: View {
             // 사라진 것처럼 보인다 — 항상 소속을 준다.
             todo.calendar = targetCalendar ?? calendars.first(where: \.isDefault)
             modelContext.insert(todo)
-            tutorialManager.userDidAddTodo()
             // 날짜가 있으면 달력에 자리를 갖는 "일정", 없으면 할 일 탭에만
             // 있는 백로그 "할 일" — 이 앱에서 둘은 실제로 다른 것이다.
             if todo.date == nil {
