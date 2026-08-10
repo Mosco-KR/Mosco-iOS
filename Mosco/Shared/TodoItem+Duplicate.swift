@@ -43,7 +43,6 @@ extension TodoItem {
         )
         copy.calendar = calendar
         copy.memo = memo
-        copy.daySlot = daySlot
         return copy
     }
 }

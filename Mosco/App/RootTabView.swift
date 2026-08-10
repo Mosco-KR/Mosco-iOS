@@ -19,8 +19,10 @@ struct RootTabView: View {
     /// 앱을 켜면 달력부터 — 할 일과 메모는 거기서 한 번씩 옆으로 가면 된다.
     @State private var selectedTab: Tab = .calendar
 
+    /// 탭은 둘이다. '다가오는'(앞으로 2주)은 달력 탭과 같은 질문에 답하고 있어서
+    /// 걷어냈다 — 앞날은 달력이, 지금 할 일은 목록이 맡는다.
     private enum Tab: Hashable {
-        case todo, calendar, upcoming
+        case todo, calendar
     }
     /// 알림 재예약의 입력 — 할 일이나 카테고리 설정이 바뀌면 이 배열도 바뀌므로,
     /// 이걸 지켜보다가 통째로 다시 계산한다.
@@ -132,18 +134,13 @@ struct RootTabView: View {
             TabView(selection: $selectedTab) {
                 TodayTodoScreen()
                     .tabItem { Image(systemName: "list.bullet") }
-                    .accessibilityLabel("오늘 계획")
+                    .accessibilityLabel("할 일")
                     .tag(Tab.todo)
 
                 CalendarScreen()
                     .tabItem { Image(systemName: "calendar") }
                     .accessibilityLabel("달력")
                     .tag(Tab.calendar)
-
-                UpcomingScreen()
-                    .tabItem { Image(systemName: "calendar.badge.clock") }
-                    .accessibilityLabel("앞으로 2주")
-                    .tag(Tab.upcoming)
             }
             // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다 — 앱 테마(바이올렛)가
             // 선택된 탭 색상에도 이어지도록 지정.

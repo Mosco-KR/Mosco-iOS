@@ -2,23 +2,18 @@ import SwiftUI
 import SwiftData
 import UIKit
 
-/// 오늘 **계획을 세우는** 화면.
+/// 할 일 화면 — 이 앱에서 "지금 무엇을 해야 하나"에 답하는 단 하나의 목록이다.
 ///
-/// 예전엔 "오늘 걸치는 항목을 카테고리로 묶은 목록"이었는데, 그건 캘린더에서 오늘을
-/// 눌렀을 때와 같은 질문("무엇이 있는가")에 두 번 답하는 것이었다. 항목을 더 보여줘도
-/// 그 겹침은 안 풀린다 — 질문을 바꿔야 한다. 여기서는 "오늘 그걸 **어떻게 해낼
-/// 것인가**"에 답한다.
+/// **예전엔 '오늘'과 '다가오는' 두 탭이 이 일을 나눠 가졌다.** '다가오는'은 앞으로
+/// 2주를 날짜별로 늘어놓았는데, 정작 그 답은 달력 탭이 더 잘 하고 있었다 — 한 달을
+/// 한눈에 보고 날짜를 누르면 그날 목록이 나온다. 같은 질문에 두 화면이 답하면
+/// 사용자는 어느 쪽을 봐야 하는지부터 정해야 한다. 그래서 하나로 합치고, 이 화면은
+/// **지난 미완료와 오늘**만 본다. 앞날은 달력이 맡는다.
 ///
-/// 근거:
-/// - 할 일 목록의 41%는 끝내 완료되지 않는다. 적어두는 행위 자체는 실행을 못 만든다.
-/// - 실행 의도(언제·어디서 할지를 미리 정하기)는 목표 달성을 d = 0.65만큼 끌어올린다
-///   (Gollwitzer & Sheeran, 94개 연구 메타분석).
-/// - 미완료 과제가 만드는 침투적 사고는, 완료하지 않아도 **구체적 계획을 세우기만
-///   하면** 사라진다(Masicampo & Baumeister, 2011).
-/// - 사람은 소요 시간을 일관되게 과소평가한다(계획 오류) — 그래서 개수 경고를 둔다.
-///
-/// 화면은 세 덩어리다: 이미 시각이 박힌 **고정된 일**, 슬롯을 붙여 계획하는 **오늘
-/// 하기로 한 일**, 그리고 이 탭에만 있는 데이터인 **백로그**(여기서 오늘로 끌어올린다).
+/// 시간대(오전/오후/저녁)로 오늘을 쪼개던 것도 걷어냈다. 할 일을 적는 것보다
+/// 그것을 어느 칸에 넣을지 정하는 데 손이 더 갔고, 정해둔 칸이 실제 하루와
+/// 어긋나면 목록이 통째로 거짓말이 됐다. 지금은 **사용자가 끌어서 정한 순서**
+/// 하나로만 줄을 선다.
 struct TodayTodoScreen: View {
     @Query private var allTodos: [TodoItem]
     /// 캘린더 탭에서 고른 보기 설정을 여기서도 그대로 따른다.
@@ -30,12 +25,17 @@ struct TodayTodoScreen: View {
     /// 완료 섹션은 기본으로 접혀 있다 — 평소엔 안 보이지만, 잘못 체크했거나
     /// 되돌리고 싶을 때 펼쳐서 체크를 풀 수 있어야 한다.
     @State private var showsCompleted = false
-    @State private var showsBacklog = true
+    /// 날짜를 안 정하고 만든 할 일. 이 화면은 "지난 것과 오늘"만 보는 곳이라 접어
+    /// 두지만, 섹션 자체를 없애지는 않는다 — 그러면 날짜 없이 만든 할 일이 달력에도
+    /// 여기에도 안 나와서 앱 어디에서도 볼 수 없게 된다.
+    @State private var showsBacklog = false
     /// 끌어서 순서를 바꾸는 동안만 켜진다.
     @State private var isEditing = false
-    /// "다른 날" 칩으로 날짜를 옮기는 중인 항목.
-    @State private var reschedulingTodo: TodoItem?
-    @State private var rescheduleDate = Date()
+    @State private var detailTodo: TodoItem?
+
+    @State private var query = ""
+    @State private var isSearching = false
+    @FocusState private var isSearchFocused: Bool
 
     private let calendar = Calendar.current
     private var today: Date { calendar.startOfDay(for: .now) }
@@ -72,40 +72,39 @@ struct TodayTodoScreen: View {
     }
 
     private var backlogTodos: [TodoItem] {
-        visibleTodos.filter { $0.date == nil && !$0.isCompleted }
+        ordered(visibleTodos.filter { $0.date == nil && !$0.isCompleted })
     }
 
     private func isDone(_ todo: TodoItem) -> Bool { todo.isCompleted(on: today) }
 
+    /// 오늘 남은 할 일 **전부**를 한 줄로 세운다. 시각이 정해진 것과 아닌 것을
+    /// 갈라 놓지 않는 건, 하루는 원래 그렇게 흐르지 않기 때문이다 — 3시 회의와
+    /// 그 전에 끝내야 할 정리는 같은 줄에 있어야 순서를 정할 수 있다.
     private var incompleteToday: [TodoItem] {
-        todayTodos.filter { !isDone($0) }
+        ordered(todayTodos.filter { !isDone($0) })
     }
 
     private var completedToday: [TodoItem] {
         todayTodos.filter(isDone)
     }
 
-    /// 시각이 이미 정해진 일 — 계획할 게 없으므로 맥락으로만 보여준다.
-    private var fixedTodos: [TodoItem] {
-        incompleteToday
-            .filter { $0.startTime != nil }
-            .sorted { $0.sortableMinutes < $1.sortableMinutes }
-    }
-
-    /// 시각이 없는 오늘 항목 — 이 화면의 주인공이다.
-    private var flexibleTodos: [TodoItem] {
-        incompleteToday.filter { $0.startTime == nil }
-    }
-
-    private var unplannedTodos: [TodoItem] {
-        ordered(flexibleTodos.filter { $0.daySlot == nil })
-    }
-
-    private func todos(in slot: DaySlot) -> [TodoItem] {
-        ordered(flexibleTodos.filter { $0.daySlot == slot })
+    /// 디데이로 표시해둔 것 **전부**를 가까운 순으로. 지난 디데이는 뺀다 —
+    /// 세어봐야 의미가 없다.
+    private var dDayTodos: [TodoItem] {
+        visibleTodos
+            .filter { todo in
+                guard todo.isDDay, let date = todo.date else { return false }
+                return calendar.startOfDay(for: date) >= today
+            }
+            .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
 
     /// 사용자가 끌어서 정한 순서를 먼저 보고, 아직 안 건드린 것들은 만든 순서로.
+    ///
+    /// **`sortIndex`는 화면 전체에서 하나의 줄 번호다.** 예전엔 시간대 칸마다 따로
+    /// 0부터 매겨서, 칸이 사라진 지금은 서로 다른 칸에 있던 항목들의 번호가 겹친다.
+    /// 그 경우 `createdAt`이 뒤를 받쳐 순서가 흔들리지 않게 한다 — 한 번 끌어서
+    /// 옮기면 그 줄 전체가 0부터 다시 매겨지며 정리된다.
     private func ordered(_ items: [TodoItem]) -> [TodoItem] {
         items.sorted { lhs, rhs in
             if lhs.sortIndex != rhs.sortIndex { return lhs.sortIndex < rhs.sortIndex }
@@ -117,12 +116,41 @@ struct TodayTodoScreen: View {
         incompleteToday.count > Self.overloadThreshold
     }
 
+    // MARK: - 검색
+
+    private var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// 제목과 메모를 함께 본다 — 어느 쪽에 적었는지 기억나지 않아도 찾을 수 있게.
+    /// 날짜 범위와 무관하게 **전체**를 훑는다. 이 화면이 오늘까지만 보여주기 때문에
+    /// 더 그렇다 — 앞날의 할 일에 닿는 유일한 검색 창구다.
+    private var searchResults: [TodoItem] {
+        let keyword = trimmedQuery
+        guard !keyword.isEmpty else { return [] }
+        return visibleTodos
+            .filter {
+                $0.title.localizedStandardContains(keyword)
+                    || ($0.memo ?? "").localizedStandardContains(keyword)
+            }
+            .sorted { lhs, rhs in
+                // 날짜 없는 항목은 맨 뒤로.
+                switch (lhs.date, rhs.date) {
+                case let (l?, r?): return l < r
+                case (nil, _?): return false
+                case (_?, nil): return true
+                default: return lhs.createdAt < rhs.createdAt
+                }
+            }
+    }
+
     // MARK: - 본문
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
+                if isSearching { searchField }
                 planList
             }
             .background(MoscoPalette.canvas.ignoresSafeArea())
@@ -133,16 +161,16 @@ struct TodayTodoScreen: View {
                 // 게 백로그로 떨어져 다시 끌어올려야 한다.
                 QuickAddView(date: today, editingTodo: $editingTodo)
             }
-            .sheet(item: $reschedulingTodo) { todo in
-                rescheduleSheet(for: todo)
+            .sheet(item: $detailTodo) { todo in
+                TodoDetailSheet(todo: todo)
             }
         }
     }
 
     /// 오늘이 며칠인지 늘 보이게 — 예전엔 "오늘 할 일"이라면서 정작 날짜가 어디에도
-    /// 없었다. 순서 변경(편집)과 도움말도 여기 둔다.
+    /// 없었다. 오른쪽엔 검색과 편집(순서 바꾸기) 둘.
     private var header: some View {
-        // 왼쪽은 두 줄(날짜 + 남은 개수), 오른쪽은 작은 버튼 하나다. 베이스라인을
+        // 왼쪽은 두 줄(날짜 + 남은 개수), 오른쪽은 작은 버튼 둘이다. 베이스라인을
         // 맞추면 22pt 글자와 12pt 버튼이 같은 선에 앉아 버튼이 아래로 처져 보인다 —
         // 두 줄 덩어리의 세로 가운데에 맞추는 편이 정렬돼 보인다.
         HStack(alignment: .center, spacing: Metrics.spacingSM) {
@@ -160,57 +188,87 @@ struct TodayTodoScreen: View {
             Spacer()
 
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isSearching.toggle()
+                    if !isSearching { query = "" }
+                }
+                isSearchFocused = isSearching
             } label: {
-                Text(isEditing ? "완료" : "편집")
+                Text(isSearching ? "완료" : "검색")
                     .font(.moscoCaption().weight(.semibold))
                     .foregroundStyle(MoscoPalette.accent)
             }
             .buttonStyle(.plain)
+
+            // 검색 중에는 순서를 바꿀 수 없다 — 검색 결과는 날짜순이라 거기서
+            // 끌어 옮긴 자리가 목록으로 돌아가면 아무 의미가 없다.
+            if !isSearching {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }
+                } label: {
+                    Text(isEditing ? "완료" : "편집")
+                        .font(.moscoCaption().weight(.semibold))
+                        .foregroundStyle(MoscoPalette.accent)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(.horizontal, Metrics.spacingMD)
         .padding(.top, Metrics.spacingSM)
         .padding(.bottom, Metrics.spacingSM)
     }
 
-    private var planList: some View {
-            List {
-                if isOverloaded { overloadNotice }
-                if !overdueTodos.isEmpty { overdueSection }
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(MoscoPalette.textSecondary)
+            TextField("할 일과 메모에서 찾기", text: $query)
+                .font(.moscoBody())
+                .focused($isSearchFocused)
+                .submitLabel(.search)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(MoscoPalette.surface, in: Capsule())
+        .padding(.horizontal, Metrics.spacingMD)
+        .padding(.bottom, Metrics.spacingSM)
+    }
 
-                if incompleteToday.isEmpty && backlogTodos.isEmpty {
+    private var planList: some View {
+        List {
+            if isSearching, !trimmedQuery.isEmpty {
+                searchSection
+            } else {
+                // 디데이는 맨 위 — 손꼽아 기다리는 날이 있으면 그게 오늘 하루의
+                // 배경이 된다. 하나도 없으면 자리 자체를 만들지 않는다.
+                if !dDayTodos.isEmpty { dDaySection }
+                if !overdueTodos.isEmpty { overdueSection }
+                if isOverloaded { overloadNotice }
+
+                if incompleteToday.isEmpty && overdueTodos.isEmpty && backlogTodos.isEmpty {
                     emptyState
                 }
 
-                if !fixedTodos.isEmpty {
-                    section("시간이 정해진 할 일", subtitle: "시작 시간이 정해져 있어요", items: fixedTodos)
-                }
-
-                if !unplannedTodos.isEmpty {
-                    unplannedSection
-                }
-
-                ForEach(DaySlot.allCases) { slot in
-                    let items = todos(in: slot)
-                    if !items.isEmpty {
-                        slotSection(slot, items: items)
-                    }
-                }
-
+                if !incompleteToday.isEmpty { todaySection }
                 if !backlogTodos.isEmpty { backlogSection }
                 if !completedToday.isEmpty { completedSection }
             }
-            .scrollContentBackground(.hidden)
-            .scrollDismissesKeyboard(.immediately)
-            .environment(\.editMode, .constant(isEditing ? .active : .inactive))
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    UIApplication.shared.sendAction(
-                        #selector(UIResponder.resignFirstResponder),
-                        to: nil, from: nil, for: nil
-                    )
-                }
-            )
+        }
+        .scrollContentBackground(.hidden)
+        // 시스템 기본 섹션 간격은 이 화면엔 과하다 — 섹션이 넷뿐이라 그 간격이
+        // 그대로 빈 화면으로 읽힌다. 구분은 헤더 글자가 이미 하고 있다.
+        .listSectionSpacing(Metrics.spacingMD)
+        .scrollDismissesKeyboard(.immediately)
+        .environment(\.editMode, .constant(isEditing ? .active : .inactive))
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder),
+                    to: nil, from: nil, for: nil
+                )
+            }
+        )
     }
 
     // MARK: - 섹션
@@ -247,88 +305,77 @@ struct TodayTodoScreen: View {
         .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
     }
 
-    /// 시각 순으로 늘어놓는 섹션이라 순서를 손으로 바꿀 수 없다 — 삭제만 연다.
-    private func section(_ title: String, subtitle: String?, items: [TodoItem]) -> some View {
+    /// 세로로 쌓지 않고 **가로로 넘겨 보는 카드**로 둔다. 세로로 쌓으면 디데이를
+    /// 몇 개만 등록해도 오늘 할 일이 화면 밖으로 밀려난다. 가로 카드는 개수와
+    /// 상관없이 높이가 한 줄로 고정된다.
+    private var dDaySection: some View {
         Section {
-            ForEach(items) { todo in
-                row(todo)
-            }
-            .onDelete { delete(items, at: $0) }
-        } header: {
-            plainHeader(title, subtitle: subtitle, count: items.count)
-        }
-    }
-
-    /// 아직 언제 할지 안 정한 항목들. 이 화면이 존재하는 이유라 맨 위에 둔다.
-    private var unplannedSection: some View {
-        Section {
-            ForEach(unplannedTodos) { todo in
-                VStack(alignment: .leading, spacing: 8) {
-                    TodoRow(
-                        todo: todo,
-                        occurrenceDate: today,
-                        onTap: { editingTodo = todo },
-                        onDelete: { delete(todo) },
-                        analyticsSource: "today_plan"
-                    )
-                    slotPicker(for: todo)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(dDayTodos) { todo in
+                        dDayCard(todo, isNearest: todo.id == dDayTodos.first?.id)
+                    }
                 }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
+                .padding(.horizontal, Metrics.spacingMD)
             }
-            .onMove { move(unplannedTodos, from: $0, to: $1) }
-            .onDelete { delete(unplannedTodos, at: $0) }
+            // List의 행 밖으로 카드가 잘리지 않게.
+            .scrollClipDisabled()
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 0, trailing: 0))
         } header: {
-            plainHeader("시간을 안 정한 할 일", subtitle: "고르면 그 시간대 칸으로 옮겨져요", count: unplannedTodos.count)
+            Text("디데이")
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(MoscoPalette.textSecondary)
         }
     }
 
-    private func slotSection(_ slot: DaySlot, items: [TodoItem]) -> some View {
-        Section {
-            ForEach(items) { todo in
-                row(todo, currentSlot: slot)
-            }
-            .onMove { move(items, from: $0, to: $1) }
-            .onDelete { delete(items, at: $0) }
-        } header: {
-            HStack(spacing: 6) {
-                Image(systemName: slot.symbolName)
+    /// 가장 가까운 하나만 색을 꽉 채운다 — 여러 장이 똑같이 생기면 어느 게 먼저
+    /// 오는지 결국 날짜를 하나씩 읽어야 알 수 있다.
+    private func dDayCard(_ todo: TodoItem, isNearest: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(dDayLabel(for: todo.date ?? today))
+                .font(.system(size: 27, weight: .heavy, design: .rounded).monospacedDigit())
+                .foregroundStyle(isNearest ? .white : MoscoPalette.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Spacer(minLength: 6)
+
+            Text(todo.title)
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(isNearest ? .white : MoscoPalette.textPrimary)
+                .lineLimit(1)
+
+            if let date = todo.date {
+                Text(date.koreanMonthDayWeekday)
                     .font(.system(size: 11))
-                Text(slot.label)
-                Text("\(items.count)")
-                    .foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
-                Spacer()
+                    .foregroundStyle(isNearest ? .white.opacity(0.75) : MoscoPalette.textSecondary)
+                    .lineLimit(1)
             }
-            .font(.moscoCaption())
-            .foregroundStyle(MoscoPalette.textSecondary)
         }
+        .padding(14)
+        .frame(width: 138, height: 112, alignment: .topLeading)
+        // 유리도 그림자도 쓰지 않는다 — 셀과 같은 이유로 단색 채우기만 쓴다.
+        .background(
+            isNearest ? MoscoPalette.accent : MoscoPalette.accent.opacity(0.12),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { detailTodo = todo }
     }
 
-    /// 지난 날짜에 남은 것들. 하나씩 밀어 옮기거나 한 번에 모두 오늘로 가져온다.
-    /// 화면 맨 위에 두는 건, 계획을 세우기 전에 "이미 밀린 게 뭔지"부터 보여야
-    /// 오늘을 현실적으로 짤 수 있기 때문이다.
+    /// 지난 날짜에 남은 것들. 화면 맨 위(디데이 다음)에 두는 건, 계획을 세우기 전에
+    /// "이미 밀린 게 뭔지"부터 보여야 오늘을 현실적으로 짤 수 있기 때문이다.
+    ///
+    /// 옮기는 방법은 **버튼 하나**뿐이다. 예전엔 행마다 스와이프로도 하나씩 옮길 수
+    /// 있었는데, 밀린 일을 하나씩 골라 옮기는 건 실제로 하지 않는 일이었다 —
+    /// 대개는 전부 오늘로 가져오거나, 하나를 골라 지운다. 남길 것을 고르는 일은
+    /// 셀의 메뉴가 이미 맡고 있다.
     private var overdueSection: some View {
         Section {
             ForEach(overdueTodos) { todo in
-                TodoRow(
-                    todo: todo,
-                    showsDate: true,
-                    onTap: { editingTodo = todo },
-                    onDelete: { delete(todo) },
-                    analyticsSource: "today_plan"
-                )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    Button {
-                        pullIntoToday(todo)
-                    } label: {
-                        Label("오늘로", systemImage: "arrow.down.circle")
-                    }
-                    .tint(MoscoPalette.accent)
-                }
+                row(todo, showsDate: true)
             }
             .onDelete { delete(overdueTodos, at: $0) }
 
@@ -353,7 +400,20 @@ struct TodayTodoScreen: View {
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 0, leading: Metrics.spacingMD, bottom: 8, trailing: Metrics.spacingMD))
         } header: {
-            plainHeader("지난 할 일", subtitle: "오른쪽으로 밀면 오늘로 가져와요", count: overdueTodos.count)
+            plainHeader("지난 할 일", count: overdueTodos.count)
+        }
+    }
+
+    /// 오늘 할 일 하나의 줄. 끌어서 순서를 바꿀 수 있고, 그 순서가 곧 `sortIndex`다.
+    private var todaySection: some View {
+        Section {
+            ForEach(incompleteToday) { todo in
+                row(todo)
+            }
+            .onMove { move(incompleteToday, from: $0, to: $1) }
+            .onDelete { delete(incompleteToday, at: $0) }
+        } header: {
+            plainHeader("오늘 할 일", count: incompleteToday.count)
         }
     }
 
@@ -366,6 +426,7 @@ struct TodayTodoScreen: View {
                             todo: todo,
                             onTap: { editingTodo = todo },
                             onDelete: { delete(todo) },
+                            showsMemoPreview: true,
                             analyticsSource: "today_plan"
                         )
                         Button {
@@ -387,7 +448,7 @@ struct TodayTodoScreen: View {
             }
         } header: {
             collapsibleHeader(
-                "언젠가 할 일",
+                "날짜를 안 정한 할 일",
                 count: backlogTodos.count,
                 isExpanded: showsBacklog
             ) { showsBacklog.toggle() }
@@ -415,93 +476,60 @@ struct TodayTodoScreen: View {
         }
     }
 
+    private var searchSection: some View {
+        Group {
+            if searchResults.isEmpty {
+                ContentUnavailableView.search(text: trimmedQuery)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else {
+                Section {
+                    ForEach(searchResults) { todo in
+                        // 검색 결과는 여러 날짜가 섞이므로 날짜를 함께 보여준다.
+                        // 오늘 인스턴스로 보면 안 된다 — 다른 날의 항목까지
+                        // 오늘의 완료 상태로 그려진다.
+                        TodoRow(
+                            todo: todo,
+                            showsDate: true,
+                            onTap: { editingTodo = todo },
+                            onDelete: { delete(todo) },
+                            showsMemoPreview: true,
+                            analyticsSource: "search"
+                        )
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
+                    }
+                } header: {
+                    plainHeader("검색 결과", count: searchResults.count)
+                }
+            }
+        }
+    }
+
     // MARK: - 조각
 
-    private func row(_ todo: TodoItem, currentSlot: DaySlot? = nil) -> some View {
+    private func row(_ todo: TodoItem, showsDate: Bool = false) -> some View {
         TodoRow(
             todo: todo,
+            showsDate: showsDate,
             occurrenceDate: today,
             onTap: { editingTodo = todo },
             onDelete: { delete(todo) },
+            showsMemoPreview: true,
             analyticsSource: "today_plan"
         )
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
-        // 시간대를 바꾸는 건 자주 하는 일이 아니라 스와이프에 숨긴다 — 모든 행에
-        // 칩을 세 개씩 달면 목록이 통째로 무거워진다.
-        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-            if currentSlot != nil {
-                ForEach(DaySlot.allCases) { slot in
-                    Button {
-                        assign(slot, to: todo)
-                    } label: {
-                        Label(slot.label, systemImage: slot.symbolName)
-                    }
-                    .tint(slot == currentSlot ? MoscoPalette.textSecondary : MoscoPalette.accent)
-                }
-            }
-        }
     }
 
-    private func slotPicker(for todo: TodoItem) -> some View {
+    private func plainHeader(_ title: String, count: Int) -> some View {
         HStack(spacing: 6) {
-            ForEach(DaySlot.allCases) { slot in
-                Button {
-                    assign(slot, to: todo)
-                } label: {
-                    chipLabel(slot.label, systemImage: slot.symbolName)
-                }
-                .buttonStyle(.plain)
-            }
-
-            // 오늘 안에서 시간대만 고르는 게 아니라, 아예 다른 날로 미룰 수도
-            // 있어야 한다 — 여기까지 와서 "오늘은 못 하겠다"가 되는 게 보통이다.
-            Button {
-                rescheduleDate = calendar.date(byAdding: .day, value: 1, to: today) ?? today
-                reschedulingTodo = todo
-            } label: {
-                chipLabel("다른 날", systemImage: "calendar")
-            }
-            .buttonStyle(.plain)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.leading, 4)
-    }
-
-    /// 시간대 칩은 **중립색**이다.
-    ///
-    /// 강조색으로 칠했더니, 계획 안 한 할 일이 세 개만 있어도 화면에 강조색 캡슐이
-    /// 열두 개가 깔려 정작 할 일 제목보다 버튼이 더 세게 읽혔다. 여기서 강조가
-    /// 필요한 건 "무엇을 할지"이지 "어디를 누를지"가 아니다 — 칩은 셀 바로 아래
-    /// 붙어 있어 위치만으로도 무엇에 대한 선택인지 알 수 있다.
-    private func chipLabel(_ text: String, systemImage: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: systemImage)
-                .font(.system(size: 10))
-            Text(text)
-                .font(.moscoCaption().weight(.semibold))
-        }
-        .foregroundStyle(MoscoPalette.textSecondary)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(MoscoPalette.textSecondary.opacity(0.10), in: Capsule())
-    }
-
-    private func plainHeader(_ title: String, subtitle: String?, count: Int) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Text(title)
-                Text("\(count)")
-                    .foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
-                Spacer()
-            }
-            if let subtitle {
-                Text(subtitle)
-                    .font(.system(size: 11))
-                    .foregroundStyle(MoscoPalette.textSecondary.opacity(0.7))
-            }
+            Text(title)
+            Text("\(count)")
+                .foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
+            Spacer()
         }
         .font(.moscoCaption())
         .foregroundStyle(MoscoPalette.textSecondary)
@@ -532,47 +560,20 @@ struct TodayTodoScreen: View {
         .buttonStyle(.plain)
     }
 
+    /// 오늘 기준 D-day 표기: 오늘이면 "D-DAY", 미래는 D-n.
+    private func dDayLabel(for day: Date) -> String {
+        let days = calendar.dateComponents(
+            [.day],
+            from: today,
+            to: calendar.startOfDay(for: day)
+        ).day ?? 0
+        return days == 0 ? "D-DAY" : "D-\(days)"
+    }
+
     // MARK: - 동작
 
-    private func rescheduleSheet(for todo: TodoItem) -> some View {
-        NavigationStack {
-            DatePicker(
-                "날짜",
-                selection: $rescheduleDate,
-                in: today...,
-                displayedComponents: .date
-            )
-            .datePickerStyle(.graphical)
-            .padding(Metrics.spacingMD)
-            .navigationTitle("날짜 고르기")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { reschedulingTodo = nil }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("옮기기") {
-                        todo.date = calendar.startOfDay(for: rescheduleDate)
-                        // 다른 날로 보내면 오늘 기준으로 정한 시간대는 의미가 없다.
-                        todo.daySlot = nil
-                        reschedulingTodo = nil
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-
-    private func assign(_ slot: DaySlot, to todo: TodoItem) {
-        withAnimation(.easeInOut(duration: 0.25)) {
-            todo.daySlot = slot
-            // 다른 묶음에서 쓰던 순서 번호를 그대로 가져오면 새 시간대에서 엉뚱한
-            // 자리에 끼어든다 — 맨 뒤로 보내고 사용자가 다시 정하게 한다.
-            todo.sortIndex = (todos(in: slot).map(\.sortIndex).max() ?? 0) + 1
-        }
-    }
-
-    /// 끌어서 놓은 결과를 그 묶음 안에서 0부터 다시 매긴다.
+    /// 끌어서 놓은 결과를 0부터 다시 매긴다. 한 화면에 줄이 하나뿐이라, 여기서 정한
+    /// 번호가 곧 이 할 일의 순서다 — 다른 목록에서 봐도 같은 순서로 선다.
     private func move(_ items: [TodoItem], from source: IndexSet, to destination: Int) {
         var reordered = items
         reordered.move(fromOffsets: source, toOffset: destination)
@@ -587,12 +588,12 @@ struct TodayTodoScreen: View {
         }
     }
 
-    /// 백로그 항목을 오늘로. 슬롯은 비워둔 채로 올려서, 바로 위 "언제 하실래요?"
-    /// 에 나타나 계획을 세우게 한다 — 그게 이 화면의 요점이다.
+    /// 지난 항목/백로그를 오늘로. 순서 번호는 맨 뒤로 보내서, 이미 오늘 줄을 세워둔
+    /// 항목들 사이로 끼어들지 않게 한다.
     private func pullIntoToday(_ todo: TodoItem) {
         withAnimation(.easeInOut(duration: 0.25)) {
             todo.date = today
-            todo.daySlot = nil
+            todo.sortIndex = (incompleteToday.map(\.sortIndex).max() ?? 0) + 1
         }
     }
 
