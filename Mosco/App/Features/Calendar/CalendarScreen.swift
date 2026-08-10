@@ -10,21 +10,11 @@ import SwiftData
 /// 심지어 달을 넘기기만 해도 화면 전체 body가 다시 돌면서 그 계산들이 프레임
 /// 안으로 딸려 들어왔다.
 struct CalendarScreen: View {
-    @Environment(WeatherStore.self) private var weatherStore
 
     @State private var store = CalendarSnapshotStore()
     @State private var visibleMonth = CalendarMonth.containing(Date())
+    /// 값이 들어오면 하루치 페이지가 밀려 들어온다(`navigationDestination`).
     @State private var selectedDate: Date?
-    /// 압축(주간 스트립) 상태에서 보고 있는 주의 시작일. 페이저가 좌우로 넘어가면
-    /// 이 값이 바뀌고, 그에 맞춰 선택 날짜가 **요일을 유지한 채** 따라간다.
-    @State private var visibleWeekStart = WeekWindow.normalized(Date())
-    /// 날짜를 고르기 **직전에** 보고 있던 달. 뒤로 나올 때 여기로 되돌린다.
-    ///
-    /// 두 가지 이상함을 한 번에 없앤다. ① 6월 격자에서 5월 말 흐린 날짜를 눌렀다가
-    /// 뒤로 나오면 5월에 가 있었다(고른 날짜의 달을 그대로 따라갔으니까).
-    /// ② 압축 상태로 주를 넘겨 9월까지 갔다가 뒤로 나오면 격자는 8월인데 헤더만
-    /// 9월이었다 — 둘 다 "들어온 자리로 돌아온다"로 정리된다.
-    @State private var monthBeforeSelection: CalendarMonth?
     @State private var showsSettings = false
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     /// 숨긴 캘린더들. 비어 있으면 전부 보인다.
@@ -37,128 +27,78 @@ struct CalendarScreen: View {
     private let calendar = Calendar.current
 
     var body: some View {
-        GeometryReader { geometry in
-            let pageSize = CGSize(
-                width: geometry.size.width - Metrics.spacingSM * 2,
-                height: max(geometry.size.height - topChromeHeight, 0)
-            )
+        // 하루치는 **밀려 들어오는 페이지**다. 예전엔 이 화면이 스스로 접혀서
+        // (달 격자 → 주간 스트립) 아래에 리스트를 인라인으로 붙였는데, 한 화면이
+        // 두 모습을 오가니 지금 보고 있는 게 달인지 하루인지 헷갈렸고 되돌아가는
+        // 길도 직접 만든 화살표 하나뿐이었다. 페이지로 밀어 넣으면 앞뒤 관계가
+        // 분명해지고 뒤로 가기(버튼 + 가장자리 스와이프)는 시스템이 맡는다.
+        NavigationStack {
+            GeometryReader { geometry in
+                let pageSize = CGSize(
+                    width: geometry.size.width - Metrics.spacingSM * 2,
+                    height: max(geometry.size.height - topChromeHeight, 0)
+                )
 
-            VStack(spacing: 0) {
-                topChrome
+                VStack(spacing: 0) {
+                    topChrome
 
-                // 펼친 상태는 달 페이저, 고른 상태는 주 페이저 — 둘 다 가로 페이징
-                // 스크롤뷰다. 예전엔 하나의 달 페이지가 "선택된 주만 남기고 접는"
-                // 방식으로 둘을 겸했는데, 그러면 주를 넘길 때 행이 접히고 펴지는 게
-                // 세로 애니메이션으로 보였다.
-                Group {
-                    if selectedDate == nil {
-                        MonthPagerView(
-                            snapshot: store.snapshot,
-                            pageSize: pageSize,
-                            today: calendar.startOfDay(for: Date()),
-                            visibleMonth: $visibleMonth,
-                            onSelect: select
-                        )
-                    } else {
-                        WeekPagerView(
-                            width: pageSize.width,
-                            today: calendar.startOfDay(for: Date()),
-                            selectedDate: selectedDate,
-                            weatherSymbol: { weatherStore.weather(for: $0)?.symbolName },
-                            visibleWeekStart: $visibleWeekStart,
-                            onSelect: select,
-                            onExpand: collapse
-                        )
-                    }
-                }
-                .padding(.horizontal, Metrics.spacingSM)
-                .frame(height: selectedDate == nil ? pageSize.height : WeekStripView.height)
-                .clipped()
-
-                if let selectedDate {
-                    DayTodosContentView(date: selectedDate)
-                        .transition(.opacity)
-                } else {
-                    Spacer(minLength: 0)
+                    MonthPagerView(
+                        snapshot: store.snapshot,
+                        pageSize: pageSize,
+                        today: calendar.startOfDay(for: Date()),
+                        visibleMonth: $visibleMonth,
+                        onSelect: select
+                    )
+                    .padding(.horizontal, Metrics.spacingSM)
+                    .frame(height: pageSize.height)
+                    .clipped()
                 }
             }
-            // selectedDate 하나가 그리드 압축/복원, 아래 리스트 삽입·제거, 뒤로가기
-            // 화살표 등장까지 전부 같은 트랜잭션으로 묶어 자연스럽게 이어지게 한다.
-            .animation(.spring(response: 0.4, dampingFraction: 0.88), value: selectedDate)
-        }
-        .background(MoscoPalette.canvas.ignoresSafeArea(edges: .top))
-        // 할 일 관찰을 이 리프 하나에 가둔다 — 이 화면의 body는 할 일이 바뀌어도
-        // 다시 돌지 않는다.
-        .background(TodoQueryBridge(store: store))
-        .onChange(of: visibleMonth) { _, month in
-            store.focus(on: month)
-            // 오늘로부터 몇 달 떨어진 곳을 보는지. 스냅샷 계산 범위(±8개월)가
-            // 실제 사용과 맞는지 판단할 근거가 된다.
-            Analytics.log(
-                .monthNavigated(offsetFromToday: CalendarMonth.containing(Date()).distance(to: month))
-            )
-        }
-        // 주 페이저가 좌우로 넘어가면 선택 날짜를 **같은 요일 자리**로 옮긴다
-        // (iOS 캘린더와 같은 거동). select()가 이 값을 바꿀 때도 이 핸들러가 도는데,
-        // 그때는 계산 결과가 이미 선택된 날짜와 같아서 아무 일도 안 일어난다.
-        .onChange(of: visibleWeekStart) { _, weekStart in
-            guard let current = selectedDate else { return }
-            let weekdayOffset = calendar.dateComponents(
-                [.day],
-                from: WeekWindow.normalized(current),
-                to: current
-            ).day ?? 0
-            guard let moved = calendar.date(byAdding: .day, value: weekdayOffset, to: weekStart),
-                  moved != current
-            else { return }
-            selectedDate = moved
-            let month = CalendarMonth.containing(moved)
-            if month != visibleMonth { visibleMonth = month }
-        }
-        // 지운 캘린더의 id가 숨김 목록에 남아 있어도 동작에 영향은 없지만,
-        // 나중에 같은 id가 재사용될 일은 없으니 그냥 정리해둔다.
-        .onChange(of: calendars.map(\.id), initial: true) { _, ids in
-            let alive = Set(ids.map(\.uuidString))
-            let pruned = hiddenIDs.intersection(alive)
-            guard pruned != hiddenIDs else { return }
-            hiddenCalendarIDs = CalendarSelection.raw(from: pruned)
-        }
-        .sheet(isPresented: $showsSettings) {
-            SettingsScreen()
+            .background(MoscoPalette.canvas.ignoresSafeArea(edges: .top))
+            // 할 일 관찰을 이 리프 하나에 가둔다 — 이 화면의 body는 할 일이 바뀌어도
+            // 다시 돌지 않는다.
+            .background(TodoQueryBridge(store: store))
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(item: $selectedDate) { day in
+                DayTodosContentView(date: day)
+            }
+            .onChange(of: visibleMonth) { _, month in
+                store.focus(on: month)
+                // 오늘로부터 몇 달 떨어진 곳을 보는지. 스냅샷 계산 범위(±8개월)가
+                // 실제 사용과 맞는지 판단할 근거가 된다.
+                Analytics.log(
+                    .monthNavigated(offsetFromToday: CalendarMonth.containing(Date()).distance(to: month))
+                )
+            }
+            // 지운 캘린더의 id가 숨김 목록에 남아 있어도 동작에 영향은 없지만,
+            // 나중에 같은 id가 재사용될 일은 없으니 그냥 정리해둔다.
+            .onChange(of: calendars.map(\.id), initial: true) { _, ids in
+                let alive = Set(ids.map(\.uuidString))
+                let pruned = hiddenIDs.intersection(alive)
+                guard pruned != hiddenIDs else { return }
+                hiddenCalendarIDs = CalendarSelection.raw(from: pruned)
+            }
+            .sheet(isPresented: $showsSettings) {
+                SettingsScreen()
+            }
         }
     }
 
     // MARK: - 동작
 
+    /// 날짜를 고르면 하루치 페이지로 밀고 들어간다.
+    ///
+    /// 격자를 그 달로 옮기지 않는다 — 페이지가 따로 뜨므로 뒤에 남은 격자는 보던
+    /// 자리를 그대로 지키는 게 맞다. 예전엔 화면이 접히며 그 자리에서 바뀌었기 때문에
+    /// 달을 따라 옮겨야 했고, 그래서 "들어온 자리"를 따로 기억해뒀다가 되돌리는
+    /// 장치가 필요했다. 이제는 그 장치 자체가 필요 없다.
     private func select(_ day: Date) {
-        let normalized = calendar.startOfDay(for: day)
-        // 격자에서 처음 들어올 때만 기억한다 — 압축 상태에서 스트립의 다른 날짜를
-        // 눌러 이동하는 동안 이 값이 덮어써지면 "들어온 자리"를 잃는다.
-        if selectedDate == nil { monthBeforeSelection = visibleMonth }
-
-        // 이전/다음 달의 흐린 날짜를 탭해도 그 달로 넘어가면서 선택되게 한다.
-        let month = CalendarMonth.containing(normalized)
-        if month != visibleMonth { visibleMonth = month }
-        // selectedDate를 먼저 정하는 게 중요하다 — visibleWeekStart의 onChange가
-        // 이 값을 기준으로 요일을 유지하므로, 순서가 바뀌면 엉뚱한 날로 튄다.
-        selectedDate = normalized
-        visibleWeekStart = WeekWindow.normalized(normalized)
-    }
-
-    private func collapse() {
-        if let origin = monthBeforeSelection { visibleMonth = origin }
-        monthBeforeSelection = nil
-        selectedDate = nil
+        selectedDate = calendar.startOfDay(for: day)
     }
 
     private func goToToday() {
         withAnimation(.easeInOut(duration: 0.3)) {
-            // "오늘"은 들어온 자리와 무관하게 오늘로 가는 버튼이라, 기억해둔 달을
-            // 되돌리면 안 된다 — 지우고 간다.
-            monthBeforeSelection = nil
             visibleMonth = .containing(Date())
-            visibleWeekStart = WeekWindow.normalized(Date())
-            selectedDate = nil
         }
     }
 
@@ -188,17 +128,6 @@ struct CalendarScreen: View {
 
     private var monthHeader: some View {
         HStack(alignment: .lastTextBaseline, spacing: Metrics.spacingSM) {
-            if selectedDate != nil {
-                Button {
-                    collapse()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(MoscoPalette.textPrimary)
-                }
-                .transition(.scale(scale: 0.6).combined(with: .opacity))
-            }
-
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 // 자릿수가 1→2로 바뀌어도(9월→10월) 폭이 툭 끊기지 않고 스르륵
                 // 늘어나도록 SwiftUI의 숫자 전용 콘텐츠 트랜지션을 쓴다.
@@ -221,25 +150,7 @@ struct CalendarScreen: View {
             .foregroundStyle(MoscoPalette.textPrimary)
             .animation(.spring(response: 0.25, dampingFraction: 0.9), value: visibleMonth)
 
-            // 날짜를 고른 상태에선 감춘다 — 뒤로가기 화살표와 D-day 배지가 같은
-            // 줄을 쓰는데 칩까지 넣으면 "오늘" 버튼이 두 줄로 깨진다. 그 상태에선
-            // 하루에 집중하는 중이고, 한 번 나가면 다시 보인다.
-            if selectedDate == nil {
-                calendarChip
-                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
-            }
-
-            // 날짜를 골라 리스트로 들어와 있으면, 오늘 기준 며칠인지 배지로 보여준다.
-            if let selectedDate {
-                Text(dDayLabel(for: selectedDate))
-                    .font(.moscoCaption().weight(.semibold))
-                    .foregroundStyle(MoscoPalette.accent)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(MoscoPalette.accent.opacity(0.12), in: Capsule())
-                    .padding(.leading, Metrics.spacingXS)
-                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
-            }
+            calendarChip
 
             Spacer()
 
@@ -377,14 +288,4 @@ struct CalendarScreen: View {
         }
     }
 
-    /// 오늘 기준 D-day 표기: 미래는 D-n, 과거는 D+n, 오늘은 "오늘".
-    private func dDayLabel(for day: Date) -> String {
-        let days = calendar.dateComponents(
-            [.day],
-            from: calendar.startOfDay(for: Date()),
-            to: calendar.startOfDay(for: day)
-        ).day ?? 0
-        if days == 0 { return "오늘" }
-        return days > 0 ? "D-\(days)" : "D+\(-days)"
-    }
 }

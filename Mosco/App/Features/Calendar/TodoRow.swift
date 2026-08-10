@@ -21,13 +21,24 @@ struct TodoRow: View {
     /// 여러 캘린더를 함께 보고 있을 때만 소속 캘린더 칩을 붙인다 — 하나만 보고
     /// 있으면 전부 같은 캘린더라 칩이 자리만 차지한다.
     var showsCalendarTag: Bool = false
-    /// 메모 본문을 셀 안에서 바로 펼쳐 보여줄지.
-    ///
-    /// 할 일 목록에서만 켠다. 거기서는 메모가 "열어봐야 아는 딸린 정보"가 아니라
-    /// 할 일의 일부다 — 무엇을 적어뒀는지 보려고 매번 시트를 열어야 한다면 적어둔
-    /// 보람이 없다. 달력의 하루치 목록은 한 칸에 여러 날이 겹치는 화면이라 셀
-    /// 높이가 들쭉날쭉해지면 훑기 어려워서 끈다.
-    var showsMemoPreview: Bool = false
+    /// 메모 본문을 셀 안에 얼마나 보여줄지. **메모는 어느 화면에서든 항상 보인다** —
+    /// 열어봐야 아는 딸린 정보로 두면 적어둔 보람이 없다. 화면마다 다른 건 길이뿐이다.
+    var memoDisplay: MemoDisplay = .compact
+
+    enum MemoDisplay {
+        /// 세 줄까지만. 목록을 훑는 화면에서는 메모 하나가 화면을 다 차지하면 안 된다.
+        case compact
+        /// 전문. 할 일 목록은 "지금 무엇을 해야 하나"에 답하는 화면이라, 적어둔 게
+        /// 있으면 그것까지가 할 일이다.
+        case full
+
+        var lineLimit: Int? {
+            switch self {
+            case .compact: 3
+            case .full: nil
+            }
+        }
+    }
 
     /// 이 화면이 어디인지 — 복제 이벤트에 그대로 실어 보낸다.
     var analyticsSource: String = "app"
@@ -90,17 +101,6 @@ struct TodoRow: View {
                         TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary)
                     }
 
-                    // 메모가 있다는 것도 이 행의 성격 중 하나라, 다른 성격들과 같은
-                    // 줄에서 같은 모양으로 말한다. 예전엔 오른쪽 끝 버튼의 아이콘
-                    // 진하기로 유무를 알렸는데, 버튼의 일이 "수정"으로 바뀌면서
-                    // 그 자리에 메모 여부를 실을 수 없게 됐다.
-                    //
-                    // 본문을 아래에 펼쳐 보여주는 화면에서는 이 태그를 뺀다 —
-                    // 내용이 바로 아래 있는데 "메모 있음"이라고 또 말할 이유가 없다.
-                    if hasMemo, !showsMemoPreview {
-                        TagChip(label: "메모", tint: MoscoPalette.textSecondary)
-                    }
-
                     // 디데이로 표시해둔 항목. 남은 날짜는 적지 않는다 — 옆의 날짜
                     // 태그와 같은 말을 두 번 하는 셈이고, 여기서 알고 싶은 건
                     // "이게 그 챙기는 일이구나"뿐이다. 남은 날짜를 세는 건
@@ -127,7 +127,7 @@ struct TodoRow: View {
                     Spacer(minLength: 0)
                 }
 
-                if showsMemoPreview, let memo = todo.memo, !memo.isEmpty {
+                if let memo = todo.memo, !memo.isEmpty {
                     memoPreview(memo)
                 }
             }
@@ -300,9 +300,7 @@ struct TodoRow: View {
                     .font(.moscoCaption())
                     .foregroundStyle(MoscoPalette.textSecondary)
                     .multilineTextAlignment(.leading)
-                    // 세 줄이면 무엇을 적었는지 알기 충분하고, 그보다 길어지면
-                    // 메모 하나가 목록을 통째로 차지한다. 전문은 눌러서 본다.
-                    .lineLimit(3)
+                    .lineLimit(memoDisplay.lineLimit)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .fixedSize(horizontal: false, vertical: true)

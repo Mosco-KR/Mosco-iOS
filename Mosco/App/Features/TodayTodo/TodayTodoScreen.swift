@@ -22,9 +22,6 @@ struct TodayTodoScreen: View {
     /// 기존 항목을 누르면 여기 채워지고, 하단 입력창이 새로 만들기 대신 그 항목을
     /// 고치는 채팅형 입력창으로 바뀐다(DayTodosContentView와 같은 패턴).
     @State private var editingTodo: TodoItem?
-    /// 완료 섹션은 기본으로 접혀 있다 — 평소엔 안 보이지만, 잘못 체크했거나
-    /// 되돌리고 싶을 때 펼쳐서 체크를 풀 수 있어야 한다.
-    @State private var showsCompleted = false
     /// 날짜를 안 정하고 만든 할 일. 이 화면은 "지난 것과 오늘"만 보는 곳이라 접어
     /// 두지만, 섹션 자체를 없애지는 않는다 — 그러면 날짜 없이 만든 할 일이 달력에도
     /// 여기에도 안 나와서 앱 어디에서도 볼 수 없게 된다.
@@ -77,15 +74,20 @@ struct TodayTodoScreen: View {
 
     private func isDone(_ todo: TodoItem) -> Bool { todo.isCompleted(on: today) }
 
-    /// 오늘 남은 할 일 **전부**를 한 줄로 세운다. 시각이 정해진 것과 아닌 것을
-    /// 갈라 놓지 않는 건, 하루는 원래 그렇게 흐르지 않기 때문이다 — 3시 회의와
-    /// 그 전에 끝내야 할 정리는 같은 줄에 있어야 순서를 정할 수 있다.
-    private var incompleteToday: [TodoItem] {
-        ordered(todayTodos.filter { !isDone($0) })
+    /// 오늘 할 일 **전부**를 한 줄로 세운다. 완료한 것도 같은 줄에 남는다.
+    ///
+    /// 시각이 정해진 것과 아닌 것을 갈라 놓지 않는 건, 하루는 원래 그렇게 흐르지
+    /// 않기 때문이다 — 3시 회의와 그 전에 끝내야 할 정리는 같은 줄에 있어야 순서를
+    /// 정할 수 있다. **끝낸 것을 따로 접어두지 않는 것도 같은 이유다.** 체크하는
+    /// 순간 항목이 목록에서 사라지면 방금 무엇을 했는지 눈으로 확인할 수 없고,
+    /// 잘못 눌렀을 때 되돌리려면 접힌 섹션을 찾아 펼쳐야 했다. 끝낸 줄은 흐려진
+    /// 채 제자리에 남는다.
+    private var todayList: [TodoItem] {
+        ordered(todayTodos)
     }
 
-    private var completedToday: [TodoItem] {
-        todayTodos.filter(isDone)
+    private var remainingCount: Int {
+        todayTodos.filter { !isDone($0) }.count
     }
 
     /// 디데이로 표시해둔 것 **전부**를 가까운 순으로. 지난 디데이는 뺀다 —
@@ -113,7 +115,7 @@ struct TodayTodoScreen: View {
     }
 
     private var isOverloaded: Bool {
-        incompleteToday.count > Self.overloadThreshold
+        remainingCount > Self.overloadThreshold
     }
 
     // MARK: - 검색
@@ -178,8 +180,8 @@ struct TodayTodoScreen: View {
                 Text(today.koreanMonthDayWeekday)
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(MoscoPalette.textPrimary)
-                if !incompleteToday.isEmpty {
-                    Text("할 일 \(incompleteToday.count)개 남음")
+                if remainingCount > 0 {
+                    Text("할 일 \(remainingCount)개 남음")
                         .font(.moscoCaption())
                         .foregroundStyle(MoscoPalette.textSecondary)
                 }
@@ -187,35 +189,59 @@ struct TodayTodoScreen: View {
 
             Spacer()
 
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isSearching.toggle()
-                    if !isSearching { query = "" }
+            // **두 모드는 서로를 배타적으로 가린다.** 검색 결과는 날짜순으로 서고
+            // 목록은 사용자가 정한 순서로 서는데, 검색 중에 끌어 옮기면 어느 줄을
+            // 바꾼 것인지 알 수 없다. 반대로 순서를 바꾸는 중에 검색이 열리면
+            // 방금 옮기던 목록이 통째로 사라진다.
+            if !isEditing {
+                glassButton(
+                    isSearching ? "완료" : "검색",
+                    systemImage: isSearching ? nil : "magnifyingglass"
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isSearching.toggle()
+                        if !isSearching { query = "" }
+                    }
+                    isSearchFocused = isSearching
                 }
-                isSearchFocused = isSearching
-            } label: {
-                Text(isSearching ? "완료" : "검색")
-                    .font(.moscoCaption().weight(.semibold))
-                    .foregroundStyle(MoscoPalette.accent)
             }
-            .buttonStyle(.plain)
 
-            // 검색 중에는 순서를 바꿀 수 없다 — 검색 결과는 날짜순이라 거기서
-            // 끌어 옮긴 자리가 목록으로 돌아가면 아무 의미가 없다.
             if !isSearching {
-                Button {
+                glassButton(
+                    isEditing ? "완료" : "순서",
+                    systemImage: isEditing ? nil : "arrow.up.arrow.down"
+                ) {
                     withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }
-                } label: {
-                    Text(isEditing ? "완료" : "편집")
-                        .font(.moscoCaption().weight(.semibold))
-                        .foregroundStyle(MoscoPalette.accent)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, Metrics.spacingMD)
         .padding(.top, Metrics.spacingSM)
         .padding(.bottom, Metrics.spacingSM)
+    }
+
+    /// 헤더의 작은 버튼. 달력 탭의 '오늘'·설정 버튼과 **같은 모양**이다 —
+    /// 예전엔 여기만 맨 글자였는데, 같은 자리(헤더 오른쪽)에서 같은 일(모드 켜기)을
+    /// 하는 버튼이 화면마다 다르게 생기면 두 화면이 다른 앱처럼 보인다.
+    private func glassButton(_ title: String, systemImage: String?, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                Text(title)
+                    .font(.moscoCaption().weight(.semibold))
+            }
+            .foregroundStyle(MoscoPalette.accent)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+        }
+        .buttonStyle(.plain)
+        .moscoGlass(in: Capsule())
+        .clipShape(Capsule())
     }
 
     private var searchField: some View {
@@ -246,13 +272,12 @@ struct TodayTodoScreen: View {
                 if !overdueTodos.isEmpty { overdueSection }
                 if isOverloaded { overloadNotice }
 
-                if incompleteToday.isEmpty && overdueTodos.isEmpty && backlogTodos.isEmpty {
+                if todayList.isEmpty && overdueTodos.isEmpty && backlogTodos.isEmpty {
                     emptyState
                 }
 
-                if !incompleteToday.isEmpty { todaySection }
+                if !todayList.isEmpty { todaySection }
                 if !backlogTodos.isEmpty { backlogSection }
-                if !completedToday.isEmpty { completedSection }
             }
         }
         .scrollContentBackground(.hidden)
@@ -407,13 +432,13 @@ struct TodayTodoScreen: View {
     /// 오늘 할 일 하나의 줄. 끌어서 순서를 바꿀 수 있고, 그 순서가 곧 `sortIndex`다.
     private var todaySection: some View {
         Section {
-            ForEach(incompleteToday) { todo in
+            ForEach(todayList) { todo in
                 row(todo)
             }
-            .onMove { move(incompleteToday, from: $0, to: $1) }
-            .onDelete { delete(incompleteToday, at: $0) }
+            .onMove { move(todayList, from: $0, to: $1) }
+            .onDelete { delete(todayList, at: $0) }
         } header: {
-            plainHeader("오늘 할 일", count: incompleteToday.count)
+            plainHeader("오늘 할 일", count: todayList.count)
         }
     }
 
@@ -426,7 +451,7 @@ struct TodayTodoScreen: View {
                             todo: todo,
                             onTap: { editingTodo = todo },
                             onDelete: { delete(todo) },
-                            showsMemoPreview: true,
+                            memoDisplay: .full,
                             analyticsSource: "today_plan"
                         )
                         Button {
@@ -461,21 +486,6 @@ struct TodayTodoScreen: View {
         }
     }
 
-    private var completedSection: some View {
-        Section {
-            if showsCompleted {
-                ForEach(completedToday) { todo in
-                    row(todo)
-                }
-                .onDelete { delete(completedToday, at: $0) }
-            }
-        } header: {
-            collapsibleHeader("완료한 할 일", count: completedToday.count, isExpanded: showsCompleted) {
-                showsCompleted.toggle()
-            }
-        }
-    }
-
     private var searchSection: some View {
         Group {
             if searchResults.isEmpty {
@@ -493,7 +503,7 @@ struct TodayTodoScreen: View {
                             showsDate: true,
                             onTap: { editingTodo = todo },
                             onDelete: { delete(todo) },
-                            showsMemoPreview: true,
+                            memoDisplay: .full,
                             analyticsSource: "search"
                         )
                         .listRowBackground(Color.clear)
@@ -516,7 +526,7 @@ struct TodayTodoScreen: View {
             occurrenceDate: today,
             onTap: { editingTodo = todo },
             onDelete: { delete(todo) },
-            showsMemoPreview: true,
+            memoDisplay: .full,
             analyticsSource: "today_plan"
         )
         .listRowBackground(Color.clear)
@@ -593,7 +603,7 @@ struct TodayTodoScreen: View {
     private func pullIntoToday(_ todo: TodoItem) {
         withAnimation(.easeInOut(duration: 0.25)) {
             todo.date = today
-            todo.sortIndex = (incompleteToday.map(\.sortIndex).max() ?? 0) + 1
+            todo.sortIndex = (todayList.map(\.sortIndex).max() ?? 0) + 1
         }
     }
 
