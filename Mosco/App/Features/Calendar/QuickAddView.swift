@@ -163,7 +163,14 @@ struct QuickAddView: View {
                 repeatRule: $repeatRule,
                 repeatEndDate: $repeatEndDate,
                 repeatWeekdays: $repeatWeekdays,
-                repeatInterval: $repeatInterval
+                repeatInterval: $repeatInterval,
+                onSave: {
+                    // 기존 항목을 고치는 중이면 그 자리에서 반영한다. 새로 만드는
+                    // 중이라면 아직 모델이 없으니 입력창 상태로만 남고, 보내기를
+                    // 누를 때 함께 저장된다.
+                    guard let todo = editingTodo else { return }
+                    applySchedule(to: todo)
+                }
             )
         }
         .sheet(isPresented: $showNewCategorySheet) {
@@ -638,6 +645,28 @@ struct QuickAddView: View {
         commitSave(assigning: visibleCalendars.first ?? calendars.first(where: \.isDefault))
     }
 
+    /// 지금 입력창이 들고 있는 날짜·시간·반복을 할 일에 옮겨 적는다.
+    ///
+    /// 보내기 버튼과 일정 시트의 '완료'가 **같은 함수**를 쓴다. 예전엔 시트가
+    /// 입력창의 상태만 바꾸고 모델에는 손대지 않아서, 기존 항목을 고칠 때 시트에서
+    /// 날짜를 정하고 닫아도 보내기를 한 번 더 누르기 전엔 아무 일도 안 일어났다 —
+    /// '완료'라고 적힌 버튼을 눌렀는데 완료되지 않는 상태였다.
+    private func applySchedule(to todo: TodoItem) {
+        let resolvedEndDate: Date? = {
+            guard let startDate, let endDate, !calendar.isDate(startDate, inSameDayAs: endDate) else { return nil }
+            return endDate
+        }()
+
+        todo.date = startDate
+        todo.endDate = resolvedEndDate
+        todo.startTime = startDate == nil ? nil : startTime
+        todo.endTime = startDate == nil ? nil : endTime
+        todo.repeatRule = startDate == nil ? .none : repeatRule
+        todo.repeatEndDate = startDate == nil ? nil : repeatEndDate
+        todo.repeatWeekdays = startDate == nil ? [] : Array(repeatWeekdays)
+        todo.repeatInterval = (startDate != nil && repeatRule == .everyNDays) ? repeatInterval : nil
+    }
+
     /// 인자 이름을 `calendar`로 두면 이 뷰의 `Calendar.current` 프로퍼티를 가린다.
     private func commitSave(assigning targetCalendar: TodoCalendar?) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -649,15 +678,8 @@ struct QuickAddView: View {
 
         if let todo = editingTodo {
             todo.title = trimmed
-            todo.date = startDate
-            todo.endDate = resolvedEndDate
-            todo.startTime = startDate == nil ? nil : startTime
-            todo.endTime = startDate == nil ? nil : endTime
             todo.category = category
-            todo.repeatRule = startDate == nil ? .none : repeatRule
-            todo.repeatEndDate = startDate == nil ? nil : repeatEndDate
-            todo.repeatWeekdays = startDate == nil ? [] : Array(repeatWeekdays)
-            todo.repeatInterval = (startDate != nil && repeatRule == .everyNDays) ? repeatInterval : nil
+            applySchedule(to: todo)
         } else {
             let todo = TodoItem(
                 title: trimmed,

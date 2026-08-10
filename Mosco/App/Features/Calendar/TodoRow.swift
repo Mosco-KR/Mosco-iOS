@@ -83,12 +83,24 @@ struct TodoRow: View {
                         TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary)
                     }
 
+                    // 메모가 있다는 것도 이 행의 성격 중 하나라, 다른 성격들과 같은
+                    // 줄에서 같은 모양으로 말한다. 예전엔 오른쪽 끝 버튼의 아이콘
+                    // 진하기로 유무를 알렸는데, 버튼의 일이 "수정"으로 바뀌면서
+                    // 그 자리에 메모 여부를 실을 수 없게 됐다.
+                    if hasMemo {
+                        TagChip(label: "메모", tint: MoscoPalette.textSecondary)
+                    }
+
                     // 디데이로 표시해둔 항목. 남은 날짜는 적지 않는다 — 옆의 날짜
                     // 태그와 같은 말을 두 번 하는 셈이고, 여기서 알고 싶은 건
                     // "이게 그 챙기는 일이구나"뿐이다. 남은 날짜를 세는 건
                     // '다가오는' 화면의 디데이 카드가 맡는다.
+                    //
+                    // 별이 아니라 깃발인 건, 별은 어느 앱에서나 "즐겨찾기/중요"라는
+                    // 뜻으로 굳어 있어서다. 디데이는 중요도가 아니라 **날을 세는
+                    // 표시**고, 깃발은 달력 위 한 지점을 찍는 말에 가깝다.
                     if todo.isDDay {
-                        Image(systemName: "star.fill")
+                        Image(systemName: "flag.fill")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(MoscoPalette.textSecondary)
                     }
@@ -106,7 +118,10 @@ struct TodoRow: View {
                 }
             }
 
-            detailButton
+            // 수정할 방법이 없는 화면(onTap이 없는 곳)에서는 자리도 만들지 않는다.
+            if onTap != nil {
+                editButton
+            }
         }
         .padding(.vertical, 13)
         // 왼쪽은 막대가 자리를 채우므로 안쪽 여백을 줄인다.
@@ -157,7 +172,7 @@ struct TodoRow: View {
             } label: {
                 Label(
                     todo.isDDay ? "디데이 해제" : "디데이로 표시",
-                    systemImage: todo.isDDay ? "star.slash" : "star"
+                    systemImage: todo.isDDay ? "flag.slash" : "flag"
                 )
             }
 
@@ -250,32 +265,27 @@ struct TodoRow: View {
 
     private var hasMemo: Bool { todo.memo != nil }
 
-    /// 누르면 곧바로 상세 화면(메모)을 연다. 예전엔 메뉴를 띄웠는데, 메모 아이콘을
-    /// 눌렀더니 메뉴가 나오는 게 아이콘이 약속한 것과 달라 어색했다. 삭제는 상세
-    /// 화면 안과 행 길게 누르기로 옮겼다 — 길게 누르기는 좌우 스와이프와 달리
-    /// 날짜 넘기기 제스처와 충돌하지 않는다.
+    /// 수정으로 바로 가는 지름길.
     ///
-    /// 메모가 있으면 아이콘이 또렷해져서, 열어보지 않아도 유무가 구분된다.
-    /// 구분은 **색이 아니라 진하기**로 한다 — 메모가 있다는 건 그 할 일이 어느
-    /// 카테고리인지와 아무 상관이 없는데, 여기에 카테고리 색을 칠해두니 행마다
-    /// 오른쪽 끝에도 색이 하나씩 더 붙어 화면이 산만했다.
-    private var detailButton: some View {
+    /// 몸통 탭이 완료로 넘어가면서 수정은 꾹 눌러야만 닿는 곳이 됐는데, 꾹 누르기는
+    /// 알고 있어야 쓸 수 있는 조작이다. 목록에 보이는 버튼 하나가 같은 곳으로
+    /// 데려가면 처음 쓰는 사람도 길을 찾는다.
+    ///
+    /// 예전엔 이 자리가 메모 버튼이었다. 메모 유무는 아이콘 진하기로 알렸는데,
+    /// 그건 두 상태를 나란히 놓고 봐야 알아채는 구분이었다 — 이제 태그 줄에서
+    /// 이름으로 말한다.
+    private var editButton: some View {
         Button {
-            showsMemoEditor = true
+            onTap?()
         } label: {
-            Image(systemName: hasMemo ? "note.text" : "square.and.pencil")
+            Image(systemName: "square.and.pencil")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(MoscoPalette.textSecondary)
                 .frame(width: 28, height: 28)
-                .background(
-                    MoscoPalette.textSecondary.opacity(hasMemo ? 0.14 : 0.07),
-                    in: Circle()
-                )
-                .opacity(hasMemo ? 1 : 0.45)
+                .background(MoscoPalette.textSecondary.opacity(0.1), in: Circle())
         }
         .buttonStyle(.plain)
         .contentShape(Circle())
-        .animation(.easeOut(duration: 0.2), value: hasMemo)
     }
 
     /// 셀 왼쪽 끝의 카테고리 색 막대 — 달력 격자의 일정 블록과 같은 표기다.
@@ -299,12 +309,15 @@ struct TodoRow: View {
     ///
     /// 색은 중립색이다. 카테고리 색은 왼쪽 막대가 맡고, 여기서 알고 싶은 건
     /// "끝냈는가" 하나뿐이다.
+    ///
+    /// 원이 아니라 둥근 사각형인 건 셀·카드·태그가 전부 둥근 사각형/캡슐이기
+    /// 때문이다. 한 행에서 혼자만 정원이면 다른 데서 가져다 놓은 것처럼 보인다.
     private var checkMark: some View {
-        ZStack {
-            Circle()
-                .fill(isDone ? MoscoPalette.textSecondary : Color.clear)
-            Circle()
-                .strokeBorder(MoscoPalette.textSecondary.opacity(isDone ? 0 : 0.45), lineWidth: 1.75)
+        let box = RoundedRectangle(cornerRadius: 8, style: .continuous)
+
+        return ZStack {
+            box.fill(isDone ? MoscoPalette.textSecondary : Color.clear)
+            box.strokeBorder(MoscoPalette.textSecondary.opacity(isDone ? 0 : 0.45), lineWidth: 1.75)
             Image(systemName: "checkmark")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(MoscoPalette.surface)

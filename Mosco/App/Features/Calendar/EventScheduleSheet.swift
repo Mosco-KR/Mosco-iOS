@@ -12,6 +12,10 @@ struct EventScheduleSheet: View {
     @Binding var repeatEndDate: Date?
     @Binding var repeatWeekdays: Set<Int>
     @Binding var repeatInterval: Int
+    /// '완료'로 닫혔을 때만 불린다(취소는 안 부른다). 기존 항목을 고치는 중이면
+    /// 호출한 쪽이 이걸 받아 **그 자리에서** 모델에 반영한다 — 시트에서 날짜를
+    /// 고르고 닫았는데 목록이 그대로면 안 먹은 것처럼 보인다.
+    var onSave: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
     /// 날짜 자체가 없는 백로그 항목도 있을 수 있어서(할 일 탭에서 바로 추가) —
@@ -32,8 +36,10 @@ struct EventScheduleSheet: View {
         repeatRule: Binding<RepeatRule>,
         repeatEndDate: Binding<Date?>,
         repeatWeekdays: Binding<Set<Int>>,
-        repeatInterval: Binding<Int>
+        repeatInterval: Binding<Int>,
+        onSave: @escaping () -> Void = {}
     ) {
+        self.onSave = onSave
         _startDate = startDate
         _endDate = endDate
         _startTime = startTime
@@ -180,6 +186,7 @@ struct EventScheduleSheet: View {
             endTime = nil
             repeatRule = .none
             repeatEndDate = nil
+            onSave()
             dismiss()
             return
         }
@@ -202,6 +209,7 @@ struct EventScheduleSheet: View {
         }
 
         repeatEndDate = (repeatRule == .none || !hasRepeatEnd) ? nil : workingRepeatEndDate
+        onSave()
         dismiss()
     }
 
