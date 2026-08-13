@@ -11,210 +11,164 @@ import OSLog
 /// 않고, 대신 "제목 길이", "시간이 있는지" 같은 모양만 보낸다. 무엇을 적었는지는
 /// 분석에 필요 없고, 한번 보내면 되돌릴 수 없다.
 enum AnalyticsEvent {
-    // MARK: 사용 흐름
 
-    /// 앱이 전면으로 올라옴.
+    // MARK: - 핵심 루프
+
+    /// 할 일이 만들어졌다.
     ///
-    /// 이름이 `app_open`이 아니라 `app_launch`인 건 Firebase가 **`app_open`을
-    /// 자동으로 수집**하기 때문이다. 같은 이름으로 우리도 보내면 둘이 한 지표에
-    /// 섞여서 어느 쪽이 센 건지 구분할 수 없게 된다. `app_open`은 Firebase 것을
-    /// 그대로 쓰고, 여기서는 콜드 스타트 여부까지 담은 우리 것을 따로 남긴다.
-    case appOpened(isColdStart: Bool)
-    /// 탭 이동 — 세 탭 중 실제로 쓰는 게 무엇인지.
-    case tabViewed(tab: String)
+    /// **예전엔 이게 `create_schedule`과 `create_task` 둘이었다.** 날짜가 있으면
+    /// 달력에 자리를 갖는 "일정", 없으면 목록에만 있는 "할 일"이라 다른 것으로
+    /// 다뤘는데, 그러면 "얼마나 만드는가"를 볼 때마다 두 지표를 더해야 했고
+    /// 비율을 보려면 또 나눠야 했다. `has_date` 하나로 같은 답이 나온다.
+    ///
+    /// 제목 길이는 뺐다. 구간으로 뭉개서 보내고 있었지만, 그 값이 어느 쪽으로
+    /// 나오든 다음에 만들 것이 달라지지 않았다.
+    case todoCreated(source: String, hasDate: Bool, hasTime: Bool, repeatRule: String, isMultiDay: Bool)
 
-    // MARK: 핵심 행동
+    /// 완료/해제. `source`로 앱·위젯·잠금화면을 가른다 — 위젯을 계속 만들지
+    /// 정하는 근거가 이 값이다.
+    ///
+    /// 해제(`completed=false`)도 함께 센다. 이 앱은 **셀 몸통을 누르면 완료**라
+    /// 잘못 눌리기 쉬운 구조인데, 해제 비율이 그 위험을 재는 유일한 눈금이다.
+    ///
+    /// 이름이 `complete_task`가 아닌 건 **과거 데이터를 끊어내기 위해서다.**
+    /// 앱 경로에서 `completed`가 뒤집혀 기록되던 버그가 오래 있었고(`TodoRow`
+    /// 참고), 위젯 경로는 정상이었다 — 한 지표 안에 반대 뜻의 값이 섞여 있어
+    /// 되살릴 수 없다. 이름을 갈아야 "언제부터 믿을 수 있는지"를 사람이
+    /// 기억하지 않아도 된다.
+    case todoCompleted(source: String, completed: Bool, isRepeating: Bool)
 
-    /// 생성. 이 앱에서 "일정"과 "할 일"은 실제로 다른 것이다 — 날짜가 있으면
-    /// 달력에 자리를 갖는 일정이고, 없으면 할 일 탭에만 있는 백로그다. 둘을 한
-    /// 이벤트로 뭉치면 "달력을 쓰는가, 목록을 쓰는가"라는 제일 큰 질문이 사라진다.
-    case scheduleCreated(source: String, hasTime: Bool, repeatRule: String, isMultiDay: Bool, titleLength: Int)
-    case taskCreated(source: String, titleLength: Int)
-    /// 완료/해제. `source`로 앱과 위젯을 가른다.
-    case taskCompleted(source: String, completed: Bool, isRepeating: Bool)
-    case taskDeleted(source: String, count: Int)
-    /// 같은 할 일을 다른 날로 복제. `method`로 두 동선(날짜 시트 / 복사·붙여넣기)을
-    /// 가른다 — 둘 다 만든 이상, 어느 쪽이 실제로 쓰이는지 알아야 나중에 하나를
-    /// 접을 수 있다.
-    case taskDuplicated(source: String, method: String)
-    case todoEdited(field: String)
-    /// 끌어서 순서 바꾸기 — 이 기능이 실제로 쓰이는지.
-    case todoReordered(source: String)
+    // MARK: - 값이 있는지 확인해야 하는 기능들
+    //
+    // 여기 있는 것들은 전부 "코드가 비싼데 정말 쓰이는가"에 답하려고 남긴다.
+    // 안 쓰이면 걷어낼 후보라는 뜻이다.
 
-    // MARK: 자동 추천이 값을 하는지
-
-    /// 제목을 보고 카테고리를 자동 배정하는 ML 분류기가 돌았고, 결과가 있었는지.
-    /// 이 앱은 임베딩 분류기와 학습 파이프라인(MLTraining/)을 통째로 안고 있는데,
-    /// 그게 값을 하는지 판단할 근거가 지금까지 하나도 없었다.
+    /// 제목을 보고 카테고리를 자동으로 골라줬고, 결과가 있었는지.
+    /// 임베딩 분류기와 학습 파이프라인(MLTraining/)을 통째로 안고 있는 값이 이것뿐이다.
     case categorySuggested(matched: Bool)
-    /// 자동 배정된 카테고리를 사람이 바꿨다 — 위 이벤트와 짝이 되어야 의미가 있다.
-    /// 이 비율이 높으면 분류기가 오히려 방해가 되고 있다는 뜻이다.
+    /// 자동으로 고른 카테고리를 사람이 바꿨다. 위 이벤트와 **짝이어야** 의미가
+    /// 있다 — 이 비율이 높으면 분류기가 돕는 게 아니라 방해하고 있다는 뜻이다.
     case categoryOverridden
-    /// 제목에서 찾아낸 시간 표현을 실제로 적용했다.
+    /// 제목에서 찾아낸 시간을 실제로 적용했다("7시 러닝" → 오후 7시).
     case timeSuggestionApplied
+    /// 복사해둔 할 일을 다른 날에 붙여넣었다. 클립보드 층(붙여넣기 줄·칩)을
+    /// 계속 들고 갈지 정하는 근거다.
+    case todoDuplicated
+    /// 디데이로 표시했다.
+    case dDaySet
+    /// 캘린더를 껐다 켰다. 여러 캘린더를 정말 나눠 쓰는지 — 안 쓰면 이 층 자체가
+    /// 사람들에게 없는 개념이라는 뜻이다.
+    case calendarFilterChanged(visibleCount: Int, totalCount: Int)
+    /// 잠금화면 표시 시도의 결과. **막힌 이유까지 한 이벤트에 담는다** —
+    /// 성공만 세면 채택률이 낮을 때 "안 쓰는 것"인지 "8시간 조건에 걸리는 것"인지
+    /// 구분할 수 없고, 그 둘은 할 일이 완전히 다르다.
+    case liveActivity(result: String)
 
-    // MARK: 기능 채택
+    // MARK: - 밖에서 앱으로 들어오는 문
 
-    /// 위젯이 실제로 그려짐 — 어떤 위젯·크기가 정말 쓰이는지 알 수 있는 유일한 신호다.
-    /// 위젯을 홈 화면에 **추가한 순간**은 iOS가 앱에 알려주지 않는다. 그리는
-    /// 순간을 세는 게 "올려두고 쓰는 사람이 있다"에 가장 가까운 신호다.
+    /// 위젯이 홈 화면에 올라가 있다. **하루에 종류당 한 번만** 보낸다 —
+    /// 타임라인이 다시 그려질 때마다 보내면 App Group 버퍼(200개)가 이것으로
+    /// 가득 차서 정작 중요한 이벤트가 밀려난다.
     case widgetRendered(kind: String, family: String)
-    /// 위젯을 눌러 앱이 열렸다. 위젯이 보기용으로만 쓰이는지, 앱 진입로로도
-    /// 쓰이는지를 가른다.
+    /// 위젯을 눌러 앱이 열렸다. 위젯이 보기용인지 진입로인지를 가른다.
     case widgetTapped(kind: String)
-    /// 알림을 눌러 앱이 열렸다. 알림이 실제로 사람을 데려오는지 — 예약만 하고
-    /// 효과를 모르면 알림 설계를 고칠 근거가 없다.
+    /// 알림을 눌러 앱이 열렸다.
     ///
     /// 이름 뒤에 `ed`가 붙은 건 취향이 아니다. `notification_open`은 Firebase의
     /// **예약어**(FCM 자동 이벤트)라 그 이름으로 보내면 조용히 버려진다.
     case notificationOpened
-    case categoryCreated(count: Int)
-    case calendarCreated(count: Int)
-    case dDaySet
-    /// 앱스토어 리뷰창을 띄워달라고 시스템에 요청했다. **실제로 떴는지는 알 수
-    /// 없다** — 시스템이 연 3회 한도 안에서 스스로 정하고 결과를 알려주지 않는다.
-    /// 그래서 이건 "리뷰를 받았다"가 아니라 "부탁할 조건이 얼마나 자주 차는가"를
-    /// 재는 값이다.
-    case reviewPromptRequested
-    /// 설정에서 '앱 평가하기'를 눌러 앱스토어로 나갔다. 시스템 리뷰창과 달리
-    /// **여기는 누른 걸 확실히 안다** — 스스로 찾아와 평가하려는 사람이 얼마나
-    /// 되는지 재는 값이고, 시스템 한도(연 3회)도 쓰지 않는다.
-    case reviewLinkOpened
-    /// 캘린더를 껐다 켰다 — 여러 캘린더를 정말 나눠 쓰는지. 안 쓰면 이 층 자체가
-    /// 사람들에게 없는 개념이라는 뜻이다.
-    case calendarFilterChanged(visibleCount: Int, totalCount: Int)
-    /// 알림 권한 요청 결과 — 거부율이 높으면 요청 시점을 다시 봐야 한다.
+    /// 알림 권한 요청 결과. 거부율이 높으면 묻는 시점을 다시 봐야 한다.
     case notificationPermission(granted: Bool)
-    // MARK: 첫 경험
 
-    /// 튜토리얼을 시작했다. `source`로 첫 실행과 설정에서 다시 부른 것을 가른다.
+    // MARK: - 첫 경험
+
+    /// 튜토리얼 시작. `source`로 첫 실행과 설정에서 다시 부른 것을 가른다.
     case tutorialStarted(source: String)
-    /// 한 단계를 실제로 해냈다. **어느 단계에서 사람이 빠져나가는지**가 이 튜토리얼을
-    /// 고칠 유일한 근거다 — 완주율 하나만 봐서는 어디를 고쳐야 할지 알 수 없다.
-    case tutorialStepCompleted(step: String)
-    /// "대신 해주세요"를 눌렀다. 이 비율이 높은 단계는 지시가 어려운 단계다.
-    case tutorialAssisted(step: String)
-    case tutorialSkipped(step: String)
-    case tutorialFinished
+    /// 한 단계의 결과. `outcome`은 직접 해낸 것(`completed`)과 "대신 해주세요"를
+    /// 누른 것(`assisted`)을 가른다 — **어느 단계가 어려운지는 후자가 말해준다.**
+    case tutorialStep(step: String, outcome: String)
+    /// 튜토리얼이 끝난 자리와 방식(`finished` / `skipped`).
+    /// 어디서 빠져나가는지가 이 안내를 고칠 유일한 근거다.
+    case tutorialEnded(step: String, reason: String)
 
-    /// 라이브 액티비티를 띄웠다. 이 기능은 **시작 시각을 적어둔 할 일이 있어야**
-    /// 동작하는데, 시간까지 적는 사람이 얼마나 되는지 지금까지 몰랐다 —
-    /// 0에 가까우면 기능이 아니라 일정 입력 쪽을 손봐야 한다는 뜻이다.
-    case liveActivityStarted
-
-    // MARK: 규모와 건강 상태
+    // MARK: - 건강 상태
 
     /// 앱을 열 때 한 번. 사람들이 실제로 몇 건을 들고 쓰는지 모르면 성능 작업의
-    /// 목표를 정할 수 없다 — 지금까지 전부 추측이었다.
+    /// 목표를 정할 수 없다. 카테고리·캘린더 개수도 여기 함께 담는다 —
+    /// 만들 때마다 따로 세던 이벤트를 걷어내고 이 스냅샷 하나로 합쳤다.
     case dataScale(todoCount: Int, categoryCount: Int, calendarCount: Int)
-    /// 몇 달을 앞뒤로 넘겨보는지. 스냅샷 계산 범위(±8개월)가 맞게 잡혔는지와,
-    /// "다가오는" 탭이 정말 필요한지에 대한 근거가 된다.
-    case monthNavigated(offsetFromToday: Int)
-    /// iCloud 저장소를 못 열어 로컬 전용으로 물러났다. 지금은 조용히 넘어가서
-    /// 동기화가 안 되는 사용자가 얼마나 되는지 아무도 모른다.
+    /// iCloud 저장소를 못 열어 로컬 전용으로 물러났다. 드물지만 사용자가
+    /// 데이터를 잃는 경로라, 조용히 넘어가면 안 된다.
     case storeLocalFallback
+    /// 앱스토어 리뷰창을 띄워달라고 시스템에 요청했다. **실제로 떴는지는 알 수
+    /// 없다** — 이건 "부탁할 조건이 얼마나 자주 차는가"를 재는 값이고, 조건을
+    /// 다시 조일지 풀지 정하는 데 쓴다.
+    case reviewPromptRequested
 
     var name: String {
         switch self {
-        case .appOpened: "app_launch"
-        case .tabViewed: "tab_viewed"
-        case .scheduleCreated: "create_schedule"
-        case .taskCreated: "create_task"
-        case .taskCompleted: "complete_task"
-        case .taskDeleted: "delete_task"
-        case .taskDuplicated: "duplicate_task"
-        case .todoEdited: "todo_edited"
-        case .todoReordered: "todo_reordered"
+        case .todoCreated: "todo_created"
+        case .todoCompleted: "todo_completed"
         case .categorySuggested: "category_suggested"
         case .categoryOverridden: "category_overridden"
         case .timeSuggestionApplied: "time_suggestion_applied"
+        case .todoDuplicated: "todo_duplicated"
+        case .dDaySet: "dday_set"
+        case .calendarFilterChanged: "calendar_filter_changed"
+        case .liveActivity: "live_activity"
         case .widgetRendered: "widget_rendered"
         case .widgetTapped: "widget_tapped"
         case .notificationOpened: "notification_opened"
-        case .categoryCreated: "category_created"
-        case .calendarCreated: "calendar_created"
-        case .dDaySet: "dday_set"
-        case .reviewPromptRequested: "review_prompt_requested"
-        case .reviewLinkOpened: "review_link_opened"
-        case .calendarFilterChanged: "calendar_filter_changed"
         case .notificationPermission: "notification_permission"
-        case .liveActivityStarted: "live_activity_started"
         case .tutorialStarted: "tutorial_started"
-        case .tutorialStepCompleted: "tutorial_step_completed"
-        case .tutorialAssisted: "tutorial_assisted"
-        case .tutorialSkipped: "tutorial_skipped"
-        case .tutorialFinished: "tutorial_finished"
+        case .tutorialStep: "tutorial_step"
+        case .tutorialEnded: "tutorial_ended"
         case .dataScale: "data_scale"
-        case .monthNavigated: "month_navigated"
         case .storeLocalFallback: "store_local_fallback"
+        case .reviewPromptRequested: "review_prompt_requested"
         }
     }
 
     var parameters: [String: String] {
         switch self {
-        case let .appOpened(isColdStart):
-            ["is_cold_start": String(isColdStart)]
-        case let .tabViewed(tab):
-            ["tab": tab]
-        case let .scheduleCreated(source, hasTime, repeatRule, isMultiDay, titleLength):
+        case let .todoCreated(source, hasDate, hasTime, repeatRule, isMultiDay):
             [
                 "source": source,
+                "has_date": String(hasDate),
                 "has_time": String(hasTime),
                 "repeat_rule": repeatRule,
-                "is_multi_day": String(isMultiDay),
-                // 길이만. 제목 자체는 개인 정보라 보내지 않는다.
-                "title_length_bucket": Self.bucket(titleLength)
+                "is_multi_day": String(isMultiDay)
             ]
-        case let .taskCreated(source, titleLength):
-            ["source": source, "title_length_bucket": Self.bucket(titleLength)]
-        case let .taskCompleted(source, completed, isRepeating):
+        case let .todoCompleted(source, completed, isRepeating):
             ["source": source, "completed": String(completed), "is_repeating": String(isRepeating)]
-        case let .taskDeleted(source, count):
-            ["source": source, "count": String(count)]
-        case let .taskDuplicated(source, method):
-            ["source": source, "method": method]
-        case let .todoEdited(field):
-            ["field": field]
-        case let .todoReordered(source):
-            ["source": source]
         case let .categorySuggested(matched):
             ["matched": String(matched)]
         case .categoryOverridden:
             [:]
         case .timeSuggestionApplied:
             [:]
+        case .todoDuplicated:
+            [:]
+        case .dDaySet:
+            [:]
+        case let .calendarFilterChanged(visibleCount, totalCount):
+            ["visible_count": String(visibleCount), "total_count": String(totalCount)]
+        case let .liveActivity(result):
+            ["result": result]
         case let .widgetRendered(kind, family):
             ["kind": kind, "family": family]
         case let .widgetTapped(kind):
             ["kind": kind]
         case .notificationOpened:
             [:]
-        case let .categoryCreated(count):
-            ["total_count": String(count)]
-        case let .calendarCreated(count):
-            ["total_count": String(count)]
-        case .dDaySet:
-            [:]
-        case .reviewPromptRequested:
-            [:]
-        case .reviewLinkOpened:
-            [:]
-        case let .calendarFilterChanged(visibleCount, totalCount):
-            ["visible_count": String(visibleCount), "total_count": String(totalCount)]
         case let .notificationPermission(granted):
             ["granted": String(granted)]
-        case .liveActivityStarted:
-            [:]
         case let .tutorialStarted(source):
             ["source": source]
-        case let .tutorialStepCompleted(step):
-            ["step": step]
-        case let .tutorialAssisted(step):
-            ["step": step]
-        case let .tutorialSkipped(step):
-            ["step": step]
-        case .tutorialFinished:
-            [:]
+        case let .tutorialStep(step, outcome):
+            ["step": step, "outcome": outcome]
+        case let .tutorialEnded(step, reason):
+            ["step": step, "reason": reason]
         case let .dataScale(todoCount, categoryCount, calendarCount):
             [
                 // 정확한 개수는 필요 없고 규모만 알면 된다.
@@ -222,25 +176,15 @@ enum AnalyticsEvent {
                 "category_count": String(categoryCount),
                 "calendar_count": String(calendarCount)
             ]
-        case let .monthNavigated(offsetFromToday):
-            ["offset_from_today": String(offsetFromToday)]
         case .storeLocalFallback:
+            [:]
+        case .reviewPromptRequested:
             [:]
         }
     }
 
-    /// 자유 입력 길이는 그대로 보내면 그 자체가 지문이 될 수 있다 — 구간으로 뭉갠다.
-    private static func bucket(_ length: Int) -> String {
-        switch length {
-        case ..<5: "0-4"
-        case ..<10: "5-9"
-        case ..<20: "10-19"
-        default: "20+"
-        }
-    }
-
-    /// 보유 건수도 마찬가지다. "몇 건대인지"만 알면 성능 목표를 정할 수 있고,
-    /// 정확한 수는 개인을 특정하는 데만 쓸모가 있다.
+    /// 보유 건수는 그대로 보내면 개인을 특정하는 데만 쓸모가 있다 — "몇 건대인지"만
+    /// 알면 성능 목표를 정할 수 있다.
     private static func countBucket(_ count: Int) -> String {
         switch count {
         case 0: "0"
@@ -339,6 +283,23 @@ enum AnalyticsBuffer {
         if stored.count > limit { stored.removeFirst(stored.count - limit) }
         guard let data = try? JSONEncoder().encode(stored) else { return }
         defaults.set(data, forKey: key)
+    }
+
+    /// **하루에 한 번만** 기록한다. 위젯 렌더처럼 계속 되풀이되는 사실은 매번
+    /// 담아봐야 같은 말을 반복할 뿐이고, 200칸짜리 이 버퍼를 가득 채워서 정작
+    /// 드물고 중요한 이벤트(저장소 실패, 위젯에서 누른 완료)를 밀어낸다.
+    ///
+    /// `token`은 이벤트를 구분하는 열쇠다(예: 위젯 종류+크기).
+    static func recordOncePerDay(_ event: AnalyticsEvent, token: String) {
+        guard let defaults else { return }
+        let key = "analyticsOncePerDay.\(token)"
+        let today = Calendar.current.startOfDay(for: .now)
+        if let last = defaults.object(forKey: key) as? Date,
+           Calendar.current.startOfDay(for: last) == today {
+            return
+        }
+        defaults.set(today, forKey: key)
+        record(event)
     }
 
     static func drain() -> [Pending] {

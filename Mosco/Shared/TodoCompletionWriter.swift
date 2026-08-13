@@ -51,7 +51,7 @@ enum TodoCompletionWriter {
         todo.setCompleted(nowCompleted, on: day)
         try? context.save()
         AnalyticsBuffer.record(
-            .taskCompleted(
+            .todoCompleted(
                 source: source,
                 completed: nowCompleted,
                 isRepeating: todo.repeatRule != .none

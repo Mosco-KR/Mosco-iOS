@@ -57,7 +57,10 @@ struct MonthCalendarProvider: TimelineProvider {
         Task { @MainActor in
             // 실제로 홈 화면에 올라가 있을 때만 불린다(`getSnapshot`은 갤러리
             // 미리보기라 세면 안 된다) — 어떤 위젯이 정말 쓰이는지의 유일한 신호다.
-            AnalyticsBuffer.record(.widgetRendered(kind: "month_calendar", family: "\(context.family)"))
+            AnalyticsBuffer.recordOncePerDay(
+            .widgetRendered(kind: "month_calendar", family: "\(context.family)"),
+            token: "month_calendar.\(context.family)"
+        )
             // 날짜가 바뀌면 "오늘" 표시가 옮겨가야 하므로 자정에 다시 그린다.
             let nextMidnight = Calendar.current.startOfDay(for: .now.addingTimeInterval(86_400))
             completion(Timeline(entries: [makeEntry()], policy: .after(nextMidnight)))

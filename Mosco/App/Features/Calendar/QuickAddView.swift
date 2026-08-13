@@ -11,6 +11,10 @@ struct QuickAddView: View {
     /// 기존 항목을 눌러 수정 모드로 들어오면 채워진다 — 이 입력창을 새로 만들기
     /// 대신 그 항목을 고치는 용도로 재사용한다(모달 없이, 채팅형 입력창 그대로).
     @Binding var editingTodo: TodoItem?
+    /// 이 입력창이 어느 화면에 붙어 있는지. 같은 뷰가 '할 일' 탭과 하루치
+    /// 페이지에 함께 살아서, 이걸 안 받으면 **두 화면이 한 덩어리로 집계된다** —
+    /// "달력으로 적는가, 목록으로 적는가"가 이 앱에서 제일 큰 질문인데도.
+    let analyticsSource: String
 
     @Environment(\.modelContext) private var modelContext
     /// 튜토리얼이 돌고 있지 않으면 nil이 아니라 **환경에 아예 없다** — 옵셔널로
@@ -57,9 +61,10 @@ struct QuickAddView: View {
     private let calendar = Calendar.current
     private var isEditing: Bool { editingTodo != nil }
 
-    init(date: Date?, editingTodo: Binding<TodoItem?>) {
+    init(date: Date?, editingTodo: Binding<TodoItem?>, analyticsSource: String) {
         self.initialDate = date
         _editingTodo = editingTodo
+        self.analyticsSource = analyticsSource
         _startDate = State(initialValue: date)
         _endDate = State(initialValue: date)
     }
@@ -215,7 +220,6 @@ struct QuickAddView: View {
                     newCategory.notifiesBeforeStart = draft.notifiesBeforeStart
                     newCategory.notificationLeadMinutes = draft.notificationLeadMinutes
                     modelContext.insert(newCategory)
-                    Analytics.log(.categoryCreated(count: categories.count + 1))
                     category = newCategory
                 }
             )
@@ -737,21 +741,18 @@ struct QuickAddView: View {
             // 사라진 것처럼 보인다 — 항상 소속을 준다.
             todo.calendar = targetCalendar ?? calendars.first(where: \.isDefault)
             modelContext.insert(todo)
-            // 날짜가 있으면 달력에 자리를 갖는 "일정", 없으면 할 일 탭에만
-            // 있는 백로그 "할 일" — 이 앱에서 둘은 실제로 다른 것이다.
-            if todo.date == nil {
-                Analytics.log(.taskCreated(source: "quick_add", titleLength: trimmed.count))
-            } else {
-                Analytics.log(
-                    .scheduleCreated(
-                        source: "quick_add",
-                        hasTime: todo.startTime != nil,
-                        repeatRule: todo.repeatRule.rawValue,
-                        isMultiDay: todo.isMultiDay,
-                        titleLength: trimmed.count
-                    )
+            // 날짜가 있으면 달력에 자리를 갖는 "일정", 없으면 목록에만 있는
+            // 백로그 — 그 구분은 `has_date`가 하고, 어느 화면에서 적었는지는
+            // `source`가 한다(이 입력창은 두 화면에 같이 산다).
+            Analytics.log(
+                .todoCreated(
+                    source: analyticsSource,
+                    hasDate: todo.date != nil,
+                    hasTime: todo.startTime != nil,
+                    repeatRule: todo.repeatRule.rawValue,
+                    isMultiDay: todo.isMultiDay
                 )
-            }
+            )
             // 튜토리얼 중이라면 방금 이것이 연습 대상이 된다 — 목록에 다른 할 일이
             // 아무리 많아도 스포트라이트가 겨눌 줄이 하나로 정해진다.
             tutorial?.didCreateTodo(todo)

@@ -80,13 +80,11 @@ struct CalendarScreen: View {
             .onChange(of: selectedDate) { _, date in
                 if date == nil { tutorial?.didCloseDay() }
             }
+            // 달을 넘길 때마다 이벤트를 남기던 것은 걷어냈다. 스와이프 한 번에
+            // 하나씩 쌓이는 가장 잦은 이벤트였는데, 그 수가 어느 쪽으로 나오든
+            // 다음에 만들 것이 달라지지 않았다(창 크기는 이미 ±30년이다).
             .onChange(of: visibleMonth) { _, month in
                 store.focus(on: month)
-                // 오늘로부터 몇 달 떨어진 곳을 보는지. 스냅샷 계산 범위(±8개월)가
-                // 실제 사용과 맞는지 판단할 근거가 된다.
-                Analytics.log(
-                    .monthNavigated(offsetFromToday: CalendarMonth.containing(Date()).distance(to: month))
-                )
             }
             // 지운 캘린더의 id가 숨김 목록에 남아 있어도 동작에 영향은 없지만,
             // 나중에 같은 id가 재사용될 일은 없으니 그냥 정리해둔다.

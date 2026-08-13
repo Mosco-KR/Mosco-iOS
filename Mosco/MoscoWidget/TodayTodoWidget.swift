@@ -47,7 +47,10 @@ struct TodayTodoProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodayTodoEntry>) -> Void) {
         Task { @MainActor in
-            AnalyticsBuffer.record(.widgetRendered(kind: "today_todo", family: "\(context.family)"))
+            AnalyticsBuffer.recordOncePerDay(
+            .widgetRendered(kind: "today_todo", family: "\(context.family)"),
+            token: "today_todo.\(context.family)"
+        )
             // 날짜가 바뀌면 "오늘"이 달라지므로 자정에 다시 그린다. 그 사이 앱에서
             // 할 일을 고치면 앱이 백그라운드로 갈 때 타임라인을 다시 잡는다
             // (`RootTabView`의 scenePhase 처리).

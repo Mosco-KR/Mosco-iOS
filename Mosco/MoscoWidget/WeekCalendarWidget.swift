@@ -47,7 +47,10 @@ struct WeekCalendarProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WeekCalendarEntry>) -> Void) {
         Task { @MainActor in
-            AnalyticsBuffer.record(.widgetRendered(kind: "week_calendar", family: "\(context.family)"))
+            AnalyticsBuffer.recordOncePerDay(
+            .widgetRendered(kind: "week_calendar", family: "\(context.family)"),
+            token: "week_calendar.\(context.family)"
+        )
             let nextMidnight = Calendar.current.startOfDay(for: .now.addingTimeInterval(86_400))
             completion(Timeline(entries: [makeEntry()], policy: .after(nextMidnight)))
         }

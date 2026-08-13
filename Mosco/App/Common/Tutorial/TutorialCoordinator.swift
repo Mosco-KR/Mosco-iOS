@@ -132,7 +132,7 @@ final class TutorialCoordinator {
     /// 하나 더 만드는 것이지 마음을 돌리는 것이 아니다.
     func skip() {
         defaults.set(true, forKey: Key.answered)
-        Analytics.log(.tutorialSkipped(step: String(describing: step ?? .welcome)))
+        Analytics.log(.tutorialEnded(step: String(describing: step ?? .welcome), reason: "skipped"))
         close()
     }
 
@@ -140,7 +140,7 @@ final class TutorialCoordinator {
     func finish() {
         defaults.set(true, forKey: Key.answered)
         defaults.set(true, forKey: Key.completed)
-        Analytics.log(.tutorialFinished)
+        Analytics.log(.tutorialEnded(step: String(describing: step ?? .finish), reason: "finished"))
         close()
     }
 
@@ -163,7 +163,7 @@ final class TutorialCoordinator {
         // 하루 페이지에서 뒤로 나갔거나)까지 세면 완료율이 실제보다 부풀어서,
         // 어느 단계에서 막히는지를 보려던 지표가 그 답을 못 하게 된다.
         if let step, step != .welcome, next.rawValue > step.rawValue {
-            Analytics.log(.tutorialStepCompleted(step: String(describing: step)))
+            Analytics.log(.tutorialStep(step: String(describing: step), outcome: "completed"))
         }
         withAnimation(.easeInOut(duration: 0.28)) {
             step = next
@@ -200,7 +200,7 @@ final class TutorialCoordinator {
     /// 도움 링크를 눌렀을 때. 단계마다 "대신 해주기"의 뜻이 다르다.
     func assist() {
         guard let step else { return }
-        Analytics.log(.tutorialAssisted(step: String(describing: step)))
+        Analytics.log(.tutorialStep(step: String(describing: step), outcome: "assisted"))
         switch step {
         case .typeTitle, .pickTime, .send:
             // 대신 만들어준다. 만들어진 결과는 `didCreateTodo`로 다시 들어온다.

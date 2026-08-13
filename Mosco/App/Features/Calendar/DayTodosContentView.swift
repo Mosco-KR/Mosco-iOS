@@ -39,7 +39,6 @@ struct DayTodosContentView: View {
                 // 지우기 **전에** 알린다 — 지운 뒤에는 id를 읽을 수 없다.
                 tutorial?.didDelete(ids: todos.map(\.id))
                 for todo in todos { modelContext.delete(todo) }
-                Analytics.log(.taskDeleted(source: "calendar_day_list", count: todos.count))
             }
         )
         .id(date)
@@ -52,7 +51,7 @@ struct DayTodosContentView: View {
         // 커지면 히트 영역이 따라오지 않는다. 먼저 붙인 쪽이 안쪽(위)에 온다.
         .safeAreaInset(edge: .bottom, spacing: Metrics.spacingSM) { pasteBar }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            QuickAddView(date: date, editingTodo: $editingTodo)
+            QuickAddView(date: date, editingTodo: $editingTodo, analyticsSource: "calendar_day")
         }
         .background(MoscoPalette.canvas.ignoresSafeArea())
         // 밀려 들어온 페이지라 시스템 내비게이션 바를 그대로 쓴다 — 뒤로 가기
@@ -144,7 +143,7 @@ struct DayTodosContentView: View {
                 withAnimation(.easeOut(duration: 0.2)) {
                     clipboard.paste(copied, on: date, in: modelContext)
                 }
-                Analytics.log(.taskDuplicated(source: "calendar_day_list", method: "paste"))
+                Analytics.log(.todoDuplicated)
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "doc.on.clipboard")

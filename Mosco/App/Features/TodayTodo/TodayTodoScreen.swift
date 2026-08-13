@@ -163,7 +163,7 @@ struct TodayTodoScreen: View {
             .safeAreaInset(edge: .bottom) {
                 // 이 탭에서 만드는 건 "오늘 할 일"이다 — 날짜 없이 만들면 방금 적은
                 // 게 백로그로 떨어져 다시 끌어올려야 한다.
-                QuickAddView(date: today, editingTodo: $editingTodo)
+                QuickAddView(date: today, editingTodo: $editingTodo, analyticsSource: "today_tab")
             }
             .sheet(item: $detailTodo) { todo in
                 TodoDetailSheet(todo: todo)
@@ -635,6 +635,5 @@ struct TodayTodoScreen: View {
 
     private func delete(_ todo: TodoItem) {
         modelContext.delete(todo)
-        Analytics.log(.taskDeleted(source: "today_tab", count: 1))
     }
 }

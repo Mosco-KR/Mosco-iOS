@@ -442,14 +442,25 @@ struct TodoRow: View {
 
         guard let day = occurrenceDate ?? todo.date else {
             liveActivityBlock = .notUpcoming
+            Analytics.log(.liveActivity(result: "not_upcoming"))
             return
         }
 
+        // 성공만 세면 채택률이 낮을 때 "안 쓰는 것"인지 "조건에 걸리는 것"인지
+        // 알 수 없다 — 결과를 그대로 실어 보낸다.
         switch await controller.start(todo: todo, on: Calendar.current.startOfDay(for: day)) {
-        case .started: liveActivityBlock = nil
-        case .tooFar: liveActivityBlock = .tooFar
-        case .notUpcoming: liveActivityBlock = .notUpcoming
-        case .unavailable: liveActivityBlock = .unavailable
+        case .started:
+            liveActivityBlock = nil
+            Analytics.log(.liveActivity(result: "started"))
+        case .tooFar:
+            liveActivityBlock = .tooFar
+            Analytics.log(.liveActivity(result: "too_far"))
+        case .notUpcoming:
+            liveActivityBlock = .notUpcoming
+            Analytics.log(.liveActivity(result: "not_upcoming"))
+        case .unavailable:
+            liveActivityBlock = .unavailable
+            Analytics.log(.liveActivity(result: "unavailable"))
         }
     }
 
@@ -470,7 +481,7 @@ struct TodoRow: View {
         }
         let nowCompleted = !wasDone
         Analytics.log(
-            .taskCompleted(
+            .todoCompleted(
                 source: "app",
                 completed: nowCompleted,
                 isRepeating: todo.repeatRule != .none

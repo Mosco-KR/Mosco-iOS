@@ -212,12 +212,12 @@ struct RootTabView: View {
         todo.calendar = calendars.first(where: \.isDefault) ?? calendars.first
         modelContext.insert(todo)
         Analytics.log(
-            .scheduleCreated(
+            .todoCreated(
                 source: "tutorial_assist",
+                hasDate: true,
                 hasTime: true,
                 repeatRule: RepeatRule.none.rawValue,
-                isMultiDay: false,
-                titleLength: todo.title.count
+                isMultiDay: false
             )
         )
         tutorial.didCreateTodo(todo)
@@ -289,9 +289,8 @@ struct RootTabView: View {
         .task {
             // 처음 쓴 날과 오늘 쓴 것을 기록해둔다 — 리뷰는 며칠 써본 뒤에만 부탁한다.
             reviewPrompt.registerLaunch()
-            Analytics.log(.appOpened(isColdStart: true))
-            // 사람들이 실제로 몇 건을 들고 쓰는지 모르면 성능 작업의 목표를
-            // 정할 수 없다 — 지금까지 전부 추측이었다.
+            // 실행 자체는 Firebase가 `session_start`·`first_open`으로 이미 센다.
+            // 우리가 더할 수 있는 건 "무엇을 얼마나 들고 있는가"뿐이다.
             Analytics.log(
                 .dataScale(
                     todoCount: todos.count,
@@ -321,9 +320,9 @@ struct RootTabView: View {
             guard !isRunning else { return }
             weatherStore.loadIfNeeded()
         }
-        .onChange(of: selectedTab, initial: true) { _, tab in
-            Analytics.log(.tabViewed(tab: String(describing: tab)))
-        }
+        // 탭 이동은 더 이상 세지 않는다. 탭이 둘뿐이고 앱이 달력으로 열리니
+        // 그 수는 "기본값이 무엇인가"를 되풀이해 말할 뿐이었다. 어느 화면을
+        // 실제로 쓰는지는 만들기·완료 이벤트의 `source`가 답한다.
         // 위젯 탭(URL)은 여기서 받지 않는다. 이 앱은 SwiftUI 생명주기가 아니라
         // UIKit(AppDelegate + SceneDelegate) 위에 올라가 있어서 `.onOpenURL`이
         // 아무 일도 하지 않는다 — 콘솔에 "Cannot use Scene methods for URL ...

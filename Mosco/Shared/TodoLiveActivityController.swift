@@ -104,7 +104,8 @@ final class TodoLiveActivityController {
             )
             showingTodoID = attributes.todoID
             logger.info("라이브 액티비티 시작")
-            Analytics.log(.liveActivityStarted)
+            // 이벤트는 부른 쪽(TodoRow)이 결과와 함께 한 번만 남긴다 —
+            // 여기서도 남기면 성공만 두 번 세어져 성공률이 부풀어 오른다.
             return .started
         } catch {
             // 권한이 꺼졌거나 시스템 한도에 걸린 경우. 앱이 죽을 이유는 아니다.
