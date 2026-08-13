@@ -15,12 +15,20 @@ import SwiftData
 @Observable
 @MainActor
 final class TodoClipboard {
-    /// 복사해둔 할 일. 비어 있으면 붙여넣기 자리 자체가 안 보인다.
-    private(set) var item: Snapshot?
+    /// 복사해둔 할 일들. 최근에 복사한 것이 앞에 온다. 비어 있으면 붙여넣기 자리
+    /// 자체가 안 보인다.
+    private(set) var items: [Snapshot] = []
+
+    /// 몇 개까지 들고 있을지. 하루를 짜다 보면 "이것도, 저것도 저 날로" 하는 일이
+    /// 실제로 있어서 하나만으로는 매번 달력을 오가야 했다. 그렇다고 무한정 쌓으면
+    /// 입력창 위 한 줄이 목록으로 자라 정작 할 일 목록을 가린다 — 셋이면
+    /// 한 줄에 나란히 놓고도 제목이 읽힌다.
+    static let capacity = 3
 
     /// 복사 시점의 내용. 관계(카테고리·캘린더)는 id로만 들고 있다가 붙여넣을 때
     /// 다시 찾는다 — 그 사이에 카테고리가 지워졌으면 그냥 못 찾은 것으로 두면 된다.
-    struct Snapshot {
+    struct Snapshot: Identifiable {
+        let id = UUID()
         let title: String
         let categoryID: UUID?
         let calendarID: UUID?
@@ -28,10 +36,25 @@ final class TodoClipboard {
         let endTime: Date?
         let durationDays: Int
         let memo: String?
+
+        /// `id`는 복사할 때마다 새로 매기므로 같은 할 일을 두 번 복사해도 서로
+        /// 다른 값이 된다 — 중복인지는 담고 있는 내용으로 판단해야 한다.
+        func isSameContent(as other: Snapshot) -> Bool {
+            title == other.title
+                && categoryID == other.categoryID
+                && calendarID == other.calendarID
+                && startTime == other.startTime
+                && endTime == other.endTime
+                && durationDays == other.durationDays
+                && memo == other.memo
+        }
     }
 
+    /// 방금 복사한 것을 맨 앞에 놓고, 한도를 넘으면 가장 오래된 것부터 밀어낸다.
+    /// 같은 항목을 두 번 복사하면 자리만 앞으로 당긴다 — 똑같은 칩이 둘 나란히
+    /// 서 있으면 어느 쪽을 눌러야 하는지 알 수 없다.
     func copy(_ todo: TodoItem) {
-        item = Snapshot(
+        let snapshot = Snapshot(
             title: todo.title,
             categoryID: todo.category?.id,
             calendarID: todo.calendar?.id,
@@ -40,10 +63,19 @@ final class TodoClipboard {
             durationDays: todo.durationDays,
             memo: todo.memo
         )
+        items.removeAll { $0.isSameContent(as: snapshot) }
+        items.insert(snapshot, at: 0)
+        if items.count > Self.capacity {
+            items.removeLast(items.count - Self.capacity)
+        }
+    }
+
+    func remove(_ snapshot: Snapshot) {
+        items.removeAll { $0.id == snapshot.id }
     }
 
     func clear() {
-        item = nil
+        items.removeAll()
     }
 
     /// 복사해둔 내용으로 주어진 날짜에 새 할 일을 만들어 저장소에 넣는다.
@@ -51,8 +83,7 @@ final class TodoClipboard {
     /// 붙여넣기는 통을 비우지 않는다 — 같은 일을 여러 날에 흩뿌리는 게 이 동선의
     /// 쓸모라서, 한 번 붙일 때마다 다시 복사해야 하면 쓸 이유가 없어진다.
     @discardableResult
-    func paste(on date: Date, in context: ModelContext) -> TodoItem? {
-        guard let item else { return nil }
+    func paste(_ item: Snapshot, on date: Date, in context: ModelContext) -> TodoItem? {
         let gregorian = Calendar.current
         let start = gregorian.startOfDay(for: date)
         // 관계는 id로만 들고 있었으니 지금 다시 찾는다 — 그 사이 지워졌으면

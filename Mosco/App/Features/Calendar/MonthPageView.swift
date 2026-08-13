@@ -66,14 +66,20 @@ struct MonthPageView: View, Equatable {
 
     private func dayCell(week: MonthLayout.WeekRow, column: Int) -> some View {
         let date = week.dates[column]
+        let isToday = date == today
+        // 오늘은 앞뒤 달 페이지에도(흐린 칸으로) 나온다 — 이번 달 페이지의 칸
+        // 하나만 튜토리얼 대상이 되도록 `inMonth`까지 본다. 안 그러면 화면 밖에
+        // 있는 옆 페이지의 칸이 자리를 덮어써서 스포트라이트가 엉뚱한 데를 겨눈다.
+        let isTutorialTarget = isToday && week.inMonth[column]
         return DayCell(
             date: date,
-            isToday: date == today,
+            isToday: isToday,
             isDimmed: !week.inMonth[column],
             weekendKind: Self.weekendKind(column: column),
             holidayName: KoreanHoliday.name(for: date)
         )
         .frame(maxWidth: .infinity)
+        .modifier(TodayCellTutorialTarget(isActive: isTutorialTarget))
     }
 
     /// 격자의 열 순서가 곧 요일이라(일요일 시작) 날짜에서 weekday를 뽑을 필요가 없다.
@@ -82,6 +88,20 @@ struct MonthPageView: View, Equatable {
         case 0: .sunday
         case 6: .saturday
         default: nil
+        }
+    }
+}
+
+/// 오늘 칸에만 튜토리얼 대상 표시를 붙인다. `if`를 셀 바깥에 두면 칸의 정체성이
+/// 갈라져 격자가 통째로 다시 만들어지므로, 수식어 안쪽에서 가른다.
+private struct TodayCellTutorialTarget: ViewModifier {
+    let isActive: Bool
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content.tutorialTarget(.todayCell)
+        } else {
+            content
         }
     }
 }

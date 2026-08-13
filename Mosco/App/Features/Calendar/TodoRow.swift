@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import StoreKit
 
 struct TodoRow: View {
     @Bindable var todo: TodoItem
@@ -25,6 +24,35 @@ struct TodoRow: View {
     /// 열어봐야 아는 딸린 정보로 두면 적어둔 보람이 없다. 화면마다 다른 건 길이뿐이다.
     var memoDisplay: MemoDisplay = .compact
 
+    /// 잠금화면에 띄우지 못한 이유. 경우마다 사용자에게 할 말이 달라서
+    /// 성공/실패 한 가지가 아니라 경우를 그대로 든다.
+    enum LiveActivityBlock: Identifiable {
+        /// 시작까지 8시간 넘게 남았다.
+        case tooFar
+        /// 시작 시각이 이미 지났거나, 날짜가 없어 실제 시각을 만들 수 없다.
+        case notUpcoming
+        /// 앱 설정이나 시스템 설정에서 라이브 액티비티가 꺼져 있다.
+        case unavailable
+
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .tooFar: "8시간 안에 시작하는 할 일만 띄울 수 있어요"
+            case .notUpcoming: "이미 시작한 할 일이에요"
+            case .unavailable: "라이브 액티비티가 꺼져 있어요"
+            }
+        }
+
+        var message: String {
+            switch self {
+            case .tooFar: "잠금화면 표시는 띄운 때부터 8시간까지만 살아 있어요."
+            case .notUpcoming: "남은 시간을 셀 수 없어요."
+            case .unavailable: "설정에서 켜면 잠금화면에 띄울 수 있어요."
+            }
+        }
+    }
+
     enum MemoDisplay {
         /// 세 줄까지만. 목록을 훑는 화면에서는 메모 하나가 화면을 다 차지하면 안 된다.
         case compact
@@ -40,17 +68,18 @@ struct TodoRow: View {
         }
     }
 
-    /// 이 화면이 어디인지 — 복제 이벤트에 그대로 실어 보낸다.
-    var analyticsSource: String = "app"
-
-    /// 앱스토어 리뷰 요청. 시스템이 연 3회 한도 안에서 실제로 띄울지 정한다.
-    @Environment(\.requestReview) private var requestReview
-    @Environment(\.modelContext) private var modelContext
+    /// 완료를 여기에 알리기만 한다. 실제 리뷰 요청은 `RootTabView`가 낸다 —
+    /// 이 셀은 완료 직후 목록에서 걸러져 사라질 수 있는 뷰라, 잠시 뒤에 시트를
+    /// 띄우는 일을 맡기기에 적당하지 않다.
+    @Environment(ReviewPrompt.self) private var reviewPrompt
     @Environment(TodoClipboard.self) private var clipboard
+    /// 튜토리얼이 없는 자리에서도 안전하도록 옵셔널로 받는다.
+    @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @State private var showsMemoEditor = false
     @State private var showsDeleteConfirmation = false
-    @State private var showsDuplicatePicker = false
+    /// 잠금화면에 띄우려다 막힌 이유. nil이면 아무 일도 없었다.
+    @State private var liveActivityBlock: LiveActivityBlock?
 
     private var isDone: Bool {
         if let occurrenceDate { return todo.isCompleted(on: occurrenceDate) }
@@ -87,7 +116,11 @@ struct TodoRow: View {
                 // 전부 색을 따라가서 한 행에 색이 여섯 군데씩 흩어졌다.
                 //
                 // 여기 칩들은 **무엇인지 이름으로 말한다** — 색까지 입힐 이유가 없다.
-                HStack(spacing: 6) {
+                //
+                // 한 줄에 다 못 들어가면 다음 줄로 넘어간다. 예전엔 HStack이라
+                // 칩이 서넛만 붙어도 뒤쪽이 잘려 나갔는데, 잘린 게 캘린더인지
+                // 시간인지는 열어봐야 알 수 있었다 — 보여줄 거면 다 보여준다.
+                WrappingHStack(spacing: 6, lineSpacing: 6) {
                     // 색 점은 끈다 — 왼쪽 막대가 이미 같은 말을 하고 있다.
                     CategoryTag(category: todo.category, showsColorDot: false)
 
@@ -123,9 +156,10 @@ struct TodoRow: View {
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(MoscoPalette.textSecondary)
                     }
-
-                    Spacer(minLength: 0)
                 }
+                // Layout 안에 Spacer를 넣으면 폭을 무한히 요구하는 칩이 하나 낀
+                // 셈이라 줄바꿈 계산이 통째로 깨진다 — 왼쪽 정렬은 프레임으로 준다.
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let memo = todo.memo, !memo.isEmpty {
                     memoPreview(memo)
@@ -165,88 +199,28 @@ struct TodoRow: View {
         // 몸통 탭이 완료로 가면서, 나머지 조작은 전부 이 메뉴가 맡는다. 평소엔
         // 안 보이니 행도 복잡해지지 않는다.
         .contextMenu {
-            // 맨 위에 둔다 — 몸통 탭에서 밀려난 조작이라 제일 먼저 눈에 띄어야 한다.
-            if onTap != nil {
-                Button {
-                    onTap?()
-                } label: {
-                    Label("수정", systemImage: "pencil")
-                }
-            }
-
-            Button {
-                showsMemoEditor = true
-            } label: {
-                Label(hasMemo ? "메모 보기" : "메모 추가", systemImage: "note.text")
-            }
-
-            Button {
-                if !todo.isDDay { Analytics.log(.dDaySet) }
-                todo.isDDay.toggle()
-            } label: {
-                Label(
-                    todo.isDDay ? "디데이 해제" : "디데이로 표시",
-                    systemImage: todo.isDDay ? "flag.slash" : "flag"
-                )
-            }
-
-            // 같은 일이 이따금 되풀이될 때. 반복 규칙을 걸면 원본 하나가 모든
-            // 날짜를 대표해서 한 날만 고치거나 지울 수 없는데, 이런 일은 각각
-            // 따로 서 있어야 한다.
-            Button {
-                showsDuplicatePicker = true
-            } label: {
-                Label("다른 날로 복제…", systemImage: "calendar.badge.plus")
-            }
-
-            // 날짜를 아직 못 정했을 때. 복사해두고 달력을 넘겨 다니다가 원하는
-            // 날에 붙여넣는다 — 시트 안의 달력으로는 다른 일정도 날씨도 못 본다.
-            Button {
-                clipboard.copy(todo)
-            } label: {
-                Label("복사", systemImage: "doc.on.doc")
-            }
-
-            // 만들 때 고른 캘린더를 나중에 바꿀 방법이 없었다 — 옮기려면 지우고
-            // 다시 만드는 수밖에 없었다.
-            if calendars.count > 1 {
-                Menu {
-                    ForEach(calendars) { calendar in
-                        Button {
-                            todo.calendar = calendar
-                        } label: {
-                            if todo.calendar?.id == calendar.id {
-                                Label(calendar.name, systemImage: "checkmark")
-                            } else {
-                                Text(calendar.name)
-                            }
-                        }
-                    }
-                } label: {
-                    Label("캘린더 옮기기", systemImage: "square.stack.3d.up")
-                }
-            }
-
-            if onDelete != nil {
-                Button(role: .destructive) {
-                    if todo.repeatRule == .none {
-                        onDelete?()
-                    } else {
-                        showsDeleteConfirmation = true
-                    }
-                } label: {
-                    Label("삭제", systemImage: "trash")
-                }
-            }
+            // **튜토리얼 중에는 비워둔다.** 이 메뉴는 시스템이 화면을 통째로 덮으며
+            // 띄우는 것이라, 지금 따라가야 할 지시가 그 뒤로 사라진다. 마지막
+            // '정리' 단계에서만 열린다 — 그 단계는 이 메뉴를 여는 것이 곧 과제다.
+            // (항목이 하나도 없으면 시스템은 메뉴를 아예 띄우지 않는다.)
+            if tutorial?.suppressesRowMenu != true { contextMenuItems }
         }
         .sheet(isPresented: $showsMemoEditor) {
             TodoDetailSheet(todo: todo)
         }
-        .sheet(isPresented: $showsDuplicatePicker) {
-            DuplicateDatePicker(todo: todo) { date in
-                modelContext.insert(todo.duplicated(to: date))
-                Analytics.log(.taskDuplicated(source: analyticsSource, method: "picker"))
-            }
+        // 띄우지 못한 이유는 반드시 말해준다 — 메뉴를 눌렀는데 아무 일도 안 일어나면
+        // 사용자는 그걸 고장으로 여긴다.
+        .alert(
+            liveActivityBlock?.title ?? "",
+            isPresented: Binding(
+                get: { liveActivityBlock != nil },
+                set: { if !$0 { liveActivityBlock = nil } }
+            ),
+            presenting: liveActivityBlock
+        ) { _ in
+            Button("확인", role: .cancel) {}
+        } message: { block in
+            Text(block.message)
         }
         // 반복 일정은 하나를 지우면 모든 날짜의 인스턴스가 같이 사라지므로,
         // 확인 문구에서 그걸 먼저 알려준다. 한 번짜리는 확인 없이 바로 지운다.
@@ -262,18 +236,89 @@ struct TodoRow: View {
         }
     }
 
-    /// 할 일을 끝낸 직후는 앱이 사용자에게 뭔가를 해준 순간이라, 리뷰를 부탁하기
-    /// 가장 좋은 자리다. 조건이 다 찼는지는 `ReviewPrompt`가 정한다.
-    ///
-    /// 바로 띄우지 않고 조금 기다리는 건 체크 애니메이션(스프링 0.35초) 위로
-    /// 시스템 시트가 덮치지 않게 하려는 것이다 — 방금 누른 결과를 눈으로 확인한
-    /// 다음에 물어야 부탁으로 읽힌다.
-    private func askForReviewIfEarned() {
-        guard ReviewPrompt.recordCompletionAndAsk() else { return }
-        Task {
-            try? await Task.sleep(for: .seconds(1.2))
-            requestReview()
-            Analytics.log(.reviewPromptRequested)
+    /// 꾹 눌러 나오는 메뉴의 알맹이. 셀 몸통 탭이 완료로 가면서, 나머지 조작은
+    /// 전부 여기로 모였다 — 평소엔 안 보이니 행도 복잡해지지 않는다.
+    @ViewBuilder
+    private var contextMenuItems: some View {
+        // 맨 위에 둔다 — 몸통 탭에서 밀려난 조작이라 제일 먼저 눈에 띄어야 한다.
+        if onTap != nil {
+            Button {
+                onTap?()
+            } label: {
+                Label("수정", systemImage: "pencil")
+            }
+        }
+
+        Button {
+            showsMemoEditor = true
+        } label: {
+            Label(hasMemo ? "메모 보기" : "메모 추가", systemImage: "note.text")
+        }
+
+        Button {
+            if !todo.isDDay { Analytics.log(.dDaySet) }
+            todo.isDDay.toggle()
+        } label: {
+            Label(
+                todo.isDDay ? "디데이 해제" : "디데이로 표시",
+                systemImage: todo.isDDay ? "flag.slash" : "flag"
+            )
+        }
+
+        // 시작 시각을 적어둔 할 일에만 나온다 — 셀 것이 없으면 메뉴에 자리도
+        // 만들지 않는다. 여기서만 띄울 수 있는 건 앱이 자기 자신을 깨울 수
+        // 없어서다(`TodoLiveActivityController` 참고): 꾹 누르는 이 순간이
+        // 앱이 확실히 앞에 나와 있는 자리다.
+        if todo.startTime != nil, !isDone {
+            Button {
+                Task { await toggleLiveActivity() }
+            } label: {
+                Label(
+                    isShowingLiveActivity ? "잠금화면에서 내리기" : "잠금화면에 남은 시간 표시",
+                    systemImage: isShowingLiveActivity ? "timer.circle.fill" : "timer"
+                )
+            }
+        }
+
+        // 다른 날에도 같은 일이 필요할 때. 복사해두고 달력을 넘겨 다니다가
+        // 원하는 날에 붙여넣는다 — 날짜 고르기 시트로는 그날 다른 일정도
+        // 날씨도 못 보고 고르게 된다.
+        Button {
+            clipboard.copy(todo)
+        } label: {
+            Label("복사", systemImage: "doc.on.doc")
+        }
+
+        // 만들 때 고른 캘린더를 나중에 바꿀 방법이 없었다 — 옮기려면 지우고
+        // 다시 만드는 수밖에 없었다.
+        if calendars.count > 1 {
+            Menu {
+                ForEach(calendars) { calendar in
+                    Button {
+                        todo.calendar = calendar
+                    } label: {
+                        if todo.calendar?.id == calendar.id {
+                            Label(calendar.name, systemImage: "checkmark")
+                        } else {
+                            Text(calendar.name)
+                        }
+                    }
+                }
+            } label: {
+                Label("캘린더 옮기기", systemImage: "square.stack.3d.up")
+            }
+        }
+
+        if onDelete != nil {
+            Button(role: .destructive) {
+                if todo.repeatRule == .none {
+                    onDelete?()
+                } else {
+                    showsDeleteConfirmation = true
+                }
+            } label: {
+                Label("삭제", systemImage: "trash")
+            }
         }
     }
 
@@ -372,17 +417,58 @@ struct TodoRow: View {
         .frame(width: 26, height: 26)
     }
 
+    // MARK: - 잠금화면에 띄우기
+
+    /// 이 할 일이 지금 잠금화면에 떠 있는가.
+    ///
+    /// 관찰되는 값이라 띄우거나 내리는 즉시 메뉴 문구가 따라온다 — 컨텍스트 메뉴는
+    /// 셀 body와 함께 만들어져서, 관찰되지 않는 값을 읽으면 문구가 고정돼 버린다.
+    private var isShowingLiveActivity: Bool {
+        TodoLiveActivityController.shared.showingTodoID == todo.id.uuidString
+    }
+
+    /// 떠 있으면 내리고, 아니면 띄운다. 막히면 이유를 알린다.
+    ///
+    /// 어느 날의 인스턴스인지가 필요하다 — 반복 일정은 날마다 따로 서 있고,
+    /// `startTime`은 시·분만 의미가 있어서(`TodoItem` 참고) 날짜와 합쳐야 실제
+    /// 시각이 된다.
+    private func toggleLiveActivity() async {
+        let controller = TodoLiveActivityController.shared
+
+        if isShowingLiveActivity {
+            await controller.stop()
+            return
+        }
+
+        guard let day = occurrenceDate ?? todo.date else {
+            liveActivityBlock = .notUpcoming
+            return
+        }
+
+        switch await controller.start(todo: todo, on: Calendar.current.startOfDay(for: day)) {
+        case .started: liveActivityBlock = nil
+        case .tooFar: liveActivityBlock = .tooFar
+        case .notUpcoming: liveActivityBlock = .notUpcoming
+        case .unavailable: liveActivityBlock = .unavailable
+        }
+    }
+
     /// 셀을 눌렀을 때. 반복 일정이면 보고 있는 날짜의 인스턴스만 뒤집는다.
     private func toggleCompletion() {
+        // **뒤집기 전에 값을 떠둔다.** `isDone`은 저장된 값이 아니라 그때그때
+        // `todo`를 읽는 계산 프로퍼티다 — 뒤집은 뒤에 읽으면 이미 새 값이라,
+        // 예전 코드처럼 나중에 `!isDone`으로 새 상태를 구하면 **항상 반대**가 나왔다.
+        // 그래서 완료할 때 `complete_task`가 `completed=false`로 기록되고, 리뷰
+        // 부탁은 완료가 아니라 완료를 **푸는** 순간에 세어지고 있었다.
+        let wasDone = isDone
         withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
             if let occurrenceDate {
-                todo.setCompleted(!isDone, on: occurrenceDate)
+                todo.setCompleted(!wasDone, on: occurrenceDate)
             } else {
                 todo.isCompleted.toggle()
             }
         }
-        // isDone은 방금 뒤집기 **전** 값이라, 새 상태는 그 반대다.
-        let nowCompleted = !isDone
+        let nowCompleted = !wasDone
         Analytics.log(
             .taskCompleted(
                 source: "app",
@@ -390,7 +476,10 @@ struct TodoRow: View {
                 isRepeating: todo.repeatRule != .none
             )
         )
-        if nowCompleted { askForReviewIfEarned() }
+        tutorial?.didToggleCompletion(id: todo.id, completed: nowCompleted)
+        // 할 일을 끝낸 직후는 앱이 사용자에게 뭔가를 해준 순간이라, 리뷰를
+        // 부탁하기 좋은 자리다. 조건이 다 찼는지는 `ReviewPrompt`가 정한다.
+        if nowCompleted { reviewPrompt.recordCompletion() }
     }
 
     /// 날짜/시간 관련 정보를 태그 하나로 합치는 정책:

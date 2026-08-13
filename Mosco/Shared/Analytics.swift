@@ -76,11 +76,31 @@ enum AnalyticsEvent {
     /// 그래서 이건 "리뷰를 받았다"가 아니라 "부탁할 조건이 얼마나 자주 차는가"를
     /// 재는 값이다.
     case reviewPromptRequested
+    /// 설정에서 '앱 평가하기'를 눌러 앱스토어로 나갔다. 시스템 리뷰창과 달리
+    /// **여기는 누른 걸 확실히 안다** — 스스로 찾아와 평가하려는 사람이 얼마나
+    /// 되는지 재는 값이고, 시스템 한도(연 3회)도 쓰지 않는다.
+    case reviewLinkOpened
     /// 캘린더를 껐다 켰다 — 여러 캘린더를 정말 나눠 쓰는지. 안 쓰면 이 층 자체가
     /// 사람들에게 없는 개념이라는 뜻이다.
     case calendarFilterChanged(visibleCount: Int, totalCount: Int)
     /// 알림 권한 요청 결과 — 거부율이 높으면 요청 시점을 다시 봐야 한다.
     case notificationPermission(granted: Bool)
+    // MARK: 첫 경험
+
+    /// 튜토리얼을 시작했다. `source`로 첫 실행과 설정에서 다시 부른 것을 가른다.
+    case tutorialStarted(source: String)
+    /// 한 단계를 실제로 해냈다. **어느 단계에서 사람이 빠져나가는지**가 이 튜토리얼을
+    /// 고칠 유일한 근거다 — 완주율 하나만 봐서는 어디를 고쳐야 할지 알 수 없다.
+    case tutorialStepCompleted(step: String)
+    /// "대신 해주세요"를 눌렀다. 이 비율이 높은 단계는 지시가 어려운 단계다.
+    case tutorialAssisted(step: String)
+    case tutorialSkipped(step: String)
+    case tutorialFinished
+
+    /// 라이브 액티비티를 띄웠다. 이 기능은 **시작 시각을 적어둔 할 일이 있어야**
+    /// 동작하는데, 시간까지 적는 사람이 얼마나 되는지 지금까지 몰랐다 —
+    /// 0에 가까우면 기능이 아니라 일정 입력 쪽을 손봐야 한다는 뜻이다.
+    case liveActivityStarted
 
     // MARK: 규모와 건강 상태
 
@@ -115,8 +135,15 @@ enum AnalyticsEvent {
         case .calendarCreated: "calendar_created"
         case .dDaySet: "dday_set"
         case .reviewPromptRequested: "review_prompt_requested"
+        case .reviewLinkOpened: "review_link_opened"
         case .calendarFilterChanged: "calendar_filter_changed"
         case .notificationPermission: "notification_permission"
+        case .liveActivityStarted: "live_activity_started"
+        case .tutorialStarted: "tutorial_started"
+        case .tutorialStepCompleted: "tutorial_step_completed"
+        case .tutorialAssisted: "tutorial_assisted"
+        case .tutorialSkipped: "tutorial_skipped"
+        case .tutorialFinished: "tutorial_finished"
         case .dataScale: "data_scale"
         case .monthNavigated: "month_navigated"
         case .storeLocalFallback: "store_local_fallback"
@@ -170,10 +197,24 @@ enum AnalyticsEvent {
             [:]
         case .reviewPromptRequested:
             [:]
+        case .reviewLinkOpened:
+            [:]
         case let .calendarFilterChanged(visibleCount, totalCount):
             ["visible_count": String(visibleCount), "total_count": String(totalCount)]
         case let .notificationPermission(granted):
             ["granted": String(granted)]
+        case .liveActivityStarted:
+            [:]
+        case let .tutorialStarted(source):
+            ["source": source]
+        case let .tutorialStepCompleted(step):
+            ["step": step]
+        case let .tutorialAssisted(step):
+            ["step": step]
+        case let .tutorialSkipped(step):
+            ["step": step]
+        case .tutorialFinished:
+            [:]
         case let .dataScale(todoCount, categoryCount, calendarCount):
             [
                 // 정확한 개수는 필요 없고 규모만 알면 된다.

@@ -9,9 +9,12 @@ struct SettingsScreen: View {
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @Environment(WeatherStore.self) private var weatherStore
     @Environment(TodoNotificationScheduler.self) private var notificationScheduler
+    @Environment(TodoLiveActivityController.self) private var liveActivityController
     @Environment(CloudSyncStore.self) private var cloudSyncStore
+    @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     /// 카테고리·캘린더의 "새로 만들기"와 "고치기"를 전부 하나의 상태로 합쳤다.
     ///
     /// 같은 계층에 `.sheet`를 두 개 붙이면 뒤에 붙은 것만 살아난다(카테고리를 눌러도
@@ -87,8 +90,6 @@ struct SettingsScreen: View {
                     .onDelete(perform: delete)
                 } header: {
                     Text("카테고리")
-                } footer: {
-                    Text("색으로 구분하고, 알림 받을 시점을 정해요.")
                 }
 
                 Section {
@@ -99,9 +100,12 @@ struct SettingsScreen: View {
                     }
                 }
 
+                tutorialSection
                 notificationSection
+                liveActivitySection
                 weatherSection
                 syncSection
+                reviewSection
                 resetSection
             }
             .navigationTitle("설정")
@@ -209,13 +213,42 @@ struct SettingsScreen: View {
             }
         } header: {
             Text("캘린더")
-        } footer: {
-            Text("일과 개인처럼 크게 나눠서 볼 수 있어요.")
         }
     }
 
-    /// 앱 전체 알림 스위치. 카테고리별 설정 위에 있는 상위 스위치라, 꺼져 있으면
-    /// 카테고리에서 켜둔 것도 안 온다는 걸 안내로 분명히 한다.
+    /// 안내를 다시 보는 문.
+    ///
+    /// **처음에 건너뛴 사람에게 남은 유일한 길이다.** 첫 실행에 한 번 물어보고
+    /// 마는 안내는, 그때 마음이 급했던 사람에게는 없는 것과 같다.
+    ///
+    /// 설정 시트를 먼저 닫고 시작한다 — 안내는 실제 화면 위에서 도는 것이라,
+    /// 이 시트가 덮고 있으면 첫 지시부터 가려진다.
+    @ViewBuilder
+    private var tutorialSection: some View {
+        Section {
+            Button {
+                dismiss()
+                Task {
+                    // 시트가 완전히 내려간 뒤에 시작한다.
+                    try? await Task.sleep(for: .seconds(0.45))
+                    tutorial?.startFromSettings()
+                }
+            } label: {
+                Label("사용법 다시 보기", systemImage: "sparkles")
+            }
+        } header: {
+            Text("도움말")
+        } footer: {
+            Text("할 일을 적고, 끝내고, 정리하는 흐름을 1분 만에 따라가 봐요.")
+        }
+    }
+
+    /// 앱 전체 알림 스위치.
+    ///
+    /// **설명은 안 붙인다.** 스위치 옆의 이름이 이미 하는 일을 말하고 있어서,
+    /// "꺼두면 알림이 오지 않아요" 같은 문장은 읽는 사람에게 아무것도 더 주지
+    /// 않는다. 남기는 건 **눈에 안 보이는 사정**뿐이다 — 기기 설정에서 막혀
+    /// 있다는 것처럼, 화면만 봐서는 알 수 없는 것.
     @ViewBuilder
     private var notificationSection: some View {
         Section {
@@ -246,11 +279,28 @@ struct SettingsScreen: View {
         } footer: {
             if notificationScheduler.authorizationStatus == .denied {
                 Text("기기 설정에서 알림이 꺼져 있어요.")
-            } else if notificationScheduler.isEnabled {
-                Text("어떤 카테고리를 언제 받을지는 위에서 정해요.")
-            } else {
-                Text("꺼두면 어떤 알림도 오지 않아요.")
             }
+        }
+    }
+
+    /// 잠금화면·다이나믹 아일랜드 스위치.
+    ///
+    /// 시스템 설정에도 라이브 액티비티 항목이 있지만 그건 앱 전체를 끄는 것이고,
+    /// 여기서는 **이 기능만** 끈다 — 알림은 받고 싶은데 잠금화면이 붐비는 건 싫은
+    /// 경우가 실제로 있다. 끄면 떠 있던 것도 즉시 걷힌다.
+    @ViewBuilder
+    private var liveActivitySection: some View {
+        Section {
+            Toggle("잠금화면에 남은 시간 표시", isOn: Binding(
+                get: { liveActivityController.isEnabled },
+                set: { liveActivityController.isEnabled = $0 }
+            ))
+        } header: {
+            Text("라이브 액티비티")
+        } footer: {
+            // 어디서 쓰는 기능인지 말해주지 않으면, 켜두고도 아무 일이 안 일어나는
+            // 스위치가 된다 — 이건 켠다고 저절로 뜨는 기능이 아니다.
+            Text("목록에서 할 일을 길게 눌러 띄워요. 시작까지 8시간 안 남은 할 일에만 쓸 수 있어요.")
         }
     }
 
@@ -309,6 +359,8 @@ struct SettingsScreen: View {
         string: "https://weatherkit.apple.com/legal-attribution.html"
     )!
 
+    /// 못 가져온 이유만 남긴다. 잘 되고 있을 때는 달력에 날씨가 이미 떠 있어서
+    /// 어디에 나오는지 설명할 이유가 없다.
     @ViewBuilder
     private var weatherFooter: some View {
         switch weatherStore.unavailableReason {
@@ -317,7 +369,7 @@ struct SettingsScreen: View {
         case .serviceFailed:
             Text("가져오지 못했어요. 잠시 후 다시 시도할게요.")
         case .disabledByUser, .none:
-            Text("주간 달력과 '오늘' 버튼에 함께 보여줘요.")
+            EmptyView()
         }
     }
 
@@ -370,11 +422,14 @@ struct SettingsScreen: View {
         }
     }
 
+    /// 잘 되고 있을 때는 아무 말도 하지 않는다 — 옆의 "켜짐"이 이미 답이다.
+    /// **안 되고 있을 때만** 말한다. 그때는 앱을 지우면 데이터가 사라진다는,
+    /// 화면 어디에도 안 적힌 결과를 알려야 한다.
     @ViewBuilder
     private var syncFooter: some View {
         switch cloudSyncStore.state {
         case .active:
-            Text("할 일이 iCloud에 저장돼요. 기기를 바꾸거나 앱을 다시 깔아도 그대로 남아요.")
+            EmptyView()
         case .noAccount:
             Text("iCloud에 로그인하지 않아 이 기기에만 저장돼요. 앱을 지우면 함께 사라집니다.")
         case .restricted:
@@ -382,7 +437,39 @@ struct SettingsScreen: View {
         case .localOnly:
             Text("iCloud 저장소를 열지 못해 이 기기에만 저장하고 있어요. 앱을 지우면 함께 사라집니다.")
         case .unknown:
-            Text("iCloud 상태를 확인하고 있어요.")
+            EmptyView()
+        }
+    }
+
+    /// 앱스토어 리뷰 작성 화면으로 가는 문.
+    ///
+    /// 시스템 리뷰창은 연 3회 한도가 있는 데다 **실제로 떴는지조차 알 수 없어서**,
+    /// 그것 하나에 기대면 평가를 남기고 싶은 사람에게도 길이 없다. 여기는 한도를
+    /// 쓰지 않고 언제 눌러도 열린다 — 두 경로가 서로의 구멍을 메운다.
+    ///
+    /// `Link` 대신 버튼인 건 눌린 것을 기록하기 위해서다. 시스템 창은 결과를
+    /// 알려주지 않으니, 이 앱에서 리뷰 의사를 확실히 셀 수 있는 자리는 여기뿐이다.
+    @ViewBuilder
+    private var reviewSection: some View {
+        Section {
+            Button {
+                Analytics.log(.reviewLinkOpened)
+                openURL(ReviewPrompt.writeReviewURL)
+            } label: {
+                HStack(spacing: 0) {
+                    Label("앱 평가하기", systemImage: "star")
+                        .foregroundStyle(MoscoPalette.textPrimary)
+                    Spacer(minLength: 0)
+                    Image(systemName: "arrow.up.right")
+                        .font(.footnote)
+                        .foregroundStyle(MoscoPalette.textSecondary)
+                }
+                // 글자와 화살표 사이 빈 공간도 눌리게.
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        } header: {
+            Text("응원하기")
         }
     }
 

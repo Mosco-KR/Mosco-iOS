@@ -10,6 +10,14 @@
 	<string>Mosco</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ko</string>
+	<!-- 수출 규정 준수 문서. 이게 없으면 빌드를 올릴 때마다 App Store Connect가
+	     "암호화를 쓰는가"를 손으로 답하게 하고, 답하기 전까지 심사에 넣지 못한다.
+	     이 앱이 쓰는 암호화는 HTTPS(WeatherKit·Firebase·CloudKit)뿐이라 면제
+	     대상이고, false로 못박아두면 그 질문 자체가 사라진다.
+	     운영체제가 제공하는 통신 암호화만 쓰는 한 이 값은 계속 false다 — 나중에
+	     자체 암호화를 넣게 되면 이 줄부터 다시 봐야 한다. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>ko</string>
@@ -20,6 +28,11 @@
 		     없으면 앱을 직접 열 때만 동기화된다. -->
 		<string>remote-notification</string>
 	</array>
+	<!-- 이게 없으면 `Activity.request`가 조용히 실패한다 — 코드는 다 맞는데
+	     잠금화면에 아무것도 안 뜨는 상태가 된다. 라이브 액티비티 자체는
+	     MoscoWidget 익스텐션이 그리지만, 켜는 스위치는 앱 쪽에 있다. -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>지금 계신 곳의 날씨를 캘린더에 함께 보여드리기 위해 위치를 사용합니다.</string>
 	<!-- 위젯을 눌러 들어왔는지 앱이 알려면 위젯이 URL을 실어 보내야 하고,

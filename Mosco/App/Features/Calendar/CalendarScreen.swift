@@ -17,6 +17,7 @@ struct CalendarScreen: View {
     @State private var selectedDate: Date?
     @State private var showsSettings = false
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
+    @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     /// 숨긴 캘린더들. 비어 있으면 전부 보인다.
     @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
     /// 월 헤더 + 요일 헤더의 높이. 페이지 높이를 여기서 빼서 정하는데, 이 값이
@@ -62,6 +63,23 @@ struct CalendarScreen: View {
             .navigationDestination(item: $selectedDate) { day in
                 DayTodosContentView(date: day)
             }
+            // 안내가 달력 차례로 넘어오면 오늘이 있는 달로 되돌린다 — 다른 달을
+            // 보고 있었다면 "오늘을 눌러보세요"라고 말해도 오늘 칸이 화면에 없다.
+            .onChange(of: tutorial.currentStep) { _, step in
+                guard step == .openDay else { return }
+                visibleMonth = .containing(Date())
+            }
+            // "대신 열어드릴까요?"를 눌렀을 때. 사용자가 직접 누른 것과 같은 길로
+            // 들어가야 그 다음 단계가 똑같이 이어진다.
+            .onChange(of: tutorial?.openDayRequest) { _, request in
+                guard let request, request > 0 else { return }
+                select(Date())
+            }
+            // 하루치 페이지에서 뒤로 나가면 안내도 그 앞 단계로 되돌아간다 —
+            // 없는 줄을 가리키고 있는 것보다 낫다.
+            .onChange(of: selectedDate) { _, date in
+                if date == nil { tutorial?.didCloseDay() }
+            }
             .onChange(of: visibleMonth) { _, month in
                 store.focus(on: month)
                 // 오늘로부터 몇 달 떨어진 곳을 보는지. 스냅샷 계산 범위(±8개월)가
@@ -93,7 +111,9 @@ struct CalendarScreen: View {
     /// 달을 따라 옮겨야 했고, 그래서 "들어온 자리"를 따로 기억해뒀다가 되돌리는
     /// 장치가 필요했다. 이제는 그 장치 자체가 필요 없다.
     private func select(_ day: Date) {
-        selectedDate = calendar.startOfDay(for: day)
+        let start = calendar.startOfDay(for: day)
+        selectedDate = start
+        tutorial?.didOpenDay(start)
     }
 
     private func goToToday() {

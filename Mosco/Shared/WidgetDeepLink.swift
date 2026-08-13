@@ -12,6 +12,9 @@ enum WidgetDeepLink {
     static let scheme = "mosco"
     private static let host = "widget"
 
+    /// 라이브 액티비티를 눌러 들어왔을 때.
+    static let liveActivityKind = "live_activity"
+
     /// 위젯이 자기 URL을 만들 때.
     static func url(kind: String) -> URL? {
         var components = URLComponents()

@@ -22,24 +22,13 @@ struct WidgetTodo: Identifiable, Hashable {
 enum WidgetStore {
     /// 위젯은 짧게 살고 자주 죽어서, 매번 컨테이너를 새로 여는 대신 재사용한다.
     ///
-    /// 설정을 여기서 직접 만들지 않고 앱과 **같은 함수**를 쓴다. 예전엔 이 파일이
+    /// 설정을 여기서 직접 만들지 않고 앱과 **같은 것**을 쓴다. 예전엔 이 파일이
     /// `ModelConfiguration(schema:url:)`을 따로 만들었는데, 앱이 CloudKit을 켠 뒤로
     /// 같은 파일을 서로 다른 설정으로 열게 돼서 컨테이너 생성이 실패했다 —
     /// `try?`가 그 실패를 삼키는 바람에 위젯은 아무 오류 없이 그냥 빈 목록을 그렸다.
-    private static let container: ModelContainer? = {
-        if let shared = try? ModelContainer(
-            for: SharedModelContainer.schema,
-            configurations: SharedModelContainer.makeConfiguration()
-        ) {
-            return shared
-        }
-        // iCloud를 못 쓰는 상황(계정 없음 등)에서는 앱도 로컬 전용으로 물러난다 —
-        // 위젯도 같은 자리로 물러나야 둘이 계속 같은 파일을 본다.
-        return try? ModelContainer(
-            for: SharedModelContainer.schema,
-            configurations: SharedModelContainer.localOnlyConfiguration()
-        )
-    }()
+    /// 이제는 폴백까지 포함해 `SharedModelContainer`가 통째로 들고 있어서, 한
+    /// 프로세스 안에 컨테이너가 둘 생길 자리 자체가 없다.
+    private static var container: ModelContainer? { SharedModelContainer.sharedIfAvailable }
 
     @MainActor
     private static func allItems() -> [TodoItem] {
@@ -76,32 +65,11 @@ enum WidgetStore {
     ///
     /// 저장 후 타임라인을 다시 잡는 게 중요하다 — 안 그러면 눌러도 화면의
     /// 체크 표시가 다음 자정까지 그대로다.
+    /// 실제 쓰기는 `TodoCompletionWriter`가 한다 — 라이브 액티비티의 완료 버튼과
+    /// 같은 규칙을 써야 반복 일정의 날짜별 완료가 두 곳에서 어긋나지 않는다.
     @MainActor
     static func toggleCompletion(todoID: String, dayKey: String) {
-        guard let container,
-              let uuid = UUID(uuidString: todoID),
-              let seconds = TimeInterval(dayKey)
-        else { return }
-
-        let day = Date(timeIntervalSince1970: seconds)
-        let context = container.mainContext
-        // 술어(Predicate)로 UUID를 거르는 대신 전부 읽고 고르는 건 이 파일의 다른
-        // 조회와 같은 방식이다 — 위젯이 보는 데이터가 애초에 몇십 건 규모다.
-        guard let todo = (try? context.fetch(FetchDescriptor<TodoItem>()))?
-            .first(where: { $0.id == uuid })
-        else { return }
-
-        let nowCompleted = !todo.isCompleted(on: day)
-        todo.setCompleted(nowCompleted, on: day)
-        try? context.save()
-        AnalyticsBuffer.record(
-            .taskCompleted(
-                source: "widget",
-                completed: nowCompleted,
-                isRepeating: todo.repeatRule != .none
-            )
-        )
-        WidgetCenter.shared.reloadAllTimelines()
+        TodoCompletionWriter.toggle(todoID: todoID, dayKey: dayKey, source: "widget")
     }
 
     /// 달력 위젯이 쓸 막대 배치. 앱의 격자와 **같은 계산**(`CalendarSnapshotBuilder`)을

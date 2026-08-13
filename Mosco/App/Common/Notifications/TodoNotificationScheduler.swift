@@ -51,6 +51,22 @@ final class TodoNotificationScheduler {
         authorizationStatus = await center.notificationSettings().authorizationStatus
     }
 
+    /// 앱을 켤 때마다 부른다. 아직 한 번도 안 물어봤을 때만 시스템 대화상자를 띄운다.
+    ///
+    /// **권한은 앱을 시작할 때 받는다.** 예전엔 설정 화면의 알림 토글을 켜야 비로소
+    /// 물었는데, 설정까지 들어가는 사람은 많지 않아서 대부분은 권한이 없는 채로
+    /// 남았다 — 카테고리마다 "몇 분 전에 알림"을 정해두고도 알림이 한 번도 오지
+    /// 않았고, 그 이유가 화면 어디에도 없었다.
+    ///
+    /// 거부하면 앱 전체 스위치도 함께 내린다. 스위치는 켜져 있는데 알림은 안 오는
+    /// 상태가 제일 헷갈린다(설정 화면이 같은 규칙으로 움직인다).
+    func requestAuthorizationOnFirstLaunch() async {
+        await refreshAuthorizationStatus()
+        guard authorizationStatus == .notDetermined else { return }
+        let granted = await requestAuthorization()
+        if !granted { isEnabled = false }
+    }
+
     /// 사용자가 카테고리 알림을 처음 켤 때 부른다. 이미 결정된 상태면 시스템
     /// 대화상자는 안 뜨고 현재 상태만 돌려준다.
     @discardableResult

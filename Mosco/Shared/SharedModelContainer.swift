@@ -29,7 +29,24 @@ enum SharedModelContainer {
     /// `make()`가 불리기 전에는 아직 아무것도 시도하지 않은 상태라 `nil`이다.
     private(set) nonisolated(unsafe) static var isCloudSyncActive: Bool?
 
+    /// **프로세스마다 하나.** 같은 파일을 컨테이너 둘로 열면 한쪽의 저장이 다른 쪽
+    /// 컨텍스트에 곧바로 보이지 않고, CloudKit 미러링이 둘 붙어 서로의 변경을
+    /// 덮어쓸 수 있다. 앱도 위젯도 라이브 액티비티 인텐트도 전부 이걸 쓴다.
+    ///
+    /// 열지 못하면 `nil`이다 — 위젯은 그때 빈 목록을 그리면 되고, 앱만 `make()`에서
+    /// 더 갈 데가 없다고 판단한다. 예전엔 위젯이 자기 컨테이너를 따로 만들었는데,
+    /// 그러면 같은 프로세스 안에 둘이 생길 수 있는 자리가 남는다.
+    static let sharedIfAvailable: ModelContainer? = open()
+
     static func make() -> ModelContainer {
+        guard let container = sharedIfAvailable else {
+            // 로컬조차 못 열면 데이터가 아예 안 열리는 상태라 더 할 수 있는 게 없다.
+            fatalError("ModelContainer를 만들지 못했습니다. 개발 중이라면 \(resetLaunchArgument) 인자로 저장소를 초기화해보세요.")
+        }
+        return container
+    }
+
+    private static func open() -> ModelContainer? {
         #if DEBUG
         // 예전엔 스키마가 안 맞으면 **자동으로** 저장소를 지웠다. iCloud를 켠
         // 지금은 그게 위험하다 — 로컬을 지우면 클라우드와의 관계가 꼬이고,
@@ -63,8 +80,7 @@ enum SharedModelContainer {
             return local
         }
 
-        // 로컬조차 못 열면 데이터가 아예 안 열리는 상태라 더 할 수 있는 게 없다.
-        fatalError("ModelContainer를 만들지 못했습니다. 개발 중이라면 \(resetLaunchArgument) 인자로 저장소를 초기화해보세요.")
+        return nil
     }
 
     /// App Group 파일 + CloudKit 개인 데이터베이스. 둘은 서로 배타적이지 않다 —

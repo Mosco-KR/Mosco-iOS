@@ -17,6 +17,7 @@ struct DayTodosContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(TodoClipboard.self) private var clipboard
     @Environment(WeatherStore.self) private var weatherStore
+    @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     /// 기존 항목을 누르면 여기 채워지고, 하단 QuickAddView가 새로 만들기 대신
     /// 이 항목을 고치는 채팅형 입력창으로 바뀐다.
     @State private var editingTodo: TodoItem?
@@ -35,6 +36,8 @@ struct DayTodosContentView: View {
             isEditing: isEditing,
             onSelect: { editingTodo = $0 },
             onDelete: { todos in
+                // 지우기 **전에** 알린다 — 지운 뒤에는 id를 읽을 수 없다.
+                tutorial?.didDelete(ids: todos.map(\.id))
                 for todo in todos { modelContext.delete(todo) }
                 Analytics.log(.taskDeleted(source: "calendar_day_list", count: todos.count))
             }
@@ -56,17 +59,32 @@ struct DayTodosContentView: View {
         // 버튼과 가장자리 스와이프를 공짜로 얻는다. 직접 만든 헤더로는 그 두 개를
         // 다시 만들어야 하고, 스와이프는 흉내 내기도 어렵다.
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) { titleView }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }
-                } label: {
-                    Text(isEditing ? "완료" : "순서")
-                        .font(.moscoCaption().weight(.semibold))
-                        .foregroundStyle(MoscoPalette.accent)
-                }
-            }
+        .toolbar { toolbarContent }
+    }
+
+    /// 할 일 화면의 편집 버튼과 같은 이름·같은 모양이다. 하는 일도 같다 —
+    /// 끌어서 순서를 바꾸고 스와이프로 지우는 모드로 들어간다.
+    ///
+    /// **시스템이 씌우는 배경을 끄는 게 핵심이다.** iOS 26의 툴바는 항목마다 유리
+    /// 배경을 알아서 깔아주는데, 이 버튼은 자기 캡슐을 이미 들고 있어서 테두리가
+    /// 두 겹으로 겹쳐 보였다 — 같은 버튼이 할 일 화면에서는 한 겹, 여기서는 두
+    /// 겹이라 두 화면을 오갈 때 크기가 달라 보였다.
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .principal) { titleView }
+        ToolbarItem(placement: .topBarTrailing) { editButton }
+    }
+
+    /// 배경은 툴바가 그린다(`drawsBackground: false`). 자체 캡슐을 들고 들어가면
+    /// 그 위에 시스템 배경이 한 겹 더 깔려, 같은 버튼이 할 일 화면에서는 한 겹,
+    /// 여기서는 두 겹이 됐다.
+    private var editButton: some View {
+        HeaderGlassButton(
+            title: isEditing ? "완료" : "편집",
+            systemImage: isEditing ? nil : "arrow.up.arrow.down",
+            drawsBackground: false
+        ) {
+            withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }
         }
     }
 
@@ -96,49 +114,66 @@ struct DayTodosContentView: View {
     ///
     /// 비어 있으면 자리 자체가 없다. 늘 보이는 버튼으로 두면 평소엔 쓸 일 없는
     /// 것이 입력창 위 한 줄을 계속 차지한다.
+    ///
+    /// 복사한 것이 여럿이면(최대 셋) 칩을 나란히 놓고 **누른 것만** 붙여넣는다.
+    /// 한 번에 다 붙이는 버튼은 두지 않았다 — 셋을 복사해뒀다는 건 서로 다른 날에
+    /// 흩뿌리려는 뜻이라, 한 날에 몰아 넣는 건 대개 실수다.
     @ViewBuilder
     private var pasteBar: some View {
-        if let copied = clipboard.item {
-            // 두 버튼은 **형제**여야 한다. 지우기를 붙여넣기 버튼의 label 안에
-            // 넣었더니 바깥 버튼이 안쪽 버튼에 탭을 다 빼앗겨 아무 데를 눌러도
-            // 붙여넣기가 안 됐다 — 버튼 안에 버튼을 넣지 않는다.
-            HStack(spacing: 6) {
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        clipboard.paste(on: date, in: modelContext)
+        if !clipboard.items.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(clipboard.items) { copied in
+                        pasteChip(copied)
                     }
-                    Analytics.log(.taskDuplicated(source: "calendar_day_list", method: "paste"))
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "doc.on.clipboard")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("‘\(copied.title)’ 붙여넣기")
-                            .font(.moscoCaption().weight(.semibold))
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .foregroundStyle(MoscoPalette.accent)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-
-                // 복사해둔 걸 물릴 방법이 없으면, 안 쓸 항목 하나가 이 줄을
-                // 계속 차지한 채 남는다.
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) { clipboard.clear() }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 15))
-                        .foregroundStyle(MoscoPalette.textSecondary)
-                }
-                .buttonStyle(.plain)
+                .padding(.horizontal, Metrics.spacingMD)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .moscoGlass(in: Capsule())
-            .padding(.horizontal, Metrics.spacingMD)
+            // 캡슐이 스크롤 뷰 가장자리에서 잘리지 않게.
+            .scrollClipDisabled()
             .transition(.move(edge: .bottom).combined(with: .opacity))
         }
+    }
+
+    /// 복사해둔 항목 하나. 두 버튼은 **형제**여야 한다 — 지우기를 붙여넣기 버튼의
+    /// label 안에 넣었더니 바깥 버튼이 안쪽 버튼에 탭을 다 빼앗겨 아무 데를 눌러도
+    /// 붙여넣기가 안 됐다. 버튼 안에 버튼을 넣지 않는다.
+    private func pasteChip(_ copied: TodoClipboard.Snapshot) -> some View {
+        HStack(spacing: 6) {
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    clipboard.paste(copied, on: date, in: modelContext)
+                }
+                Analytics.log(.taskDuplicated(source: "calendar_day_list", method: "paste"))
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.on.clipboard")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(copied.title)
+                        .font(.moscoCaption().weight(.semibold))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(MoscoPalette.accent)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            // 복사해둔 걸 물릴 방법이 없으면, 안 쓸 항목이 이 줄을 계속 차지한 채 남는다.
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) { clipboard.remove(copied) }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(MoscoPalette.textSecondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        // 제목이 길어도 칩 하나가 화면을 다 먹지 않게 — 넘치면 말줄임으로 끊긴다.
+        .frame(maxWidth: 220)
+        .moscoGlass(in: Capsule())
+        .clipShape(Capsule())
     }
 
 }
@@ -151,6 +186,7 @@ private struct DayTodoList: View {
     let onDelete: ([TodoItem]) -> Void
 
     @Query private var allTodos: [TodoItem]
+    @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     /// 위쪽 격자와 같은 캘린더만 보여야 한다 — 격자엔 없는 일정이 아래 리스트에만
     /// 나오면 어느 쪽이 맞는지 알 수 없다.
     @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
@@ -193,50 +229,68 @@ private struct DayTodoList: View {
     }
 
     var body: some View {
+        // **비었을 때는 List를 쓰지 않는다.** List 안에 넣으면 안내가 첫 행 자리,
+        // 즉 화면 맨 위에 붙어서 그 아래로 빈 공간이 길게 남는다 — 아무것도 없다는
+        // 말을 하면서 화면의 대부분을 비워두는 셈이다. 리스트를 통째로 걷어내면
+        // ContentUnavailableView가 제 프레임 한가운데에 선다.
+        if todosForDay.isEmpty {
+            emptyState
+        } else {
+            list
+        }
+    }
+
+    /// 설명은 붙이지 않는다 — 바로 아래에 입력창이 커서까지 깜빡이며 놓여 있어서,
+    /// "아래에 적으면 이날 할 일이 돼요"는 눈에 보이는 것을 한 번 더 말하는 셈이다.
+    private var emptyState: some View {
+        ContentUnavailableView(
+            "이날은 비어 있어요",
+            systemImage: "checkmark.circle"
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // 목록이 없어도 빈 자리를 눌러 키보드를 내릴 수 있어야 한다 — 리스트가
+        // 하던 일을 여기서도 그대로 한다.
+        .contentShape(Rectangle())
+        .onTapGesture { dismissKeyboard() }
+    }
+
+    private var list: some View {
         List {
-            if todosForDay.isEmpty {
-                ContentUnavailableView(
-                    "이날은 비어 있어요",
-                    systemImage: "checkmark.circle",
-                    description: Text("아래에 적으면 이날 할 일이 돼요")
+            // 리스트에서 날짜를 넘기던 스와이프를 걷어냈으므로, 좌우 스와이프를
+            // 원래 자리인 스와이프 삭제로 되돌린다.
+            ForEach(todosForDay) { todo in
+                TodoRow(
+                    todo: todo,
+                    occurrenceDate: date,
+                    onTap: { onSelect(todo) },
+                    onDelete: { onDelete([todo]) },
+                    showsCalendarTag: showsCalendarTag
                 )
+                .tutorialTarget(.dayRow(todo.id))
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-            } else {
-                // 리스트에서 날짜를 넘기던 스와이프를 걷어냈으므로, 좌우 스와이프를
-                // 원래 자리인 스와이프 삭제로 되돌린다.
-                ForEach(todosForDay) { todo in
-                    TodoRow(
-                        todo: todo,
-                        occurrenceDate: date,
-                        onTap: { onSelect(todo) },
-                        onDelete: { onDelete([todo]) },
-                        showsCalendarTag: showsCalendarTag,
-                        analyticsSource: "calendar_day_list"
-                    )
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
-                }
-                .onMove(perform: move)
-                .onDelete { offsets in
-                    onDelete(offsets.map { todosForDay[$0] })
-                }
+                .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
+            }
+            .onMove(perform: move)
+            .onDelete { offsets in
+                onDelete(offsets.map { todosForDay[$0] })
             }
         }
         .environment(\.editMode, .constant(isEditing ? .active : .inactive))
+        // 안내가 겨누는 줄이 손가락에 밀려 화면 밖으로 나가지 않게.
+        .scrollDisabled(tutorial?.locksScroll == true)
         .scrollContentBackground(.hidden)
         // List가 자체 스크롤/탭 제스처를 먼저 가져가버려서 .background에 올린
         // onTapGesture는 아예 안 불렸다. simultaneousGesture로 List의 제스처를
         // 막지 않으면서 같이 받는다. 스크롤 시작 시에도 바로 내려가게 처리.
         .scrollDismissesKeyboard(.immediately)
-        .simultaneousGesture(
-            TapGesture().onEnded {
-                UIApplication.shared.sendAction(
-                    #selector(UIResponder.resignFirstResponder),
-                    to: nil, from: nil, for: nil
-                )
-            }
+        .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil, from: nil, for: nil
         )
     }
 }

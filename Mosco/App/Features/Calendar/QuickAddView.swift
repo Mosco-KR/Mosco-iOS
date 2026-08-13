@@ -13,6 +13,9 @@ struct QuickAddView: View {
     @Binding var editingTodo: TodoItem?
 
     @Environment(\.modelContext) private var modelContext
+    /// 튜토리얼이 돌고 있지 않으면 nil이 아니라 **환경에 아예 없다** — 옵셔널로
+    /// 받아야 이 뷰를 튜토리얼 없이 띄우는 자리에서도 안전하다.
+    @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     @Query(sort: \TodoCategory.sortOrder) private var categories: [TodoCategory]
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @Query private var allTodos: [TodoItem]
@@ -99,6 +102,10 @@ struct QuickAddView: View {
             if category == nil, !isEditing, let firstCategory = categories.first {
                 category = firstCategory
             }
+            // 안내가 "여기에 적어보세요"라고 말하며 이 화면으로 막 넘어온 참이면
+            // 커서도 같이 와야 한다. 아래 `onChange`만으로는 못 잡는다 — 탭이
+            // 바뀌는 순간 이 뷰는 아직 만들어지기 전이라 그 변화를 못 본다.
+            if tutorial.currentStep == .typeTitle { isTitleFocused = true }
         }
         .onChange(of: title) { _, newValue in
             scheduleClassification(for: newValue)
@@ -111,6 +118,30 @@ struct QuickAddView: View {
             guard !isEditing else { return }
             startDate = newValue
             endDate = newValue
+        }
+        // 튜토리얼이 "적어보세요"라고 말하는 순간 커서도 여기 와 있어야 한다 —
+        // 지시를 읽고 키보드를 직접 부르는 한 걸음이 더 있으면 거기서 멈춘다.
+        .onChange(of: tutorial.currentStep) { _, step in
+            switch step {
+            case .typeTitle:
+                isTitleFocused = true
+            // 다음 안내는 화면 아래쪽에 설 수 있다 — 키보드가 떠 있으면 그 글자가
+            // 키보드 뒤로 숨는다.
+            case .complete:
+                isTitleFocused = false
+            default:
+                break
+            }
+        }
+        // 시간 표현을 알아챘는지(칩이 떴는지)를 그대로 알린다. 적었던 시간을
+        // 지우면 다시 false가 오고, 안내도 앞 단계로 되돌아간다.
+        .onChange(of: timeSuggestion != nil) { _, isVisible in
+            tutorial?.noteTimeSuggestion(isVisible: isVisible)
+        }
+        // 보낼 수 있는 상태인지도 알린다 — 시간만 적고 확정하면 제목이 비는데,
+        // 그때 안내가 할 말이 달라진다.
+        .onChange(of: canSave, initial: true) { _, hasTitle in
+            tutorial?.noteComposeTitle(isEmpty: !hasTitle)
         }
         .onChange(of: editingTodo?.id) { _, _ in
             guard let todo = editingTodo else { return }
@@ -136,6 +167,8 @@ struct QuickAddView: View {
                     .onChange(of: proxy.size) { _, newValue in composeBarSize = newValue }
             }
         )
+        // 튜토리얼의 첫 세 박자가 전부 이 자리에서 일어난다.
+        .tutorialTarget(.composeBar)
         .overlay(alignment: .bottomTrailing) {
             if showCategoryOptions {
                 categoryOptionsPopup
@@ -213,6 +246,10 @@ struct QuickAddView: View {
         } label: {
             TagChip(label: dateLabel, tint: startDate == nil ? MoscoPalette.textSecondary.opacity(0.7) : MoscoPalette.textSecondary)
         }
+        // 안내를 따라가는 동안에는 잠근다. 이 버튼이 여는 건 화면을 통째로 덮는
+        // 시트라, 마스크가 막을 수 없는 유일한 샛길이다 — 열리는 순간 사용자는
+        // 지시도 진행 상황도 못 본 채 처음 보는 화면에 남는다.
+        .disabled(tutorial?.isRunning == true)
     }
 
     private var dateLabel: String {
@@ -604,6 +641,9 @@ struct QuickAddView: View {
     /// 아직 날짜가 없으면(할 일 탭 백로그) 오늘을 기준일로 삼는다.
     private func apply(_ option: SuggestionOption, suggestion: TimeSuggestion) {
         Analytics.log(.timeSuggestionApplied)
+        // 아래에서 제목의 시간 글자를 걷어내면 칩이 사라지는데, 그걸 "시간을
+        // 지웠다"로 읽히지 않게 **먼저** 알린다.
+        tutorial?.didApplyTimeSuggestion()
         let anchor = startDate ?? calendar.startOfDay(for: Date())
         if startDate == nil { startDate = anchor }
         if endDate == nil { endDate = anchor }
@@ -712,6 +752,9 @@ struct QuickAddView: View {
                     )
                 )
             }
+            // 튜토리얼 중이라면 방금 이것이 연습 대상이 된다 — 목록에 다른 할 일이
+            // 아무리 많아도 스포트라이트가 겨눌 줄이 하나로 정해진다.
+            tutorial?.didCreateTodo(todo)
         }
 
         // 여기서 별도 학습/피드백 기록은 필요 없다 — 카테고리에 방금 이 제목이

@@ -19,6 +19,8 @@ struct TodayTodoScreen: View {
     /// 캘린더 탭에서 고른 보기 설정을 여기서도 그대로 따른다.
     @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
     @Environment(\.modelContext) private var modelContext
+    @Environment(ReviewPrompt.self) private var reviewPrompt
+    @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     /// 기존 항목을 누르면 여기 채워지고, 하단 입력창이 새로 만들기 대신 그 항목을
     /// 고치는 채팅형 입력창으로 바뀐다(DayTodosContentView와 같은 패턴).
     @State private var editingTodo: TodoItem?
@@ -166,6 +168,13 @@ struct TodayTodoScreen: View {
             .sheet(item: $detailTodo) { todo in
                 TodoDetailSheet(todo: todo)
             }
+            // 오늘 할 일을 **다** 끝낸 순간. 완료 하나하나보다 훨씬 분명한
+            // 성취라, 리뷰를 부탁하기에 이 앱에서 가장 좋은 자리다. 오늘 할 일이
+            // 애초에 없었던 날(0 → 0)은 성취가 아니므로 세지 않는다.
+            .onChange(of: remainingCount) { previous, current in
+                guard previous > 0, current == 0, !todayTodos.isEmpty else { return }
+                reviewPrompt.recordDayCleared()
+            }
         }
     }
 
@@ -194,8 +203,8 @@ struct TodayTodoScreen: View {
             // 바꾼 것인지 알 수 없다. 반대로 순서를 바꾸는 중에 검색이 열리면
             // 방금 옮기던 목록이 통째로 사라진다.
             if !isEditing {
-                glassButton(
-                    isSearching ? "완료" : "검색",
+                HeaderGlassButton(
+                    title: isSearching ? "완료" : "검색",
                     systemImage: isSearching ? nil : "magnifyingglass"
                 ) {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -206,9 +215,12 @@ struct TodayTodoScreen: View {
                 }
             }
 
+            // '순서'가 아니라 '편집'이다. 이 모드에서 되는 일이 순서 바꾸기만이
+            // 아니라 스와이프 삭제까지라서 이름이 하는 일보다 좁았고, 캘린더
+            // 상세의 같은 버튼과 이름이 어긋나 두 화면이 서로 다르게 읽혔다.
             if !isSearching {
-                glassButton(
-                    isEditing ? "완료" : "순서",
+                HeaderGlassButton(
+                    title: isEditing ? "완료" : "편집",
                     systemImage: isEditing ? nil : "arrow.up.arrow.down"
                 ) {
                     withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }
@@ -218,30 +230,6 @@ struct TodayTodoScreen: View {
         .padding(.horizontal, Metrics.spacingMD)
         .padding(.top, Metrics.spacingSM)
         .padding(.bottom, Metrics.spacingSM)
-    }
-
-    /// 헤더의 작은 버튼. 달력 탭의 '오늘'·설정 버튼과 **같은 모양**이다 —
-    /// 예전엔 여기만 맨 글자였는데, 같은 자리(헤더 오른쪽)에서 같은 일(모드 켜기)을
-    /// 하는 버튼이 화면마다 다르게 생기면 두 화면이 다른 앱처럼 보인다.
-    private func glassButton(_ title: String, systemImage: String?, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                Text(title)
-                    .font(.moscoCaption().weight(.semibold))
-            }
-            .foregroundStyle(MoscoPalette.accent)
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-        }
-        .buttonStyle(.plain)
-        .moscoGlass(in: Capsule())
-        .clipShape(Capsule())
     }
 
     private var searchField: some View {
@@ -261,7 +249,49 @@ struct TodayTodoScreen: View {
         .padding(.bottom, Metrics.spacingSM)
     }
 
+    /// 보여줄 게 하나도 없는 상태. 이때만 List를 통째로 걷어내고 안내를 가운데
+    /// 세운다 — 디데이 카드라도 하나 있으면 그건 목록이 있는 화면이라 안내를
+    /// 그 아래 행으로 둔다.
+    private var hasNothingToShow: Bool {
+        todayList.isEmpty && overdueTodos.isEmpty && backlogTodos.isEmpty && dDayTodos.isEmpty
+    }
+
+    @ViewBuilder
     private var planList: some View {
+        // List 안에 넣으면 안내가 첫 행 자리, 즉 화면 맨 위에 붙어서 그 아래로
+        // 빈 공간이 길게 남는다 — 아무것도 없다는 말을 하면서 화면 대부분을
+        // 비워두는 셈이다. 리스트를 걷어내면 제 프레임 한가운데에 선다.
+        if !isSearching, hasNothingToShow {
+            emptyState
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture { dismissKeyboard() }
+        } else {
+            list
+        }
+    }
+
+    /// 튜토리얼이 겨누는 줄이 화면 밖에 있으면 안 된다 — 안내는 어두운 화면
+    /// 어딘가를 가리키고 있는데 정작 그 줄은 스크롤 아래에 숨어 있는 상황이
+    /// 이 안내에서 제일 나쁜 상태다. 목록이 긴 사람(설정에서 다시 보는 경우)을
+    /// 위해 겨누는 줄을 화면 가운데로 데려온다.
+    private var list: some View {
+        ScrollViewReader { proxy in
+            listContent
+                .onChange(of: tutorial?.practiceTodoID) { _, id in
+                    guard let id else { return }
+                    // 줄이 목록에 자리를 잡은 뒤에 옮긴다.
+                    Task {
+                        try? await Task.sleep(for: .seconds(0.25))
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            proxy.scrollTo(id, anchor: .center)
+                        }
+                    }
+                }
+        }
+    }
+
+    private var listContent: some View {
         List {
             if isSearching, !trimmedQuery.isEmpty {
                 searchSection
@@ -274,6 +304,8 @@ struct TodayTodoScreen: View {
 
                 if todayList.isEmpty && overdueTodos.isEmpty && backlogTodos.isEmpty {
                     emptyState
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
 
                 if !todayList.isEmpty { todaySection }
@@ -285,42 +317,43 @@ struct TodayTodoScreen: View {
         // 그대로 빈 화면으로 읽힌다. 구분은 헤더 글자가 이미 하고 있다.
         .listSectionSpacing(Metrics.spacingMD)
         .scrollDismissesKeyboard(.immediately)
+        // 안내가 도는 동안에는 목록을 못 밀게 한다. 겨누고 있는 줄이 손가락에
+        // 밀려 화면 밖으로 나가면 스포트라이트도 함께 사라진다(프로그램으로
+        // 옮기는 `scrollTo`는 이 잠금과 무관하게 그대로 동작한다).
+        .scrollDisabled(tutorial?.locksScroll == true)
         .environment(\.editMode, .constant(isEditing ? .active : .inactive))
-        .simultaneousGesture(
-            TapGesture().onEnded {
-                UIApplication.shared.sendAction(
-                    #selector(UIResponder.resignFirstResponder),
-                    to: nil, from: nil, for: nil
-                )
-            }
+        .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil, from: nil, for: nil
         )
     }
 
     // MARK: - 섹션
 
+    /// 설명은 붙이지 않는다 — 바로 아래에 입력창이 놓여 있어서, "아래에 적으면
+    /// 오늘 할 일이 돼요"는 눈에 보이는 것을 한 번 더 말하는 셈이다.
     private var emptyState: some View {
         ContentUnavailableView(
             "오늘은 비어 있어요",
-            systemImage: "checkmark.circle",
-            description: Text("아래에 적으면 오늘 할 일이 돼요")
+            systemImage: "checkmark.circle"
         )
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
     }
 
     /// 막지 않고 알리기만 한다 — 결정은 사용자 몫이다.
+    ///
+    /// 한 줄이면 된다. "몇 개는 다른 날로 옮길 수 있어요"까지 붙여봐야, 할 일을
+    /// 다른 날로 옮길 수 있다는 건 이 앱을 쓰는 사람이라면 이미 아는 사실이다.
     private var overloadNotice: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(MoscoPalette.must)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("하루에 하기엔 많아 보여요")
-                    .font(.moscoCaption().weight(.semibold))
-                    .foregroundStyle(MoscoPalette.textPrimary)
-                Text("몇 개는 다른 날로 옮길 수 있어요.")
-                    .font(.moscoCaption())
-                    .foregroundStyle(MoscoPalette.textSecondary)
-            }
+            Text("하루에 하기엔 많아 보여요")
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(MoscoPalette.textPrimary)
             Spacer(minLength: 0)
         }
         .padding(Metrics.spacingMD)
@@ -451,8 +484,7 @@ struct TodayTodoScreen: View {
                             todo: todo,
                             onTap: { editingTodo = todo },
                             onDelete: { delete(todo) },
-                            memoDisplay: .full,
-                            analyticsSource: "today_plan"
+                            memoDisplay: .full
                         )
                         Button {
                             pullIntoToday(todo)
@@ -477,12 +509,6 @@ struct TodayTodoScreen: View {
                 count: backlogTodos.count,
                 isExpanded: showsBacklog
             ) { showsBacklog.toggle() }
-        } footer: {
-            if showsBacklog {
-                Text("화살표를 누르면 오늘로 가져와요.")
-                    .font(.moscoCaption())
-                    .foregroundStyle(MoscoPalette.textSecondary)
-            }
         }
     }
 
@@ -503,8 +529,7 @@ struct TodayTodoScreen: View {
                             showsDate: true,
                             onTap: { editingTodo = todo },
                             onDelete: { delete(todo) },
-                            memoDisplay: .full,
-                            analyticsSource: "search"
+                            memoDisplay: .full
                         )
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
@@ -526,9 +551,10 @@ struct TodayTodoScreen: View {
             occurrenceDate: today,
             onTap: { editingTodo = todo },
             onDelete: { delete(todo) },
-            memoDisplay: .full,
-            analyticsSource: "today_plan"
+            memoDisplay: .full
         )
+        // 같은 할 일이 하루치 페이지에도 그려질 수 있어서 화면까지 키에 담는다.
+        .tutorialTarget(.todayRow(todo.id))
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))

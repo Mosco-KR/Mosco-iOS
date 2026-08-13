@@ -25,6 +25,7 @@ struct MonthPagerView: View {
     let onSelect: (Date) -> Void
 
     @State private var scrollTarget: CalendarMonth?
+    @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -42,6 +43,10 @@ struct MonthPagerView: View {
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $scrollTarget)
         .scrollIndicators(.hidden)
+        // 안내가 "오늘을 눌러보세요"라고 말하는 동안 달이 넘어가면 안 된다 —
+        // 오늘 칸이 화면 밖으로 나가면 겨눌 자리가 사라진다. 사용자의 손가락만
+        // 막고, `visibleMonth`로 옮기는 프로그램 스크롤은 그대로 둔다.
+        .scrollDisabled(tutorial?.locksScroll == true)
         // 창(MonthWindow)이 오늘을 한가운데 두고 대칭이라, 가운데로 맞추면 앱을
         // 켰을 때 정확히 이번 달에 서 있게 된다. iOS 17에서 scrollPosition(id:)의
         // 초기값이 반영되지 않는 사례가 있어 초기 위치는 이쪽에 맡긴다.
