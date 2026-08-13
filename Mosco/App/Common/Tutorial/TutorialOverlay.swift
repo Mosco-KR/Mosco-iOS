@@ -118,10 +118,19 @@ struct TutorialOverlay: View {
             HStack(spacing: 8) {
                 progressDots(current: step.chapter)
                 Spacer(minLength: 0)
-                Button("건너뛰기") { tutorial.skip() }
-                    .font(.moscoCaption())
-                    .foregroundStyle(.white.opacity(0.6))
-                    .buttonStyle(.plain)
+                // 여백까지 눌리게 라벨 **안쪽**에서 넓힌다. 바깥에 붙이면 글자
+                // 크기만큼만 눌려서, 살짝 빗나가면 아무 일도 안 일어난다.
+                Button {
+                    tutorial.skip()
+                } label: {
+                    Text("건너뛰기")
+                        .font(.moscoCaption())
+                        .foregroundStyle(.white.opacity(0.6))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
 
             // **지시가 곧 제목이다.** 설명을 먼저 읽고 지시를 찾아야 하는 구조에서는
@@ -168,9 +177,10 @@ struct TutorialOverlay: View {
                             .font(.moscoCaption().weight(.semibold))
                     }
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
                     .background(.white.opacity(0.18), in: Capsule())
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -285,25 +295,39 @@ struct TutorialOverlay: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            // **모양은 전부 라벨 안쪽에서 만든다.** 버튼 바깥에 `frame`과
+            // `background`를 붙이면 캡슐은 그려지지만 눌리는 건 글자뿐이라,
+            // 버튼 한가운데를 눌러도 반응이 없는 것처럼 느껴진다.
             VStack(spacing: 8) {
-                Button(step == .welcome ? "좋아요, 해볼게요" : "시작하기") {
+                Button {
                     if step == .welcome { tutorial.accept() } else { tutorial.finish() }
+                } label: {
+                    Text(step == .welcome ? "좋아요, 해볼게요" : "시작하기")
+                        .font(.moscoBody().weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(
+                            MoscoPalette.accent,
+                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
-                .font(.moscoBody().weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(MoscoPalette.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .buttonStyle(.plain)
 
                 // 시작 카드에만 둔다. 끝맺음에는 고를 것이 하나뿐이다.
                 if step == .welcome {
-                    Button("혼자 둘러볼게요") { tutorial.skip() }
-                        .font(.moscoBody())
-                        .foregroundStyle(MoscoPalette.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .buttonStyle(.plain)
+                    Button {
+                        tutorial.skip()
+                    } label: {
+                        Text("혼자 둘러볼게요")
+                            .font(.moscoBody())
+                            .foregroundStyle(MoscoPalette.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
 
                     // 고르기 전에 "되돌릴 수 있다"를 알아야 편하게 고른다.
                     Text("도중에 그만둬도 설정에서 다시 볼 수 있어요")
