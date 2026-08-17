@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator -destination 'platform=iOS Simulator,name=* build*)",
+      "Bash(xcodebuild -project Mosco/Mosco.xcodeproj -scheme MoscoWidget -sdk iphonesimulator -destination 'platform=iOS Simulator,name=* build*)",
+      "Bash(xcodebuild -project Mosco/Mosco.xcodeproj -list*)",
+      "Bash(xcodebuild -version*)",
+      "Bash(xcodebuild -showBuildSettings*)",
+      "Bash(xcrun simctl list*)",
+      "Bash(xcrun simctl boot *)",
+      "Bash(xcrun simctl io * screenshot *)",
+      "Bash(xcrun --show-sdk-path*)",
+      "Bash(xcrun --sdk iphonesimulator*)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "Bash(git ls-files*)",
+      "Bash(git branch*)",
+      "Bash(git tag*)",
+      "Bash(git rev-list*)",
+      "Bash(git rev-parse*)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(wc *)",
+      "Bash(ls *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(sips -g *)",
+      "Bash(/usr/libexec/PlistBuddy -c \"Print*)"
+    ]
+  }
+}

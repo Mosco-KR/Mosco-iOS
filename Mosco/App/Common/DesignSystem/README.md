@@ -16,16 +16,28 @@ Mosco의 시각 언어를 정리한 문서. 코드는 이 폴더(`Common/DesignS
 
 ## 컬러 팔레트
 
+`Tokens/Palette.swift` — 앱 타깃 전용.
+
 | 이름 | 용도 | 값 |
 |---|---|---|
-| Must | 최우선 | `#D9484E` |
-| Should | 해야 함 | `#C98A2E` |
-| Could | 여유되면 | `#3182F6` |
-| Won't | 나중에 | `#8B95A1` |
-| Accent | 브랜드 액션(버튼 등), 우선순위 색과 분리 | `#3182F6` |
+| Accent | 브랜드 액션(버튼 등) | `#8B5CF6` 바이올렛 |
+| must / should / could / wont | 남아 있는 등급 색 | `#EF4444` `#F59E0B` `#3B82F6` `#94A3B8` |
 
-`background`/`surface`/`border`/`textPrimary`/`textSecondary`는 시스템 시맨틱 컬러를 그대로
-써서 라이트/다크 모드가 자동 대응된다. (`Tokens/Palette.swift`)
+`background`/`canvas`/`surface`/`border`/`textPrimary`/`textSecondary`는 시스템 시맨틱
+컬러를 그대로 써서 라이트/다크 모드가 자동 대응된다.
+
+### 카테고리 색은 별도 팔레트다
+
+우선순위(MoSCoW)가 **사용자 정의 카테고리**로 바뀐 뒤, 실제로 화면에 보이는 색은
+`Shared/CategoryColorPalette.swift`의 **기본 16색**이다. 사용자가 카테고리를 만들 때
+그중 하나를 고르고, 값은 hex 문자열로 저장된다(모델이 SwiftUI를 모르게 하려고).
+
+이 파일이 `Shared/`에 있는 이유는 위젯·라이브 액티비티도 같은 색을 그려야 하기
+때문이다. **위젯 쪽에서 `Color.accentColor`를 쓰지 않는다** — 잠금화면의 '오늘'
+표시가 시스템 기본 파랑으로 나온 적이 있다. `CategoryColorPalette.accent`를 쓴다.
+
+위 표의 must/should/could/wont는 전환 전에 쓰던 등급 색으로, 지금은 카테고리 색과
+무관하다. 새로 쓰지 않는다.
 
 ## 타이포그래피
 
@@ -42,12 +54,16 @@ Mosco의 시각 언어를 정리한 문서. 코드는 이 폴더(`Common/DesignS
 | 컴포넌트 | 역할 | 위치 |
 |---|---|---|
 | `TagChip` | 라벨 + 톤온톤 배경의 범용 캡슐 칩 (시간 표시 등) | `Components/TagChip.swift` |
-| `PriorityTag` | MoSCoW 우선순위 칩 (점 + 라벨) | `Components/PriorityTag.swift` |
+| `CategoryTag` | 카테고리 칩. 5pt 점 + 이름 | `Components/CategoryTag.swift` |
 | `SurfaceCard` | 플랫 배경 + 헤어라인 보더 컨테이너 | `Components/SurfaceCard.swift` |
+| `GlassSurface` | 떠 있는 요소 전용 글라스 표면 | `Components/GlassSurface.swift` |
+| `HeaderGlassButton` | 화면 상단에 떠 있는 버튼(오늘, 설정 등) | `Components/HeaderGlassButton.swift` |
+| `ClassifyingDot` | 카테고리 판별 중 표시 | `Components/ClassifyingDot.swift` |
+| `WrappingHStack` | 칩이 넘칠 때 다음 줄로 흐르게 | `Components/WrappingHStack.swift` |
 | `MoscoPrimaryButtonStyle` (`.moscoPrimary`) | 주요 액션 버튼. iOS 26+에서만 `glassEffect` 적용, 그 미만은 flat accent 배경 | `Components/MoscoButtonStyle.swift` |
 
-`PriorityTag`가 쓰는 `DemoPriority`는 실제 도메인 모델(`MoscoModels`의 `Priority`)이 생기기
-전까지의 임시 자리로, 나중에 도메인 enum에 색상 매핑만 이식하고 이 타입은 정리한다.
+`PriorityTag`와 `DemoPriority`는 우선순위 → 카테고리 전환 때 없앴다. 등급 칩이
+필요해 보이면 `CategoryTag`를 쓴다.
 
 ## 톤 참고
 
