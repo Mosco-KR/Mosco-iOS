@@ -22,7 +22,8 @@
 
 ## 안 한 것
 
-- [ ] 대체 공휴일 표시
+- [x] 대체 공휴일 표시 — 시뮬레이터에서 2026-08-17이 빨간 '대체공휴일'로 나오는 것을
+      직접 봤다 (2026-08-18)
 - [ ] 영어 지원 (현재 기본 언어 한국어 전용으로 좁혀둠)
 - [ ] 애플 워치 지원
 - [ ] 결제 모듈
@@ -40,7 +41,35 @@
 - [x] PR 템플릿의 "관련 테스트 통과" — 테스트 타깃이 생길 때까지 `/verify` 훑음으로
       읽는다고 `CONTRIBUTING.md`에 명시했다 (2026-08-18)
 - [x] 커밋 하나에 여러 작업이 섞이던 것 — `CONTRIBUTING.md` 커밋 절에 규칙을 넣었다 (2026-08-18)
-## v1.2.0 첫 작업 — 테스트 타깃 (R7)
+
+## 죽은 코드 훑기에서 나온 것 (2026-08-18)
+
+- [x] Xcode 템플릿 보일러플레이트 — `SceneDelegate` 빈 메서드 5개, `AppDelegate`
+      `didDiscardSceneSessions`. 본문 없이 영문 주석만 있던 것을 걷어냈다
+- [x] 버린 MoSCoW 우선순위 색 `should`/`could`/`wont` — 참조 0곳. `must`만 남겼다
+      (공휴일 이름·과부하 배너). `DesignSystem/README.md` 팔레트 표도 같이 고쳤다
+- [x] 미참조 토큰·프로퍼티 — `Metrics.chipRadius`, `Metrics.listSectionGap`,
+      `MonthPageMetrics.compactRowHeight`, `CategoryColorPalette.colors`,
+      `TodayTodoWidgetView.remaining`, `MonthLayout.weekRowIndex(of:)`
+- [x] 미사용 `import SwiftData` 3개 — `CategoryEditorSheet`, `TodoDetailSheet`,
+      `ToggleTodoCompletionIntent`
+- [x] `Mosco/build/` 18MB 작업 폴더 삭제 (BACKLOG 이전 항목 해소)
+- [ ] **카테고리 편집에 "알림 권한 거부" 안내가 없다** — `showsDeniedNotice`라는
+      `@State`만 있고 읽는 곳이 없었다(그래서 지웠다). 알림을 켜도 시스템 권한이
+      거부돼 있으면 사용자는 아무 말도 못 듣는다. 안내를 넣을지 정해야 한다
+- [ ] `MoscoPalette.must` 이름이 기능과 안 맞는다 — 우선순위는 없어졌고 지금은
+      경고 빨강이다. `alert` 같은 이름이 맞지만 호출부 3곳을 건드려야 해서 미뤘다
+- [ ] `DayCell`의 공휴일 라벨이 `MoscoPalette.must`를 쓴다 — `CalendarDayTone`은
+      "달력 색과 팔레트 색을 일부러 분리한다"고 적어놨는데 여기서 섞였다.
+      값은 같아서(`#EF4444`) 화면은 그대로다. `CalendarDayTone.holidayRed`로 옮길 것
+- [ ] `MoscoML.mlproj`(1.4MB)·`MLTraining/` 유지 여부 — 참조 0곳이지만
+      `docs/TRAPS.md`가 "참고용"이라 적어 남겨뒀다. 분류 기준선 만들 때 같이 판단
+- [ ] `StyleGuideView` 진입점이 없다 — `#Preview`로만 열린다. 설정에 디버그 진입점을
+      두거나, 규범 확인은 Xcode 프리뷰로만 한다고 정하거나
+## v1.2.0 첫 작업 — 테스트 타깃 (R2 · R7)
+
+**우선순위가 올라갔다 (2026-08-18).** R2가 시뮬레이터를 닫으면서 테스트가 AI가 쓸 수
+있는 유일한 검증이 됐다. 이게 되기 전까지 AI가 확인할 수 있는 것은 컴파일뿐이다.
 
 순서대로 한다. 위에서부터 반복해서 깨진 순이다.
 
@@ -54,9 +83,12 @@
 - [ ] 테스트 타깃이 생기면 `CLAUDE.md` R1을 "빌드와 **테스트**가 통과하기 전에는
       보고하지 않는다"로 확장
 
-**UI 테스트는 지금 만들지 않는다** — 잘 깨지고, 합격 판정은 R3에서 사람이 한다.
-순수 로직이 다 덮인 뒤에 다시 판단한다.
-- [ ] `Mosco/build/`가 작업 폴더에 남아 있다 (`.gitignore`에는 있음). 지워도 된다
+순수 로직을 덮은 뒤 화면 흐름을 UI 테스트로 남긴다 — 첫 실행·튜토리얼·할 일
+만들기·삭제 확인 순. `/verify` 목록에서 테스트로 옮긴 항목은 그 목록에서 지운다.
+
+- [ ] UI 테스트 — 첫 실행과 튜토리얼 건너뛰기
+- [ ] UI 테스트 — 한 줄 입력으로 할 일이 만들어진다
+- [ ] UI 테스트 — 삭제 확인 뒤 다른 데이터가 남아 있다
 
 ## 버림
 
