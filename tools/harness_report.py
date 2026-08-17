@@ -29,7 +29,13 @@ import sys
 from collections import Counter, defaultdict
 
 # 정의를 바꾸면 이 번호를 올리고 전체 버전을 다시 돌린다.
-SCHEMA = "1"
+#
+# 2 (2026-08-18) — R2가 "시뮬레이터 직접 사용"에서 "시뮬레이터 금지"로 바뀌면서:
+#   · M9 검증 밀도에서 스크린샷을 빼고 테스트 실행을 넣었다. 스크린샷이 들어 있으면
+#     R2를 지킬수록 검증 밀도가 떨어져 규칙과 지표가 반대로 당긴다.
+#   · M11 시뮬레이터 호출 수를 신설했다. 이전에도 screenshots·sim_actions로 세고는
+#     있었지만 담당 규칙이 없는 참고 숫자였다.
+SCHEMA = "2"
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 LEDGER = REPO / "docs" / "harness" / "metrics.tsv"
@@ -152,7 +158,7 @@ def resolve_window(version, to_ref):
 
 def read_sessions(start, end):
     """구간 안의 사람 프롬프트와 도구 사용을 시간순으로 모은다."""
-    prompts, builds, sims, edits = [], [], 0, 0
+    prompts, builds, sims, edits, test_runs = [], [], 0, 0, 0
     tool_names = {}
 
     d = transcript_dir()
@@ -207,6 +213,10 @@ def read_sessions(start, end):
                     cmd = inp.get("command", "")
                     if "xcodebuild" in cmd and " build" in cmd:
                         builds.append(("bash", b.get("id")))
+                    if "xcodebuild" in cmd and (
+                        " test" in cmd or "-only-testing" in cmd
+                    ):
+                        test_runs += 1
 
         elif kind == "user" and rec.get("toolUseResult") is not None:
             c = msg.get("content")
@@ -219,7 +229,7 @@ def read_sessions(start, end):
                             if entry[1] == tid and len(entry) == 2:
                                 builds[i] = (entry[0], entry[1], rows_txt)
 
-    return prompts, builds, sims, edits
+    return prompts, builds, sims, edits, test_runs
 
 
 def screenshot_count(start, end):
@@ -258,7 +268,7 @@ def is_batch(text):
     return len(lines) >= 3
 
 
-def compute(prompts, builds, sims, edits, shots, rng):
+def compute(prompts, builds, sims, edits, shots, test_runs, rng):
     n = len(prompts)
     out = {"prompts": n}
     if n == 0:
@@ -310,10 +320,17 @@ def compute(prompts, builds, sims, edits, shots, rng):
         out["m5_top_topic"] = top[0]
     out["_topics"] = counts
 
-    # M9 검증 밀도 — 프롬프트 100개당 스크린샷 + 빌드
-    out["m9_verify_density"] = round(100 * (shots + len(builds)) / n, 1)
+    # M9 검증 밀도 — 프롬프트 100개당 빌드 + 테스트 실행 (스키마 2에서 스크린샷 제외)
+    out["m9_verify_density"] = round(100 * (len(builds) + test_runs) / n, 1)
+
+    # M11 시뮬레이터 호출 수 — AI가 시뮬레이터 도구를 부른 횟수. 목표는 0이다.
+    # sims는 SIM_TOOL 호출 전부이고 shots(action=="screenshot")는 그 부분집합이므로
+    # 더하지 않는다. screenshots 열은 그중 몇 장이 이미지였는지 보려고 따로 남긴다.
+    out["m11_sim_calls"] = sims
+
     out["screenshots"] = shots
     out["sim_actions"] = sims
+    out["test_runs"] = test_runs
     out["edits"] = edits
 
     # 같은 프롬프트 재전송
@@ -443,7 +460,9 @@ COLUMNS = [
     "m1_rework_rate", "m2_batch_penalty", "m3_build_fail_rate",
     "m4_sensory_rate", "m5_top_topic_share", "m6_fix_per_feat",
     "m7_reversals", "m8_canon_drift", "m9_verify_density", "m10_tests",
-    "batch_rate", "resends", "builds", "screenshots", "sim_actions", "edits",
+    "m11_sim_calls",
+    "batch_rate", "resends", "builds", "screenshots", "sim_actions",
+    "test_runs", "edits",
 ]
 
 
@@ -459,10 +478,10 @@ def main():
     args = ap.parse_args()
 
     start, end, rng, prev = resolve_window(args.version, args.to)
-    prompts, builds, sims, edits = read_sessions(start, end)
+    prompts, builds, sims, edits, test_runs = read_sessions(start, end)
     shots = screenshot_count(start, end)
 
-    m = compute(prompts, builds, sims, edits, shots, rng)
+    m = compute(prompts, builds, sims, edits, shots, test_runs, rng)
     g = git_metrics(rng)
     ref = f"V{args.version}" if tag_time(f"V{args.version}") else args.to
     drift = canon_drift(ref)
@@ -501,8 +520,9 @@ def main():
     print(f"  M6 fix:feat            {fmt(g.get('m6_fix_per_feat')):>7}")
     print(f"  M7 되돌림 사이클       {fmt(g.get('m7_reversals')):>7}")
     print(f"  M8 규범 드리프트       {len(drift):>7}")
-    print(f"  M9 검증 밀도           {fmt(m.get('m9_verify_density')):>7}    (프롬프트 100개당)")
+    print(f"  M9 검증 밀도           {fmt(m.get('m9_verify_density')):>7}    (프롬프트 100개당 빌드+테스트)")
     print(f"  M10 회귀 테스트        {tests:>7}    (높을수록 좋음)")
+    print(f"  M11 시뮬레이터 호출    {fmt(m.get('m11_sim_calls')):>7}    (목표 0 · PR 캡처는 제외해 읽는다)")
     print()
 
     if m.get("_topics"):
