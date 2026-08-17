@@ -3,7 +3,6 @@ import CoreGraphics
 enum Metrics {
     static let cardRadius: CGFloat = 18
     static let buttonRadius: CGFloat = 14
-    static let chipRadius: CGFloat = 100
 
     static let spacingXS: CGFloat = 4
     static let spacingSM: CGFloat = 8
@@ -16,8 +15,4 @@ enum Metrics {
     /// 화면을 옮겨 다닐 때 같은 목록으로 읽힌다. 예전엔 화면마다 4·6pt로 제각각이라
     /// '다가오는' 탭만 유독 빽빽해 보였다.
     static let listRowGap: CGFloat = 6
-
-    /// 날짜/구역을 가르는 헤더가 바로 앞 셀과 두는 간격. 셀 사이보다 넉넉해야
-    /// 구역이 바뀌었다는 게 읽힌다.
-    static let listSectionGap: CGFloat = 14
 }

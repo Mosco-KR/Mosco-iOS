@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 import UIKit
 
 /// 할 일에 붙는 메모를 쓰는 화면. 어떤 할 일의 메모인지 알 수 있게 제목·카테고리·

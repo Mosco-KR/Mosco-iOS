@@ -44,10 +44,6 @@ enum CategoryColorPalette {
         "94A3B8"  // 슬레이트(중립)
     ]
 
-    static var colors: [Color] {
-        hexValues.map { Color(hex: UInt($0, radix: 16) ?? 0x94A3B8) }
-    }
-
     static func color(forHex hex: String) -> Color {
         Color(hex: UInt(hex, radix: 16) ?? 0x94A3B8)
     }

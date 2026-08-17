@@ -1,5 +1,4 @@
 import AppIntents
-import SwiftData
 import WidgetKit
 
 /// 위젯의 체크박스가 부르는 인텐트. 앱을 열지 않고 위젯 프로세스에서 바로

@@ -25,8 +25,6 @@ struct MonthPageMetrics: Equatable {
     /// 아래 리스트에서 다 보인다.
     static let barHeight: CGFloat = 14
     static let barSpacing: CGFloat = 1.5
-    /// 압축된 주간 스트립의 행 높이.
-    static let compactRowHeight: CGFloat = 44
 
     var rowHeight: CGFloat {
         weekCount > 0 ? size.height / CGFloat(weekCount) : 0

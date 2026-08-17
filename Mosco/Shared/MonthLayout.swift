@@ -45,15 +45,6 @@ nonisolated struct MonthLayout: Sendable {
 
         return MonthLayout(weeks: weeks)
     }
-
-    /// 이 달 격자에서 주어진 날짜가 몇 번째 주(0-based)에 있는지. 격자 밖이면 nil.
-    func weekRowIndex(of date: Date, calendar: Calendar = .current) -> Int? {
-        let target = calendar.startOfDay(for: date)
-        return weeks.firstIndex { week in
-            guard let first = week.dates.first, let last = week.dates.last else { return false }
-            return target >= first && target <= last
-        }
-    }
 }
 
 /// 렌더링(항상 메인 스레드)에서 쓰는 격자 캐시. 백그라운드 스냅샷 빌더는 이걸

@@ -1,13 +1,13 @@
 import SwiftUI
 import UIKit
 
-/// MoSCoW 우선순위 4단계와 앱 전반의 배경/텍스트 톤 팔레트.
+/// 앱 전반의 배경/텍스트 톤 팔레트.
 /// 채도를 낮춘 톤(Toss/Apple 계열)으로, 색은 강조가 아니라 상태 구분용으로만 쓴다.
 enum MoscoPalette {
+    /// 주의를 끌어야 하는 곳의 빨강 — 공휴일 이름, "하루에 하기엔 많아 보여요" 배너.
+    /// 이름은 MoSCoW 우선순위에서 왔지만 그 기능은 카테고리로 대체됐다.
+    /// `should`/`could`/`wont`는 쓰는 곳이 없어져서 걷어냈다.
     static let must = Color(hex: 0xEF4444)
-    static let should = Color(hex: 0xF59E0B)
-    static let could = Color(hex: 0x3B82F6)
-    static let wont = Color(hex: 0x94A3B8)
 
     /// 브랜드 액센트. 우선순위 색과 분리해 버튼 등 액션에만 사용 — 파란색은
     /// "could" 우선순위와도 겹치고 흔한 기본값이라, 좀 더 트렌디한 바이올렛으로.

@@ -20,8 +20,8 @@ Mosco의 시각 언어를 정리한 문서. 코드는 이 폴더(`Common/DesignS
 
 | 이름 | 용도 | 값 |
 |---|---|---|
-| Accent | 브랜드 액션(버튼 등) | `#8B5CF6` 바이올렛 |
-| must / should / could / wont | 남아 있는 등급 색 | `#EF4444` `#F59E0B` `#3B82F6` `#94A3B8` |
+| `accent` | 브랜드 액션(버튼 등) | `#8B5CF6` 바이올렛 |
+| `must` | 주의를 끄는 빨강 — 공휴일 이름, 과부하 배너 | `#EF4444` |
 
 `background`/`canvas`/`surface`/`border`/`textPrimary`/`textSecondary`는 시스템 시맨틱
 컬러를 그대로 써서 라이트/다크 모드가 자동 대응된다.
@@ -36,8 +36,9 @@ Mosco의 시각 언어를 정리한 문서. 코드는 이 폴더(`Common/DesignS
 때문이다. **위젯 쪽에서 `Color.accentColor`를 쓰지 않는다** — 잠금화면의 '오늘'
 표시가 시스템 기본 파랑으로 나온 적이 있다. `CategoryColorPalette.accent`를 쓴다.
 
-위 표의 must/should/could/wont는 전환 전에 쓰던 등급 색으로, 지금은 카테고리 색과
-무관하다. 새로 쓰지 않는다.
+`must`는 이름만 우선순위 시절에서 남은 것이고, 지금은 그냥 "주의를 끄는 빨강"이다.
+같이 있던 `should`/`could`/`wont`는 쓰는 곳이 없어져 걷어냈다(2026-08-18). 등급 색이
+다시 필요해 보이면 그건 카테고리로 푸는 문제다.
 
 ## 타이포그래피
 

@@ -1,5 +1,4 @@
 import SwiftUI
-import SwiftData
 
 /// 시트에서 편집한 값 묶음. 필드가 늘 때마다 onSave의 인자가 하나씩 붙어
 /// 순서로 구분해야 하는 걸 막는다.
@@ -23,8 +22,6 @@ struct CategoryEditorSheet: View {
     @State private var colorHex: String
     @State private var notifies: Bool
     @State private var leadMinutes: Int
-    /// 알림을 켰는데 시스템 권한이 거부돼 있으면 안내를 띄운다.
-    @State private var showsDeniedNotice = false
 
     /// 흔히 쓰는 리드타임만 추린다 — 분 단위 자유 입력은 고를 게 너무 많아진다.
     private static let leadOptions = [0, 5, 10, 15, 30, 60, 120]

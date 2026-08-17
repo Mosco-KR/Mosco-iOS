@@ -77,8 +77,6 @@ struct TodayTodoWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: TodayTodoEntry
 
-    private var remaining: Int { entry.totalCount - entry.completedCount }
-
     var body: some View {
         homeScreenBody
     }
