@@ -52,6 +52,21 @@ final class WeatherStore {
 
     private static let enabledKey = "showsWeather"
 
+    /// 위치 권한을 화면이 쓰는 형태로. 날씨는 위치 없이는 아무것도 못 한다.
+    var permission: PermissionState {
+        switch CLLocationManager().authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways: .granted
+        case .denied, .restricted: .denied
+        case .notDetermined: .notDetermined
+        @unknown default: .notDetermined
+        }
+    }
+
+    /// 스위치에 표시할 값 — 켜뒀어도 위치 권한이 없으면 꺼진 것으로 보인다.
+    var isEffectivelyOn: Bool {
+        PermissionGate.isOn(userPreference: isEnabled, permission: permission)
+    }
+
     @ObservationIgnored private let service = WeatherKit.WeatherService.shared
     @ObservationIgnored private let locationProvider = OneShotLocationProvider()
     /// 같은 세션에서 여러 화면이 동시에 요청해도 실제 호출은 한 번만.
