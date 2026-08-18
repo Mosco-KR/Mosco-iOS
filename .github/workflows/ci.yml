@@ -16,7 +16,11 @@ concurrency:
 
 jobs:
   build-and-test:
-    runs-on: macos-15
+    # macos-15는 Xcode 16.4까지다. 이 프로젝트는 Xcode 26 기능을 쓴다
+    # (`nonisolated struct`, SWIFT_DEFAULT_ACTOR_ISOLATION, objectVersion 77) —
+    # 16.4에서는 "expression is 'async' but is not marked with 'await'"로 깨진다.
+    # 로컬과 같은 메이저를 쓰지 않으면 CI 통과가 아무것도 보장하지 못한다.
+    runs-on: macos-26
     timeout-minutes: 40
 
     steps:
@@ -24,6 +28,16 @@ jobs:
 
       # 러너 이미지가 바뀌면 조용히 다른 Xcode로 도는 일이 생긴다.
       # 무슨 환경에서 통과했는지가 로그에 남아야 실패를 재현할 수 있다.
+      # 이미지에 Xcode가 여러 개 깔려 있고 기본값이 최신이 아닐 수 있다.
+      # 가장 높은 버전을 명시적으로 고른다 — 무엇으로 골랐는지 로그에 남는다.
+      - name: Xcode 고르기
+        run: |
+          echo "--- 설치된 Xcode ---"
+          ls -d /Applications/Xcode*.app
+          NEWEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "고른 것: $NEWEST"
+          sudo xcode-select -s "$NEWEST/Contents/Developer"
+
       - name: 환경 확인
         run: |
           xcodebuild -version
