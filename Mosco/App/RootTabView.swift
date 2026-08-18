@@ -300,6 +300,9 @@ struct RootTabView: View {
             )
             // 위젯은 익스텐션이라 직접 못 보낸다 — App Group에 쌓아둔 걸 여기서 비운다.
             Analytics.flushPendingFromExtensions()
+            // 지난 실행에서 안내를 도중에 떠났다면 지금 보고한다. 이탈은 그
+            // 순간에 못 잡는다 — 앱이 죽을 때는 이벤트를 보낼 시간이 없다.
+            tutorial.reportAbandonmentIfNeeded()
             // 처음 온 사람에게만, 그것도 **물어보고** 시작한다. 이미 할 일을 들고
             // 있는 사람(기기를 바꿔 iCloud에서 내려받은 경우)에게 "처음 오셨네요"는
             // 틀린 인사라 아예 띄우지 않는다.
