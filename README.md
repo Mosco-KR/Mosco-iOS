@@ -56,10 +56,9 @@ Mosco/Shared/           앱과 위젯이 같이 쓰는 것
 Mosco/MoscoTests/       유닛 테스트 (Swift Testing)
 ```
 
-`MLTraining/`과 `MoscoML.mlproj/`는 **버린 접근의 잔재**다 — Create ML 우선순위
-분류기를 만들다 온디바이스 임베딩(`NLEmbedding` + 코사인 유사도)으로 갈아탔다.
-지금 코드는 이 둘을 참조하지 않는다. 왜 갈아탔는지는 [docs/BACKLOG.md](docs/BACKLOG.md)
-'버림' 절에 있다.
+카테고리 자동 분류는 온디바이스 임베딩(`NLEmbedding` + 코사인 유사도)으로 돈다.
+처음엔 Create ML로 학습시킨 분류기였는데 2026-07-30에 갈아탔다 — 어떻게 돌고
+왜 갈아탔는지는 [docs/CATEGORIZATION.md](docs/CATEGORIZATION.md)에 있다.
 
 ## 문서
 

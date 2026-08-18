@@ -9,9 +9,6 @@ nonisolated enum PermissionState: Equatable {
     case granted
     /// 거부됐다 — 앱에서는 되돌릴 수 없고 시스템 설정으로 보내야 한다.
     case denied
-
-    /// 권한이 필요 없는 기능(또는 확인할 방법이 없는 경우)은 항상 허용으로 친다.
-    static let notRequired = PermissionState.granted
 }
 
 /// 토글을 켜려 할 때 무엇을 해야 하는가.
