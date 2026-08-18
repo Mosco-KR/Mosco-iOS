@@ -89,6 +89,8 @@ enum AnalyticsEvent {
     case tutorialStep(step: String, outcome: String)
     /// 튜토리얼이 끝난 자리와 방식(`finished` / `skipped`).
     /// 어디서 빠져나가는지가 이 안내를 고칠 유일한 근거다.
+    /// reason은 `TutorialOutcome` — finished / skipped / **abandoned**.
+    /// 건너뛰기("필요 없다")와 이탈("막혔다")은 다른 신호라 따로 센다.
     case tutorialEnded(step: String, reason: String)
 
     // MARK: - 건강 상태
@@ -100,6 +102,9 @@ enum AnalyticsEvent {
     /// iCloud 저장소를 못 열어 로컬 전용으로 물러났다. 드물지만 사용자가
     /// 데이터를 잃는 경로라, 조용히 넘어가면 안 된다.
     case storeLocalFallback
+    /// 익명 식별자가 어디서 왔는가 — 새로 만들었는지, iCloud에서 되찾았는지.
+    /// 재설치를 건너온 비율이 이 값으로 보인다.
+    case analyticsIdentity(origin: String)
     /// 앱스토어 리뷰창을 띄워달라고 시스템에 요청했다. **실제로 떴는지는 알 수
     /// 없다** — 이건 "부탁할 조건이 얼마나 자주 차는가"를 재는 값이고, 조건을
     /// 다시 조일지 풀지 정하는 데 쓴다.
@@ -125,6 +130,7 @@ enum AnalyticsEvent {
         case .tutorialEnded: "tutorial_ended"
         case .dataScale: "data_scale"
         case .storeLocalFallback: "store_local_fallback"
+        case .analyticsIdentity: "analytics_identity"
         case .reviewPromptRequested: "review_prompt_requested"
         }
     }
@@ -169,6 +175,8 @@ enum AnalyticsEvent {
             ["step": step, "outcome": outcome]
         case let .tutorialEnded(step, reason):
             ["step": step, "reason": reason]
+        case let .analyticsIdentity(origin):
+            ["origin": origin]
         case let .dataScale(todoCount, categoryCount, calendarCount):
             [
                 // 정확한 개수는 필요 없고 규모만 알면 된다.
@@ -201,6 +209,13 @@ enum AnalyticsEvent {
 /// 모른다 — 도구를 붙이거나 바꿀 때 호출부를 하나도 안 건드리려는 것이다.
 protocol AnalyticsSink: Sendable {
     func send(name: String, parameters: [String: String])
+    /// 같은 사람의 이벤트를 하나로 묶기 위한 익명 식별자.
+    /// 기본 구현이 아무것도 안 하므로, 지원하지 않는 sink는 그냥 무시한다.
+    func setUserID(_ id: String)
+}
+
+extension AnalyticsSink {
+    func setUserID(_ id: String) {}
 }
 
 /// 개발 중 확인용. 콘솔에만 남기고 아무 데도 보내지 않는다.
@@ -230,6 +245,27 @@ enum Analytics {
 
     static func register(_ sink: any AnalyticsSink) {
         sinks.append(sink)
+        // 늦게 붙은 sink(Firebase는 앱 시작 뒤에 붙는다)도 식별자를 알아야 한다.
+        if let userID { sink.setUserID(userID) }
+    }
+
+    private static var userID: String?
+
+    /// 앱 시작 때 한 번. 같은 사람을 같은 사람으로 세기 위한 익명 식별자를 정하고
+    /// 모든 sink에 알린다 — 이게 없으면 앱을 지웠다 깔 때마다 새 사람이 된다.
+    ///
+    /// 값을 정하는 규칙은 `AnalyticsIdentity`에 있고 테스트로 덮여 있다.
+    /// 여기서는 실제 저장소를 붙이는 일만 한다.
+    static func identify() {
+        let (id, origin) = AnalyticsIdentity.resolve(
+            cloud: CloudIdentityStore(),
+            local: UserDefaults.standard
+        )
+        userID = id
+        for sink in sinks { sink.setUserID(id) }
+        // 어디서 온 값인지 한 번 남긴다 — "재설치했는데 다른 사람으로 잡힌다"를
+        // 나중에 추적하려면 이 분포가 필요하다.
+        log(.analyticsIdentity(origin: String(describing: origin)))
     }
 
     static func log(_ event: AnalyticsEvent) {

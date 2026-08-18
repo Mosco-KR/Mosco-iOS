@@ -106,10 +106,12 @@
       `DEVELOPMENT_TEAM = W5QTRMS954`로 박혀 있다. 둘 다 Secrets 처리가 필요하다
 
 ### 튜토리얼 데이터
-- [ ] **이탈이 안 잡힌다** — `tutorialEnded`의 reason은 `skipped`/`finished` 둘뿐이다.
-      앱을 죽이거나 백그라운드로 두고 안 돌아오면 아무 기록도 안 남는다
-- [ ] 완료·스킵은 이미 기록된다 (`TutorialCoordinator.swift:135,143`)
-- [ ] **사용자 식별이 아예 없다** — `setUserID` 호출 0건. 재설치하면 다른 사람이 된다
+- [x] **이탈 감지** — `TutorialFunnel`. 단계를 자국으로 남겨두고 다음 실행에서
+      읽는다. 이탈은 그 순간에 못 잡는다(앱이 죽을 때는 이벤트를 보낼 시간이 없다).
+      `reason: abandoned`로 건너뛰기와 구분해서 센다 (2026-08-19)
+- [x] 완료·스킵은 이미 기록되고 있었다. 문자열을 `TutorialOutcome`으로 묶었다
+- [x] **사용자 식별** — `AnalyticsIdentity`. iCloud 키–값 저장소에 UUID를 두어
+      재설치·기기 교체를 건너온다. `PRIVACY.md`에 수집 항목으로 적었다 (2026-08-19)
 
 ### 시간표 뷰 모드
 - [ ] 캘린더 하루치 화면과 오늘 할 일 탭에 시간표 보기 추가

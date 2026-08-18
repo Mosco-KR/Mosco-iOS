@@ -47,4 +47,10 @@ struct FirebaseAnalyticsSink: AnalyticsSink {
         // `Analytics`(Shared)와 겹치고, 안 붙이면 우리 쪽으로 붙어 무한 재귀가 된다.
         FirebaseAnalytics.Analytics.logEvent(name, parameters: parameters)
     }
+
+    /// 같은 사람의 이벤트를 하나로 묶는다. **이름도 이메일도 아니고** 앱이 만든
+    /// UUID 하나다 — 이 값만으로는 누구인지 알 수 없다.
+    func setUserID(_ id: String) {
+        FirebaseAnalytics.Analytics.setUserID(id)
+    }
 }

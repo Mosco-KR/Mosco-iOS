@@ -17,6 +17,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if FirebaseAnalyticsSink.shouldSend, let firebase = FirebaseAnalyticsSink.configure() {
             Analytics.register(firebase)
         }
+        // **sink를 붙인 뒤에 부른다.** 같은 사람을 같은 사람으로 세기 위한 익명
+        // 식별자를 정한다 — 이게 없으면 앱을 지웠다 깔 때마다 새 사람이 되고,
+        // 재방문·리텐션이 전부 실제보다 낮게 잡힌다.
+        MainActor.assumeIsolated { Analytics.identify() }
         return true
     }
 

@@ -20,13 +20,6 @@
 			remoteGlobalIDString = AA0000011000000000000001;
 			remoteInfo = MoscoWidget;
 		};
-		BB000001F000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08208EA6301A72B900C965BF /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 08208EC9301A72D600C965BF;
-			remoteInfo = App;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -323,11 +316,6 @@
 			isa = PBXTargetDependency;
 			target = AA0000011000000000000001 /* MoscoWidget */;
 			targetProxy = AA000001D000000000000001 /* PBXContainerItemProxy */;
-		};
-		BB0000019000000000000001 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 08208EC9301A72D600C965BF /* App */;
-			targetProxy = BB000001F000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 

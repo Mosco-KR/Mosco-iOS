@@ -106,6 +106,22 @@ final class TutorialCoordinator {
         return true
     }
 
+    /// 지난 실행에서 안내를 도중에 떠났다면 그 사실을 한 번 보고한다.
+    ///
+    /// 앱을 켤 때 부른다. 건너뛰기와 이탈은 다른 신호다 — 건너뛰기는 "필요 없다"고
+    /// **누른** 것이고, 이탈은 아무것도 안 누르고 사라진 것이라 "막혔거나 지루했다"에
+    /// 가깝다. 섞어서 세면 어느 단계를 고쳐야 할지 알 수 없다.
+    func reportAbandonmentIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard let step = TutorialFunnel.pendingAbandonment(
+            in: defaults, isRunningNow: isRunning
+        ) else { return }
+        Analytics.log(.tutorialEnded(step: step, reason: TutorialOutcome.abandoned.rawValue))
+        // 보고했으면 지운다 — 안 그러면 앱을 켤 때마다 같은 이탈이 다시 잡혀
+        // 수치가 부풀어 오른다.
+        TutorialFunnel.clear(in: defaults)
+    }
+
     /// 설정에서 직접 불렀을 때. 이미 하겠다고 고른 셈이라 시작 카드는 건너뛴다.
     func startFromSettings() {
         present(.typeTitle, source: "settings")
@@ -132,7 +148,7 @@ final class TutorialCoordinator {
     /// 하나 더 만드는 것이지 마음을 돌리는 것이 아니다.
     func skip() {
         defaults.set(true, forKey: Key.answered)
-        Analytics.log(.tutorialEnded(step: String(describing: step ?? .welcome), reason: "skipped"))
+        Analytics.log(.tutorialEnded(step: String(describing: step ?? .welcome), reason: TutorialOutcome.skipped.rawValue))
         close()
     }
 
@@ -140,11 +156,13 @@ final class TutorialCoordinator {
     func finish() {
         defaults.set(true, forKey: Key.answered)
         defaults.set(true, forKey: Key.completed)
-        Analytics.log(.tutorialEnded(step: String(describing: step ?? .finish), reason: "finished"))
+        Analytics.log(.tutorialEnded(step: String(describing: step ?? .finish), reason: TutorialOutcome.finished.rawValue))
         close()
     }
 
     private func close() {
+        // 정상 종료 — 자국을 지운다. 안 지우면 다음 실행에서 이탈로 잡힌다.
+        TutorialFunnel.clear(in: UserDefaults.standard)
         stuckTask?.cancel()
         pendingTask?.cancel()
         step = nil
@@ -159,6 +177,10 @@ final class TutorialCoordinator {
 
     private func move(to next: TutorialStep) {
         guard step != next else { return }
+        // **어느 단계에 있었는지 적어둔다.** 이탈은 그 순간에 못 잡는다 — 앱이
+        // 죽을 때는 이벤트를 보낼 시간이 없다. 자국을 남겨두고 다음 실행에서
+        // 읽는다(`TutorialFunnel`).
+        TutorialFunnel.mark(step: String(describing: next), in: UserDefaults.standard)
         // **앞으로 갈 때만 "해냈다"로 센다.** 되돌아가는 이동(적었던 시간을 지웠거나,
         // 하루 페이지에서 뒤로 나갔거나)까지 세면 완료율이 실제보다 부풀어서,
         // 어느 단계에서 막히는지를 보려던 지표가 그 답을 못 하게 된다.
