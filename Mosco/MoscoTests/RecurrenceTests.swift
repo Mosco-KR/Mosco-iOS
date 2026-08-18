@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-@testable import App
 
 /// 반복 일정 전개 — R7 표의 두 번째 줄.
 /// "3일짜리가 생성일에만 보임", "하루 완료가 전체 완료로" 두 증상이 반복해서 나왔다.

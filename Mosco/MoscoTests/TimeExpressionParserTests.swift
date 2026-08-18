@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-@testable import App
 
 /// 자연어 시각 파싱 — R7 표의 네 번째 줄.
 /// "`4시~7시`의 종료 시각 · 오전/오후 해석"이 반복해서 깨진 자리다.

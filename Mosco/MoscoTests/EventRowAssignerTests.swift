@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-@testable import App
 
 /// 블록 배치 — R7 표의 세 번째 줄.
 /// "날짜 아래부터 안 쌓임 · 빈 줄 · 옆으로 밀림"이 반복해서 나온 곳이다.
