@@ -54,7 +54,7 @@ Mosco/Shared/           앱과 위젯이 같이 쓰는 것
 
 | 문서 | 무엇이 있나 |
 |---|---|
-| [CLAUDE.md](CLAUDE.md) | AI 작업 규칙 일곱 개 (R1~R7). 규칙마다 담당 지표가 있다 |
+| [CLAUDE.md](CLAUDE.md) | AI 작업 규칙 열 개 (R1~R10). 규칙마다 담당 지표가 있다 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 커밋·브랜치·PR·문서 갱신 규칙 |
 | [RELEASING.md](RELEASING.md) | 버전 규칙, 태그, 릴리스 노트 쓰는 법 |
 | [docs/TRAPS.md](docs/TRAPS.md) | 한 번씩 크게 시간을 쓴 플랫폼 함정 |
@@ -66,7 +66,8 @@ Mosco/Shared/           앱과 위젯이 같이 쓰는 것
 ### AI 사용 보고서
 
 이 앱은 대부분 AI와 함께 만들었다. 그 과정을 버전마다 측정해서, 어떤 작업 규칙이
-실제로 재작업을 줄였는지 채점하고 있다.
+실제로 재작업을 줄였는지 채점하고 있다. **최종 목표는 같은 결론에 토큰을 덜 쓰고
+도달하는 것**이고, 모든 판정은 프롬프트당 토큰(M12)으로 마무리한다.
 
-- [v1.1.0 보고서](docs/harness/reports/v1.1.0.md) — 베이스라인
+- [v1.1.0 보고서](docs/harness/reports/v1.1.0.md) — 첫 보고서. 베이스라인과 규칙 R1~R10
 - [지표 원장](docs/harness/metrics.tsv) · [규칙 원장](docs/harness/rules.md)

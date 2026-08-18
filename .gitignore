@@ -63,3 +63,4 @@ fastlane/test_output
 
 # Xcode가 -target 빌드에서 프로젝트 폴더 안에 만드는 산출물
 build/
+__pycache__/
