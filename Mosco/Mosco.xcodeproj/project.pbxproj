@@ -20,6 +20,13 @@
 			remoteGlobalIDString = AA0000011000000000000001;
 			remoteInfo = MoscoWidget;
 		};
+		BB000001F000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08208EA6301A72B900C965BF /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 08208EC9301A72D600C965BF;
+			remoteInfo = App;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -39,6 +46,7 @@
 /* Begin PBXFileReference section */
 		08208ECA301A72D600C965BF /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000012000000000000001 /* MoscoWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MoscoWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BB0000012000000000000001 /* MoscoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MoscoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -80,6 +88,11 @@
 			path = MoscoWidget;
 			sourceTree = "<group>";
 		};
+		BB0000015000000000000001 /* MoscoTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MoscoTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,6 +112,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BB0000017000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -108,6 +128,7 @@
 				08208ECB301A72D600C965BF /* App */,
 				AA0000015000000000000001 /* Shared */,
 				AA0000016000000000000001 /* MoscoWidget */,
+				BB0000015000000000000001 /* MoscoTests */,
 				086CD2AA30230595004FBD1C /* Frameworks */,
 				08208EAF301A72B900C965BF /* Products */,
 			);
@@ -118,6 +139,7 @@
 			children = (
 				08208ECA301A72D600C965BF /* App.app */,
 				AA0000012000000000000001 /* MoscoWidget.appex */,
+				BB0000012000000000000001 /* MoscoTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -182,6 +204,29 @@
 			productReference = AA0000012000000000000001 /* MoscoWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		BB0000011000000000000001 /* MoscoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BB000001A000000000000001 /* Build configuration list for PBXNativeTarget "MoscoTests" */;
+			buildPhases = (
+				BB000001B000000000000001 /* Sources */,
+				BB0000017000000000000001 /* Frameworks */,
+				BB000001C000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BB0000019000000000000001 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				BB0000015000000000000001 /* MoscoTests */,
+			);
+			name = MoscoTests;
+			packageProductDependencies = (
+			);
+			productName = MoscoTests;
+			productReference = BB0000012000000000000001 /* MoscoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -194,6 +239,10 @@
 				TargetAttributes = {
 					08208EC9301A72D600C965BF = {
 						CreatedOnToolsVersion = 26.1.1;
+					};
+					BB0000011000000000000001 = {
+						CreatedOnToolsVersion = 26.1.1;
+						TestTargetID = 08208EC9301A72D600C965BF;
 					};
 				};
 			};
@@ -217,6 +266,7 @@
 			targets = (
 				08208EC9301A72D600C965BF /* App */,
 				AA0000011000000000000001 /* MoscoWidget */,
+				BB0000011000000000000001 /* MoscoTests */,
 			);
 		};
 /* End PBXProject section */
@@ -230,6 +280,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AA000001C000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB000001C000000000000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -253,6 +310,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BB000001B000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -260,6 +324,11 @@
 			isa = PBXTargetDependency;
 			target = AA0000011000000000000001 /* MoscoWidget */;
 			targetProxy = AA000001D000000000000001 /* PBXContainerItemProxy */;
+		};
+		BB0000019000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 08208EC9301A72D600C965BF /* App */;
+			targetProxy = BB000001F000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -521,6 +590,48 @@
 			};
 			name = Release;
 		};
+		BB000001D000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = W5QTRMS954;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Mosco.MoscoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/App";
+			};
+			name = Debug;
+		};
+		BB000001E000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = W5QTRMS954;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Mosco.MoscoTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/App";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -547,6 +658,15 @@
 			buildConfigurations = (
 				AA000001E000000000000001 /* Debug */,
 				AA000001F000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BB000001A000000000000001 /* Build configuration list for PBXNativeTarget "MoscoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BB000001D000000000000001 /* Debug */,
+				BB000001E000000000000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

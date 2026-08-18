@@ -28,6 +28,39 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
     let isCompleted: Bool
     let createdAt: Date
 
+    /// 값으로 직접 만든다. `@MainActor init?`을 선언한 순간 컴파일러가 만들어주던
+    /// 멤버와이즈 초기화자가 사라져서, 테스트에서 스냅샷 하나를 못 만들었다.
+    /// SwiftData 없이 반복 전개를 검증하려면 이 입구가 필요하다.
+    init(
+        id: UUID = UUID(),
+        title: String,
+        start: Date,
+        end: Date,
+        categoryColorHex: String? = nil,
+        calendarColorHex: String? = nil,
+        repeatRule: RepeatRule = .none,
+        repeatEndDate: Date? = nil,
+        repeatWeekdays: [Int] = [],
+        repeatInterval: Int? = nil,
+        completedDayKeys: [String] = [],
+        isCompleted: Bool = false,
+        createdAt: Date = .now
+    ) {
+        self.id = id
+        self.title = title
+        self.start = start
+        self.end = end
+        self.categoryColorHex = categoryColorHex
+        self.calendarColorHex = calendarColorHex
+        self.repeatRule = repeatRule
+        self.repeatEndDate = repeatEndDate
+        self.repeatWeekdays = repeatWeekdays
+        self.repeatInterval = repeatInterval
+        self.completedDayKeys = completedDayKeys
+        self.isCompleted = isCompleted
+        self.createdAt = createdAt
+    }
+
     /// 날짜 없는(백로그) 항목은 캘린더에 아예 나오지 않으므로 nil을 낸다.
     @MainActor
     init?(_ todo: TodoItem, calendar: Calendar = .current) {

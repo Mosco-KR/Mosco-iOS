@@ -29,8 +29,13 @@ xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
 Firebase Analytics를 쓰므로 `GoogleService-Info.plist`가 필요하다(저장소에 없다).
 시뮬레이터는 이름으로 지정한다 — UDID는 지워졌다 다시 생기면서 바뀐다.
 
-**테스트 타깃과 CI가 아직 없다.** 검증 사다리는 빌드 → 테스트 → 사람 → 심사인데
-가운데 칸이 비어 있고, 그것을 채우는 것이 v1.2.0의 첫 작업이다.
+검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 26건)가
+가운데 칸을 채우고 있고, CI는 아직 없다.**
+
+```bash
+xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+```
 
 AI는 시뮬레이터를 직접 쓰지 않는다 — 로직은 테스트로 덮고, 화면 판정은 검증 카드로
 사람에게 넘긴다. 예외는 PR에 넣을 화면을 찍을 때 하나뿐이다. 왜 그렇게 정했는지는
@@ -43,6 +48,7 @@ Mosco/App/Features/     Calendar · TodayTodo · Settings
 Mosco/App/Common/       DesignSystem · Tutorial · ML · Weather · Sync · Notifications
 Mosco/MoscoWidget/      위젯 · 라이브 액티비티
 Mosco/Shared/           앱과 위젯이 같이 쓰는 것
+Mosco/MoscoTests/       유닛 테스트 (Swift Testing)
 ```
 
 `MLTraining/`과 `MoscoML.mlproj/`는 **버린 접근의 잔재**다 — Create ML 우선순위
