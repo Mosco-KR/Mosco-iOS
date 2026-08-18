@@ -13,6 +13,7 @@ Mosco/App/Common/
   Tutorial/ ML/ Weather/ Sync/ Notifications/ Analytics/ Review/ Clipboard/
 Mosco/MoscoWidget/           위젯 + 라이브 액티비티
 Mosco/Shared/                앱·위젯 공용 (Analytics, CategoryColorPalette, LiveActivity)
+Mosco/MoscoTests/            유닛 테스트 (Swift Testing). 폴더째 동기화된다
 
 CONTRIBUTING.md              커밋·브랜치·문서 갱신 규칙
 RELEASING.md                 버전·태그·릴리스 노트
@@ -23,8 +24,8 @@ tools/harness_report.py      버전별 지표 추출
 ```
 
 배포 타깃 iOS 17.0. 번들 ID `com.Mosco.App`. Swift 79파일 ≈ 11,000줄.
-**테스트 타깃 없음. CI 없음.** 그래서 아래 규칙이 안전망 전부다.
-테스트 타깃을 만드는 것이 v1.2.0의 첫 작업이다 (R7).
+**테스트 타깃 `MoscoTests`가 있다** (Swift Testing, 26건). **CI는 아직 없다** —
+테스트를 돌리는 것은 사람이 아니라 AI이고, 그게 R1이다.
 
 > **시뮬레이터는 AI가 직접 쓰지 않는다.** 열지도, 탭하지도, 캡처하지도 않는다.
 > 예외는 PR에 넣을 화면을 찍을 때 하나뿐이다. 화면 확인이 필요하면 사용자에게
@@ -36,6 +37,17 @@ tools/harness_report.py      버전별 지표 추출
 xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
+
+## 테스트
+
+```bash
+xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
+```
+
+`MoscoTests`는 App 스킴에 물려 있어서 스킴 하나로 빌드와 테스트가 같이 돈다.
+파일을 추가할 때 Xcode 프로젝트에 등록하지 않아도 된다 — `MoscoTests/` 폴더가
+통째로 동기화된다.
 
 UDID를 박아 쓰지 않는다 — 시뮬레이터는 지워지고 다시 생긴다. 이름으로 지정한다.
 
@@ -59,10 +71,15 @@ v1.1.0이 1.8배가 된 이유가 이 체계의 핵심 사례다. 스크린샷�
 아니라 **그 뒤 모든 턴이 부푼 컨텍스트를 다시 읽는다.** 그래서 비용은 행동 하나가
 아니라 그 행동이 남긴 컨텍스트에 붙는다 — 무엇을 컨텍스트에 들이는지가 규칙의 대상이다.
 
-### R1 · 빌드가 통과하기 전에는 보고하지 않는다
+### R1 · 빌드와 테스트가 통과하기 전에는 보고하지 않는다
 담당 지표 M3 빌드 실패율
 
 편집 후 빌드는 가장 싼 검증이다. 컴파일 에러를 사용자가 발견하는 일이 없어야 한다.
+
+**테스트 타깃이 생겼으므로 이 규칙은 테스트까지 포함한다** (2026-08-18, R7의 예고대로).
+로직을 만졌으면 `test`까지 돌리고 그 결과를 적는다. 빌드만 통과한 상태로 "됐습니다"를
+쓰지 않는다. 테스트가 깨졌으면 **깨진 채로 보고하지 말고 고치거나, 못 고치면 무엇이
+왜 깨졌는지 적는다.**
 
 ### R2 · 시뮬레이터를 직접 쓰지 않는다. 검증은 테스트 코드로 남긴다
 담당 지표 M11 시뮬레이터 호출 수, M10 회귀 테스트 수
@@ -183,14 +200,25 @@ R2로 시뮬레이터를 닫았으므로 **테스트가 AI가 쓸 수 있는 유
 | 자연어 시각 파싱 | `4시~7시`의 종료 시각 · 오전/오후 해석 |
 | 카테고리 분류 | 임계값 `0.35`에 근거 데이터가 없다 |
 
+**지금까지 덮은 것** (2026-08-18, 26건):
+
+| 스위트 | 무엇을 잡나 |
+|---|---|
+| `MonthLayoutTests` | 월말/월초 날짜 중복, 격자 연속성, 일요일 시작, 윤년 |
+| `RecurrenceTests` | 걸친 날 전개, 하루 완료가 번지지 않음, 며칠마다 간격, id 충돌 |
+| `EventRowAssignerTests` | 0행부터 쌓임, 빈 줄 없음, 입력 순서 무관 |
+
+아직 안 덮인 것 — **시각 파싱**(`QuickAddView`의 `private static`이라 테스트가 못
+닿는다. 꺼내야 한다)과 **카테고리 분류**(기준선 데이터가 없다. `docs/TRAPS.md`).
+
 **UI 테스트도 만든다.** v1.1.0에서는 "잘 깨지니 나중에"로 미뤘는데, 그 미룬 자리를
 AI가 시뮬레이터를 직접 조작해서 메우고 있었다. 그쪽이 더 비쌌다. 순수 로직을 먼저
 덮되, 화면 흐름(첫 실행·튜토리얼·할 일 만들기·삭제 확인)은 UI 테스트로 남긴다.
 UI 테스트가 불안정하면 **불안정하다고 적고 고친다** — 그게 사람이 매번 손으로 밟는
 것보다 싸다.
 
-테스트 타깃이 생기면 **R1이 "빌드와 테스트가 통과하기 전에는 보고하지 않는다"로
-확장된다.**
+테스트 타깃이 생겼으므로 **R1은 이미 "빌드와 테스트가 통과하기 전에는 보고하지
+않는다"로 확장돼 있다.**
 
 ### R8 · 작업 크기를 먼저 말하고, 위임할 때는 모델을 고른다
 담당 지표 M13 상위 모델 비중

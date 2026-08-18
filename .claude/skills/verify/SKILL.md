@@ -31,8 +31,11 @@ description: 앱 전체를 훑어 회귀를 찾는 체크리스트. 심사 제�
 
 ```bash
 xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 ```
+
+`test`가 빌드까지 한다. 실패하면 그 자리에서 고치고, 못 고치면 무엇이 왜 깨졌는지
+카드에 적는다 (R1).
 
 위젯을 만졌으면 `-scheme MoscoWidget`으로도 빌드한다. 앱만 빌드하고 넘어가서
 익스텐션이 깨진 채 나간 적이 있다.
@@ -46,11 +49,12 @@ xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
 
 ## 2. 캘린더
 
-- [ ] 같은 날짜가 두 번 나오지 않는다 (월말/월초 경계)
-- [ ] 앞뒤 달의 넘친 날짜에도 할 일 블록이 보인다
+> **테스트로 옮겨간 것** (`MoscoTests`, 2026-08-18) — 사람이 밟지 않는다.
+> 같은 날짜 중복 · 격자 연속성 · 블록이 0행부터 쌓임 · 빈 줄 없음 ·
+> 여러 날 걸친 할 일 전개 · 하루 완료가 번지지 않음.
+> **이 항목들이 의심되면 손으로 밟지 말고 `test`를 돌린다.**
+
 - [ ] 날짜 칸을 꾹 누르면 **칸 전체**에 눌림 표시가 잡힌다
-- [ ] 블록이 날짜 바로 아래부터 쌓이고 빈 줄이 없다
-- [ ] 여러 날에 걸친 할 일이 걸친 날짜 전부에 보인다
 - [ ] 블록이 많은 날에 캘린더가 길어지고 스크롤된다
 - [ ] 블록을 탭하면 그 날짜 하루치로 들어간다
 - [ ] 공휴일·주말 색이 맞다
@@ -63,7 +67,7 @@ xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
 - [ ] `4시~7시`에서 종료 시각까지 잡힌다
 - [ ] 카테고리가 자동으로 붙고, 판별 중에는 태그 버튼이 안 눌린다
 - [ ] 날짜·시각 없이도 만들어진다 (둘 다 옵셔널)
-- [ ] 반복 일정: 종료 날짜 없이 만들어지고, 하루만 완료해도 다른 날은 미완료
+- [ ] 반복 일정: 종료 날짜 없이 만들어진다 (하루 완료가 번지지 않는 것은 테스트가 덮는다)
 
 ## 4. 목록과 셀
 
