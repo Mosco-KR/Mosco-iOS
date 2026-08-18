@@ -79,9 +79,9 @@
 - [x] 반복 일정 전개 — 3일짜리가 걸친 날짜 전부에 나온다 · `RecurrenceTests`
 - [x] 반복 일정 완료 — 하루 완료가 다른 날 완료로 번지지 않는다 · `RecurrenceTests`
 - [x] 블록 배치 — 날짜 바로 아래부터 쌓이고 빈 줄이 없다 · `EventRowAssignerTests` 9건
-- [ ] **시각 파싱 — 먼저 꺼내야 한다.** `timeTokens`·`parseMinute`가 `QuickAddView`의
-      `private static`이라 테스트가 못 닿는다. 별도 타입으로 분리한 뒤 `4시~7시`
-      종료 시각과 오전/오후 해석을 덮는다
+- [x] **시각 파싱** — `TimeExpressionParser`로 꺼내고 `TimeExpressionParserTests`
+      21건으로 덮었다. `4시~7시` 종료 시각, 오전/오후 해석, 오전/오후 12시 경계,
+      `오후 7시`가 `N시` 패턴에 중복으로 안 잡히는 것까지 (2026-08-18)
 - [ ] 분류 기준선 — 입력·기대 카테고리 쌍 30개로 임계값 `0.35` 검증 (`docs/TRAPS.md`)
 - [x] `CLAUDE.md` R1을 "빌드와 **테스트**가 통과하기 전에는 보고하지 않는다"로
       확장 (2026-08-18)

@@ -427,123 +427,10 @@ struct QuickAddView: View {
 
     // MARK: - 입력 텍스트에서 시간 인식
 
-    /// 제목 안에서 찾아낸 시간 표현 하나("토큰"). hour24가 있으면 오전/오후가
-    /// 확정된 것이고, hour12만 있으면 모호해서 물어봐야 한다.
-    private struct TimeToken {
-        let range: Range<String.Index>
-        let hour24: Int?
-        let hour12: Int?
-        let minute: Int
-    }
-
-    /// 제목 하나에 담긴 시간 표현을 전부 찾는다 — 두 개가 "~"나 "-"로 이어지면
-    /// 시작~종료 범위(예: "4시~7시")로, 하나뿐이면 단일 시간으로 다룬다.
-    struct TimeSuggestion: Equatable {
-        let matched: String
-        let startHour24: Int?
-        let startHour12: Int?
-        let startMinute: Int
-        /// 범위로 인식됐을 때만 채워진다.
-        let endHour24: Int?
-        let endHour12: Int?
-        let endMinute: Int?
-    }
-
-    /// 지원 표현: "오후 7시", "오전 7시 30분", "7시", "7시 반", "19:30", "7:30",
-    /// "7pm", "7 PM", 그리고 이들의 범위("4시~7시", "4:00-19:00", "2pm~5pm") 등.
+    /// 파싱 자체는 `TimeExpressionParser`에 있다. 화면 없이 부를 수 있어야
+    /// 테스트가 닿는다 — 여기 남은 것은 "지금 입력창에 든 제목"을 넘기는 일뿐이다.
     private var timeSuggestion: TimeSuggestion? {
-        let tokens = Self.timeTokens(in: title)
-        guard let first = tokens.first else { return nil }
-
-        if tokens.count >= 2 {
-            let second = tokens[1]
-            let between = title[first.range.upperBound..<second.range.lowerBound]
-                .trimmingCharacters(in: .whitespaces)
-            if between.isEmpty || between == "~" || between == "-" {
-                return TimeSuggestion(
-                    matched: String(title[first.range.lowerBound..<second.range.upperBound]),
-                    startHour24: first.hour24, startHour12: first.hour12, startMinute: first.minute,
-                    endHour24: second.hour24, endHour12: second.hour12, endMinute: second.minute
-                )
-            }
-        }
-
-        return TimeSuggestion(
-            matched: String(title[first.range]),
-            startHour24: first.hour24, startHour12: first.hour12, startMinute: first.minute,
-            endHour24: nil, endHour12: nil, endMinute: nil
-        )
-    }
-
-    /// 제목 안의 모든 시간 표현을 위치 순서대로 찾는다. 같은 자리를 여러 패턴이
-    /// 동시에 매칭하면(예: "오후 7시"가 "N시" 패턴에도 걸림) 더 구체적인(긴) 쪽만 남긴다.
-    private static func timeTokens(in text: String) -> [TimeToken] {
-        var found: [TimeToken] = []
-
-        for match in text.matches(of: /(오전|오후)\s*(\d{1,2})\s*시(?:\s*(반|\d{1,2}\s*분))?/) {
-            guard let hour = Int(match.2), (1...12).contains(hour) else { continue }
-            let isPM = match.1 == "오후"
-            found.append(TimeToken(
-                range: match.range,
-                hour24: isPM ? (hour == 12 ? 12 : hour + 12) : (hour == 12 ? 0 : hour),
-                hour12: nil,
-                minute: parseMinute(match.3.map(String.init))
-            ))
-        }
-        for match in text.matches(of: /(\d{1,2})\s*(am|pm|AM|PM)/) {
-            guard let hour = Int(match.1), (1...12).contains(hour) else { continue }
-            let isPM = match.2.lowercased() == "pm"
-            found.append(TimeToken(
-                range: match.range,
-                hour24: isPM ? (hour == 12 ? 12 : hour + 12) : (hour == 12 ? 0 : hour),
-                hour12: nil,
-                minute: 0
-            ))
-        }
-        for match in text.matches(of: /(\d{1,2}):(\d{2})/) {
-            guard let hour = Int(match.1), let minute = Int(match.2), hour <= 23, minute <= 59 else { continue }
-            if hour >= 13 || hour == 0 {
-                found.append(TimeToken(range: match.range, hour24: hour, hour12: nil, minute: minute))
-            } else {
-                found.append(TimeToken(range: match.range, hour24: nil, hour12: hour, minute: minute))
-            }
-        }
-        for match in text.matches(of: /(\d{1,2})\s*시(?:\s*(반|\d{1,2}\s*분))?/) {
-            guard let hour = Int(match.1), (1...12).contains(hour) else { continue }
-            found.append(TimeToken(range: match.range, hour24: nil, hour12: hour, minute: parseMinute(match.2.map(String.init))))
-        }
-
-        // 시작 위치 오름차순, 같은 시작이면 더 긴(구체적인) 것 먼저 오도록 정렬한 뒤,
-        // 이미 고른 토큰과 겹치는 뒷것들은 버린다.
-        found.sort {
-            $0.range.lowerBound != $1.range.lowerBound
-                ? $0.range.lowerBound < $1.range.lowerBound
-                : $0.range.upperBound > $1.range.upperBound
-        }
-        var deduped: [TimeToken] = []
-        for token in found {
-            if let last = deduped.last, last.range.overlaps(token.range) { continue }
-            deduped.append(token)
-        }
-        return deduped
-    }
-
-    private static func parseMinute(_ text: String?) -> Int {
-        guard let text else { return 0 }
-        if text == "반" { return 30 }
-        return Int(text.filter(\.isNumber)) ?? 0
-    }
-
-    private func koreanTimeLabel(hour24: Int, minute: Int) -> String {
-        let period = hour24 >= 12 ? "오후" : "오전"
-        var hour12 = hour24 % 12
-        if hour12 == 0 { hour12 = 12 }
-        return minute == 0 ? "\(period) \(hour12)시" : "\(period) \(hour12)시 \(minute)분"
-    }
-
-    /// hour12를 주어진 오전/오후로 확정한 24시간제 값.
-    private func resolvedHour24(hour12: Int, isPM: Bool) -> Int {
-        isPM ? (hour12 == 12 ? 12 : hour12 + 12) : (hour12 == 12 ? 0 : hour12)
+        TimeExpressionParser.suggestion(in: title)
     }
 
     /// 입력창(TagChip/dateButton)과 같은 언어로 — 캡슐 안에 톤온톤 칩이 나열되는
@@ -586,8 +473,8 @@ struct QuickAddView: View {
     /// 모호하면 두 후보(같은 기준으로 시작·종료 모두에 적용)를 보여준다.
     private func suggestionOptions(_ suggestion: TimeSuggestion) -> [SuggestionOption] {
         func label(start: Int, end: Int?) -> String {
-            guard let end else { return koreanTimeLabel(hour24: start, minute: suggestion.startMinute) }
-            return "\(koreanTimeLabel(hour24: start, minute: suggestion.startMinute)) - \(koreanTimeLabel(hour24: end, minute: suggestion.endMinute ?? 0))"
+            guard let end else { return TimeExpressionParser.koreanTimeLabel(hour24: start, minute: suggestion.startMinute) }
+            return "\(TimeExpressionParser.koreanTimeLabel(hour24: start, minute: suggestion.startMinute)) - \(TimeExpressionParser.koreanTimeLabel(hour24: end, minute: suggestion.endMinute ?? 0))"
         }
 
         // 둘 다(또는 시작만) 이미 확정인 경우 — 종료가 모호하면 시작과 같은 기준으로 채운다.
@@ -597,7 +484,7 @@ struct QuickAddView: View {
             }
             if let endHour12 = suggestion.endHour12 {
                 let isPM = startHour24 >= 12
-                let end = resolvedHour24(hour12: endHour12, isPM: isPM)
+                let end = TimeExpressionParser.resolvedHour24(hour12: endHour12, isPM: isPM)
                 return [SuggestionOption(label: label(start: startHour24, end: end), startHour24: startHour24, endHour24: end)]
             }
             return [SuggestionOption(label: label(start: startHour24, end: nil), startHour24: startHour24, endHour24: nil)]
@@ -608,14 +495,14 @@ struct QuickAddView: View {
         // 종료가 이미 확정이면 그 기준(오전/오후)을 시작에도 그대로 적용해 하나로 확정.
         if let endHour24 = suggestion.endHour24 {
             let isPM = endHour24 >= 12
-            let start = resolvedHour24(hour12: startHour12, isPM: isPM)
+            let start = TimeExpressionParser.resolvedHour24(hour12: startHour12, isPM: isPM)
             return [SuggestionOption(label: label(start: start, end: endHour24), startHour24: start, endHour24: endHour24)]
         }
 
         // 종료도 없이 시작만 있는 경우 — 오전/오후 두 후보.
         guard let endHour12 = suggestion.endHour12 else {
             return [false, true].map { isPM in
-                let start = resolvedHour24(hour12: startHour12, isPM: isPM)
+                let start = TimeExpressionParser.resolvedHour24(hour12: startHour12, isPM: isPM)
                 return SuggestionOption(label: label(start: start, end: nil), startHour24: start, endHour24: nil)
             }
         }
@@ -623,17 +510,17 @@ struct QuickAddView: View {
         if endHour12 < startHour12 {
             // "11시~1시"처럼 끝이 시작보다 작으면 정오를 넘어간다는 뜻이 명확하니
             // 오전 시작 · 오후 종료로 바로 확정한다(되물어볼 필요가 없다).
-            let start = resolvedHour24(hour12: startHour12, isPM: false)
-            let end = resolvedHour24(hour12: endHour12, isPM: true)
+            let start = TimeExpressionParser.resolvedHour24(hour12: startHour12, isPM: false)
+            let end = TimeExpressionParser.resolvedHour24(hour12: endHour12, isPM: true)
             return [SuggestionOption(label: label(start: start, end: end), startHour24: start, endHour24: end)]
         }
 
         // "6시~7시"처럼 끝이 시작보다 크거나 같으면 오전만/오후만은 물론
         // 오전에 시작해 오후에 끝나는 것도 똑같이 말이 되니 세 후보를 다 보여준다.
-        let amStart = resolvedHour24(hour12: startHour12, isPM: false)
-        let pmStart = resolvedHour24(hour12: startHour12, isPM: true)
-        let amEnd = resolvedHour24(hour12: endHour12, isPM: false)
-        let pmEnd = resolvedHour24(hour12: endHour12, isPM: true)
+        let amStart = TimeExpressionParser.resolvedHour24(hour12: startHour12, isPM: false)
+        let pmStart = TimeExpressionParser.resolvedHour24(hour12: startHour12, isPM: true)
+        let amEnd = TimeExpressionParser.resolvedHour24(hour12: endHour12, isPM: false)
+        let pmEnd = TimeExpressionParser.resolvedHour24(hour12: endHour12, isPM: true)
         return [
             SuggestionOption(label: label(start: amStart, end: amEnd), startHour24: amStart, endHour24: amEnd),
             SuggestionOption(label: label(start: amStart, end: pmEnd), startHour24: amStart, endHour24: pmEnd),
