@@ -18,9 +18,11 @@ Mosco/MoscoTests/            유닛 테스트 (Swift Testing). 폴더째 동기�
 CONTRIBUTING.md              커밋·브랜치·문서 갱신 규칙
 RELEASING.md                 버전·태그·릴리스 노트
 docs/TRAPS.md                플랫폼 함정. 해당 영역 건드리기 전에 읽는다
+docs/CATEGORIZATION.md       카테고리 자동 분류가 어떻게 돌고 왜 Core ML을 버렸나
 docs/BACKLOG.md              밀린 일. 목록을 던지면 여기로 들어간다
 docs/harness/                이 규칙들이 효과 있었는지 채점하는 체계
 tools/harness_report.py      버전별 지표 추출
+tools/deadcode_audit.py      안 쓰이는 코드 훑기. periphery는 이 프로젝트에서 못 쓴다
 ```
 
 배포 타깃 iOS 17.0. 번들 ID `com.Mosco.App`. Swift 79파일 ≈ 11,000줄.

@@ -164,8 +164,9 @@ WeatherKit을 쓰면  Weather 상표와 법적 출처 링크를 화면에 표시
 `EmbeddingCategoryClassifier`는 카테고리별 centroid와 코사인 유사도를 비교하고
 `similarityThreshold = 0.35`로 자른다. **이 0.35에는 근거 데이터가 없다.**
 
-- `MLTraining/priority-training-data.csv`(354행)는 **버린 접근(Create ML 우선순위
-  분류기)의 데이터**다. 지금 코드와 무관하다. 참고용으로만 남아 있다.
+- 예전에 Create ML 우선순위 분류기를 만들다 버렸다(2026-07-30). 그때의 학습
+  데이터와 `.mlmodel`은 2026-08-19에 지웠다 — 남길 값어치는 파일이 아니라
+  갈아탄 이유였고, 그건 [`docs/CATEGORIZATION.md`](CATEGORIZATION.md)에 있다.
 - 검증은 지금까지 한 문장씩 직접 넣어보는 방식이었다("면접을 넣었는데 should가
   나왔어"). 그래서 임계값이나 centroid 계산을 바꿨을 때 좋아졌는지 나빠졌는지 알 수 없다.
 - 분류 로직을 만질 일이 생기면, 만지기 전에 입력–기대 카테고리 쌍 30개 정도를
