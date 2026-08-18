@@ -35,7 +35,15 @@ from collections import Counter, defaultdict
 #     R2를 지킬수록 검증 밀도가 떨어져 규칙과 지표가 반대로 당긴다.
 #   · M11 시뮬레이터 호출 수를 신설했다. 이전에도 screenshots·sim_actions로 세고는
 #     있었지만 담당 규칙이 없는 참고 숫자였다.
-SCHEMA = "2"
+#
+# 3 (2026-08-18) — 하네스의 최종 목표가 "토큰을 덜 쓰고 같은 결론에 이르기"로
+#   정해지면서 비용 쪽 지표를 넣었다. 세션 기록의 `usage`·`model`·`isSidechain`은
+#   처음부터 있었는데 아무도 읽지 않았다.
+#   · M12 프롬프트당 토큰 — 하네스 전체의 최종 지표
+#   · M13 최상위 모델 비중 · M14 위임 비중 · M15 전체 읽기 비율
+#   · M8 오탐 제거 — 애플 프레임워크 타입과 Xcode 빌드 설정을 프로젝트 심볼로
+#     오인해 목표 0에 도달할 수 없었다 (CANON_IGNORE)
+SCHEMA = "3"
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 LEDGER = REPO / "docs" / "harness" / "metrics.tsv"
@@ -87,6 +95,19 @@ TOPICS = {
 # M7 되돌림 — 지웠다가 다시 넣은 흔적.
 RE_REMOVE = re.compile(r"제거|삭제|걷어내|없애|빼기|해제")
 RE_READD = re.compile(r"다시|되살|복구|재도입|추가|붙이기")
+
+# 스키마 3 — 세션 기록 usage에서 읽는 토큰 성분.
+# 네 개를 따로 남기는 이유: 캐시 읽기는 나머지와 단가가 달라서 한 숫자로 합치면
+# 무엇을 줄여야 하는지 안 보인다. M12는 합계를 쓰고, 원인은 성분으로 읽는다.
+USAGE_KEYS = (
+    "input_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+    "output_tokens",
+)
+
+# 위임 대상 도구 — 이 호출이 서브에이전트를 띄운다.
+AGENT_TOOLS = ("Task", "Agent")
 
 BUILD_TOOL = "mcp__Claude_Code_iOS_Simulator__build"
 SIM_TOOL = "mcp__Claude_Code_iOS_Simulator__control"
@@ -160,6 +181,12 @@ def read_sessions(start, end):
     """구간 안의 사람 프롬프트와 도구 사용을 시간순으로 모은다."""
     prompts, builds, sims, edits, test_runs = [], [], 0, 0, 0
     tool_names = {}
+    # 스키마 3 — 비용 쪽 수집물
+    usage = Counter()          # 토큰 성분별 합
+    turns = Counter()          # 모델별 어시스턴트 턴
+    sidechain_turns = 0        # 서브에이전트(Task)가 돈 턴
+    tools = Counter()          # 도구별 호출
+    reads = Counter()          # 파일 읽기: 전체 / 범위 지정
 
     d = transcript_dir()
     if not d.is_dir():
@@ -197,12 +224,26 @@ def read_sessions(start, end):
                 prompts.append((ts, c.strip()))
 
         elif kind == "assistant":
+            model = msg.get("model") or "?"
+            if not model.startswith("<"):        # <synthetic>은 과금 턴이 아니다
+                turns[model] += 1
+                u = msg.get("usage") or {}
+                for key in USAGE_KEYS:
+                    usage[key] += u.get(key) or 0
+            if rec.get("isSidechain"):
+                sidechain_turns += 1
+
             for b in msg.get("content") or []:
                 if not isinstance(b, dict) or b.get("type") != "tool_use":
                     continue
                 name = b.get("name")
                 tool_names[b.get("id")] = name
                 inp = b.get("input") or {}
+                tools[name] += 1
+                if name == "Read":
+                    # 범위를 안 준 읽기는 파일 전체가 컨텍스트로 들어온다.
+                    scoped = inp.get("offset") is not None or inp.get("limit") is not None
+                    reads["scoped" if scoped else "full"] += 1
                 if name in ("Edit", "Write"):
                     edits += 1
                 elif name == SIM_TOOL:
@@ -229,7 +270,14 @@ def read_sessions(start, end):
                             if entry[1] == tid and len(entry) == 2:
                                 builds[i] = (entry[0], entry[1], rows_txt)
 
-    return prompts, builds, sims, edits, test_runs
+    cost = {
+        "usage": usage,
+        "turns": turns,
+        "sidechain_turns": sidechain_turns,
+        "tools": tools,
+        "reads": reads,
+    }
+    return prompts, builds, sims, edits, test_runs, cost
 
 
 def screenshot_count(start, end):
@@ -268,7 +316,7 @@ def is_batch(text):
     return len(lines) >= 3
 
 
-def compute(prompts, builds, sims, edits, shots, test_runs, rng):
+def compute(prompts, builds, sims, edits, shots, test_runs, cost, rng):
     n = len(prompts)
     out = {"prompts": n}
     if n == 0:
@@ -332,6 +380,39 @@ def compute(prompts, builds, sims, edits, shots, test_runs, rng):
     out["sim_actions"] = sims
     out["test_runs"] = test_runs
     out["edits"] = edits
+
+    # ── 비용 (스키마 3) ────────────────────────────────────────────────
+    usage, turns = cost["usage"], cost["turns"]
+    total_tokens = sum(usage.get(k, 0) for k in USAGE_KEYS)
+
+    # M12 프롬프트당 토큰 — 하네스 전체의 최종 지표.
+    # 캐시 읽기를 빼지 않는다. 컨텍스트가 부풀면 이후 모든 턴이 그만큼을 다시
+    # 읽으므로, 스크린샷 한 장의 진짜 값이 여기에만 드러난다.
+    out["m12_tokens_per_prompt"] = round(total_tokens / n)
+    for k in USAGE_KEYS:
+        out[k.replace("_input_tokens", "").replace("_tokens", "")] = usage.get(k, 0)
+
+    # M13 최상위 모델 비중 — 가장 비싼 모델이 전체 턴의 몇 %를 먹었나.
+    # 낮을수록 좋지만 혼자 보면 안 된다. 내리면서 M1이 오르면 잘못 내린 것이다.
+    all_turns = sum(turns.values())
+    if all_turns:
+        top = max(turns.values())
+        heavy = sum(v for k, v in turns.items() if "opus" in k)
+        out["m13_heavy_model_share"] = round(100 * heavy / all_turns, 1)
+        out["turns"] = all_turns
+        out["_models"] = dict(turns)
+
+    # M14 위임 비중 — 서브에이전트가 돈 턴의 비율.
+    if all_turns:
+        out["m14_delegated_share"] = round(100 * cost["sidechain_turns"] / all_turns, 1)
+    out["agent_calls"] = sum(cost["tools"].get(x, 0) for x in AGENT_TOOLS)
+
+    # M15 전체 읽기 비율 — 범위를 안 준 Read가 전체 Read 중 몇 %인가.
+    reads = cost["reads"]
+    r_all = reads.get("full", 0) + reads.get("scoped", 0)
+    if r_all:
+        out["m15_full_read_rate"] = round(100 * reads.get("full", 0) / r_all, 1)
+    out["_tools"] = dict(cost["tools"])
 
     # 같은 프롬프트 재전송
     dup = Counter(texts)
@@ -406,6 +487,22 @@ def test_count(ref):
     return n
 
 
+# 프로젝트 심볼이 아닌 것들. 애플 프레임워크 타입, Xcode 빌드 설정, 서드파티 키,
+# 그리고 Swift 소스가 아닌 곳(타깃·스킴·디렉터리)에만 존재하는 이름.
+# 이걸 안 걸러내면 M8이 절대 0이 되지 않고, 도달 불가능한 목표는 규칙으로 작동하지
+# 않는다. 스키마 3에서 추가했다.
+CANON_IGNORE = {
+    # 애플 프레임워크 · API
+    "OSSignposter", "NLEmbedding", "WeatherKit", "SwiftData", "SwiftUI",
+    "UIWindow", "UIKit", "CloudKit", "ActivityKit", "WidgetKit", "AppIntents",
+    "NaturalLanguage", "CoreLocation", "CoreML", "UserNotifications",
+    # Xcode 빌드 설정 · plist 키 · 서드파티
+    "MARKETING_VERSION", "CURRENT_PROJECT_VERSION", "MEASUREMENT_ID",
+    "ITSAppUsesNonExemptEncryption", "GoogleService", "DerivedData",
+    # 타깃 · 스킴 · 디렉터리 이름 (Swift 심볼이 아니다)
+    "MoscoWidget", "MoscoTests", "MoscoML", "MLTraining",
+}
+
 # 제거를 **기록한** 문장은 드리프트가 아니다. "PriorityTag는 없앴다"는 정확한 문서다.
 RE_DOCUMENTED_REMOVAL = re.compile(r"없앴|없앤|제거|삭제|지웠|폐기|걷어냈|쓰지\s?않는다|잔재")
 
@@ -445,7 +542,7 @@ def canon_drift(ref):
                 if r not in swift_files:
                     misses.append(f"{doc} → {r}")
             for r in re.findall(r"`([A-Z][A-Za-z0-9_]{3,})`", line):
-                if r.endswith(".swift"):
+                if r.endswith(".swift") or r in CANON_IGNORE:
                     continue
                 if not re.search(rf"\b{re.escape(r)}\b", all_src):
                     misses.append(f"{doc} → {r}")
@@ -461,8 +558,11 @@ COLUMNS = [
     "m4_sensory_rate", "m5_top_topic_share", "m6_fix_per_feat",
     "m7_reversals", "m8_canon_drift", "m9_verify_density", "m10_tests",
     "m11_sim_calls",
+    "m12_tokens_per_prompt", "m13_heavy_model_share", "m14_delegated_share",
+    "m15_full_read_rate",
     "batch_rate", "resends", "builds", "screenshots", "sim_actions",
-    "test_runs", "edits",
+    "test_runs", "edits", "turns", "agent_calls",
+    "input", "cache_creation", "cache_read", "output",
 ]
 
 
@@ -478,10 +578,10 @@ def main():
     args = ap.parse_args()
 
     start, end, rng, prev = resolve_window(args.version, args.to)
-    prompts, builds, sims, edits, test_runs = read_sessions(start, end)
+    prompts, builds, sims, edits, test_runs, cost = read_sessions(start, end)
     shots = screenshot_count(start, end)
 
-    m = compute(prompts, builds, sims, edits, shots, test_runs, rng)
+    m = compute(prompts, builds, sims, edits, shots, test_runs, cost, rng)
     g = git_metrics(rng)
     ref = f"V{args.version}" if tag_time(f"V{args.version}") else args.to
     drift = canon_drift(ref)
@@ -523,6 +623,24 @@ def main():
     print(f"  M9 검증 밀도           {fmt(m.get('m9_verify_density')):>7}    (프롬프트 100개당 빌드+테스트)")
     print(f"  M10 회귀 테스트        {tests:>7}    (높을수록 좋음)")
     print(f"  M11 시뮬레이터 호출    {fmt(m.get('m11_sim_calls')):>7}    (목표 0 · PR 캡처는 제외해 읽는다)")
+    print()
+    print("  ─ 비용 ─────────────────────────────────────────")
+    _m12 = m.get('m12_tokens_per_prompt')
+    print(f"  M12 프롬프트당 토큰  {(f'{_m12:,}' if _m12 else '-'):>9}    ★ 최종 지표")
+    print(f"  M13 상위 모델 비중     {fmt(m.get('m13_heavy_model_share')):>7}%   (혼자 보지 않는다 — M1과 같이)")
+    print(f"  M14 위임 비중          {fmt(m.get('m14_delegated_share')):>7}%   (서브에이전트가 돈 턴)")
+    print(f"  M15 전체 읽기 비율     {fmt(m.get('m15_full_read_rate')):>7}%   (범위 안 준 Read)")
+    tot = sum(m.get(k, 0) for k in ("input", "cache_creation", "cache_read", "output"))
+    if tot:
+        print(f"     토큰 성분  입력 {m.get('input',0):,} · 캐시쓰기 {m.get('cache_creation',0):,}"
+              f" · 캐시읽기 {m.get('cache_read',0):,} · 출력 {m.get('output',0):,}")
+    if m.get("_models"):
+        print("     모델별 턴  " + " · ".join(
+            f"{k.replace('claude-','')} {v:,}" for k, v in sorted(
+                m["_models"].items(), key=lambda kv: -kv[1])))
+    if m.get("_tools"):
+        top = sorted(m["_tools"].items(), key=lambda kv: -kv[1])[:6]
+        print("     도구 상위  " + " · ".join(f"{k.split('__')[-1]} {v:,}" for k, v in top))
     print()
 
     if m.get("_topics"):
