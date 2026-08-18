@@ -143,10 +143,17 @@ def audit_orphan_files():
         "README.md", "CLAUDE.md", "CONTRIBUTING.md", "RELEASING.md",
         "PRIVACY.md", ".gitignore",
     }
+    # 지우지 않기로 정한 것들. 매번 목록에 떠서 "이건 왜 아직 있지"를 되풀이하게
+    # 만드는 대신, 결정과 이유를 여기 적는다 (docs/BACKLOG.md와 짝).
+    keep = {
+        "screenshot/": "App Store 제출용 원본. 저장소 무게보다 원본을 잃는 쪽이 비싸다",
+    }
 
     out = []
     for f in tracked:
         if f in known_files or f.startswith(known_meta) or f.startswith(compiled_roots):
+            continue
+        if any(f.startswith(k) for k in keep):
             continue
         out.append(f)
     return sorted(out)
