@@ -1,5 +1,7 @@
 # Mosco
 
+[![CI](https://github.com/Mosco-KR/Mosco-iOS/actions/workflows/ci.yml/badge.svg)](https://github.com/Mosco-KR/Mosco-iOS/actions/workflows/ci.yml)
+
 한 줄로 적으면 날짜·시각·카테고리가 알아서 붙는 캘린더 할 일 앱.
 `7시 러닝`이라고 치면 오늘 19:00에 '운동' 카테고리로 들어간다.
 
@@ -26,11 +28,14 @@ xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
 
-Firebase Analytics를 쓰므로 `GoogleService-Info.plist`가 필요하다(저장소에 없다).
+Firebase Analytics를 쓰지만 `GoogleService-Info.plist`는 저장소에 들어 있어서 따로
+받을 것이 없다. 그 파일이 없어도 앱은 돌고 분석만 조용히 꺼진다
+(`FirebaseAnalyticsSink.configure()`가 nil을 낸다).
 시뮬레이터는 이름으로 지정한다 — UDID는 지워졌다 다시 생기면서 바뀐다.
 
-검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 26건)가
-가운데 칸을 채우고 있고, CI는 아직 없다.**
+검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 47건)와
+CI가 앞의 두 칸을 맡는다** — PR마다 App·MoscoWidget 빌드와 테스트가 자동으로 돈다
+([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 ```bash
 xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \

@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-@testable import App
 
 /// 날짜 경계 — `docs/harness/rules.md` R7 표의 첫 줄.
 /// 월말/월초에 같은 날짜가 두 번 나오는 증상이 반복해서 돌아왔다.

@@ -1,0 +1,129 @@
+name: CI
+
+# PR마다 빌드와 테스트를 돌린다. 이 저장소에는 리뷰어가 없어서,
+# "머지 전에 한 번은 기계가 본다"가 CI를 두는 유일한 이유다.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # 같은 PR에 새로 푸시하면 앞의 실행은 버린다 — macOS 러너는 분당 과금이 제일 비싸다.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    # macos-15는 Xcode 16.4까지다. 이 프로젝트는 Xcode 26 기능을 쓴다
+    # (`nonisolated struct`, SWIFT_DEFAULT_ACTOR_ISOLATION, objectVersion 77) —
+    # 16.4에서는 "expression is 'async' but is not marked with 'await'"로 깨진다.
+    # 로컬과 같은 메이저를 쓰지 않으면 CI 통과가 아무것도 보장하지 못한다.
+    runs-on: macos-26
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 러너 이미지가 바뀌면 조용히 다른 Xcode로 도는 일이 생긴다.
+      # 무슨 환경에서 통과했는지가 로그에 남아야 실패를 재현할 수 있다.
+      # 이미지에 Xcode가 여러 개 깔려 있고 기본값이 최신이 아닐 수 있다.
+      # 가장 높은 버전을 명시적으로 고른다 — 무엇으로 골랐는지 로그에 남는다.
+      - name: Xcode 고르기
+        run: |
+          echo "--- 설치된 Xcode ---"
+          ls -d /Applications/Xcode*.app
+          NEWEST=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "고른 것: $NEWEST"
+          sudo xcode-select -s "$NEWEST/Contents/Developer"
+
+      - name: 환경 확인
+        run: |
+          xcodebuild -version
+          swift --version
+          echo "--- 사용 가능한 iPhone 시뮬레이터 ---"
+          xcrun simctl list devices available | grep -E "iPhone" || true
+
+      # 시뮬레이터 이름을 워크플로에 박으면 러너 이미지가 바뀔 때 깨진다.
+      # 실제로 있는 것 중 하나를 골라 쓴다. UDID를 쓰는 이유도 같다 — 이름은 중복될 수 있다.
+      - name: 테스트용 시뮬레이터 고르기
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)['devices']
+          best = None
+          for runtime, devices in data.items():
+              if 'iOS' not in runtime:
+                  continue
+              for d in devices:
+                  if d.get('isAvailable') and d['name'].startswith('iPhone'):
+                      best = d['udid']
+                      break
+              if best:
+                  break
+          print(best or '')
+          ")
+          if [ -z "$UDID" ]; then
+            echo '::error::쓸 수 있는 iPhone 시뮬레이터가 없습니다'
+            exit 1
+          fi
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices | grep "$UDID"
+
+      # 러너 이미지에 있을 때가 많지만 보장되지 않는다. 없으면 깔고 간다.
+      - name: xcbeautify 확보
+        run: command -v xcbeautify >/dev/null || brew install xcbeautify
+
+      # Firebase SDK가 무거워서 매번 받으면 실행 시간의 절반을 여기 쓴다.
+      - name: SPM 캐시
+        uses: actions/cache@v4
+        with:
+          path: .spm-cache
+          key: spm-${{ runner.os }}-${{ hashFiles('Mosco/Mosco.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: 패키지 받기
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project Mosco/Mosco.xcodeproj \
+            -clonedSourcePackagesDirPath .spm-cache
+
+      # 앱만 빌드하고 넘어가서 익스텐션이 깨진 채 나간 적이 있다(CLAUDE.md).
+      # 그래서 위젯을 따로 빌드한다.
+      - name: 위젯 빌드
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Mosco/Mosco.xcodeproj \
+            -scheme MoscoWidget \
+            -sdk iphonesimulator \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify --renderer github-actions
+
+      - name: 앱 빌드 + 테스트
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Mosco/Mosco.xcodeproj \
+            -scheme App \
+            -sdk iphonesimulator \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -clonedSourcePackagesDirPath .spm-cache \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify --renderer github-actions
+
+      # 실패했을 때 로그만 보고 원인을 못 찾는 경우가 있다. 결과 번들을 받아
+      # Xcode로 열면 어느 테스트가 왜 깨졌는지 그대로 보인다.
+      - name: 실패 시 결과 번들 올리기
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TestResults
+          path: TestResults.xcresult
+          retention-days: 7

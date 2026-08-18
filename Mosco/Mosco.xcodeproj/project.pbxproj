@@ -215,9 +215,9 @@
 			buildRules = (
 			);
 			dependencies = (
-				BB0000019000000000000001 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
+				AA0000015000000000000001 /* Shared */,
 				BB0000015000000000000001 /* MoscoTests */,
 			);
 			name = MoscoTests;
@@ -242,7 +242,6 @@
 					};
 					BB0000011000000000000001 = {
 						CreatedOnToolsVersion = 26.1.1;
-						TestTargetID = 08208EC9301A72D600C965BF;
 					};
 				};
 			};
@@ -594,7 +593,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = W5QTRMS954;
@@ -607,7 +605,6 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/App";
 			};
 			name = Debug;
 		};
@@ -615,7 +612,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = W5QTRMS954;
@@ -628,7 +624,6 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/App";
 			};
 			name = Release;
 		};
