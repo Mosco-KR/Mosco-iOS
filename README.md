@@ -12,6 +12,8 @@ iOS 17.0+ · SwiftUI + SwiftData · 1인 개발 · [App Store](https://apps.appl
 **입력** — 자연어 한 줄 입력, 시각 자동 추출(`4시~7시`는 종료 시각까지),
 온디바이스 임베딩으로 카테고리 자동 분류, 날짜·시각 모두 선택 사항
 
+**보기** — 하루치를 목록 또는 세로 시간축으로. 마지막에 고른 모양이 두 화면에서 유지된다
+
 **캘린더** — 월 페이징, 여러 날에 걸친 할 일 블록, 반복 일정(요일·간격·매년),
 공휴일·주말 표시, 날짜별 하루치 화면, 캘린더 나누기(개인/업무 등)
 
@@ -33,7 +35,7 @@ Firebase Analytics를 쓰지만 `GoogleService-Info.plist`는 저장소에 들�
 (`FirebaseAnalyticsSink.configure()`가 nil을 낸다).
 시뮬레이터는 이름으로 지정한다 — UDID는 지워졌다 다시 생기면서 바뀐다.
 
-검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 74건)와
+검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 90건)와
 CI가 앞의 두 칸을 맡는다** — PR마다 App·MoscoWidget 빌드와 테스트가 자동으로 돈다
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
