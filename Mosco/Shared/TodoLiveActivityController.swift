@@ -75,6 +75,17 @@ final class TodoLiveActivityController {
         isEnabled = UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true
     }
 
+    /// 시스템의 라이브 액티비티 허용 여부. 여기엔 "아직 안 물어봄"이 없다 —
+    /// 사용자가 설정에서 켜고 끄는 것이라 앱이 물어볼 수 있는 창 자체가 없다.
+    var permission: PermissionState {
+        ActivityAuthorizationInfo().areActivitiesEnabled ? .granted : .denied
+    }
+
+    /// 스위치에 표시할 값 — 켜뒀어도 시스템에서 꺼져 있으면 꺼진 것으로 보인다.
+    var isEffectivelyOn: Bool {
+        PermissionGate.isOn(userPreference: isEnabled, permission: permission)
+    }
+
     // MARK: - 띄우기
 
     /// 이 할 일의 남은 시간을 띄운다. 목록에서 꾹 눌러 고를 때 부른다.

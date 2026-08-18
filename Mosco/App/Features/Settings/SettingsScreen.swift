@@ -108,6 +108,8 @@ struct SettingsScreen: View {
                 reviewSection
                 resetSection
             }
+            // 설정 앱에서 권한을 바꾸고 돌아왔을 수 있다 — 이 화면이 뜰 때마다 맞춘다.
+            .task { await notificationScheduler.refreshAuthorizationStatus() }
             .navigationTitle("설정")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -247,27 +249,60 @@ struct SettingsScreen: View {
     /// "꺼두면 알림이 오지 않아요" 같은 문장은 읽는 사람에게 아무것도 더 주지
     /// 않는다. 남기는 건 **눈에 안 보이는 사정**뿐이다 — 기기 설정에서 막혀
     /// 있다는 것처럼, 화면만 봐서는 알 수 없는 것.
+    /// 사용자가 켜뒀는데 권한이 막고 있는 경우에만 안내를 띄운다.
+    /// 스스로 끈 것은 의도한 상태라 아무 말도 하지 않는다.
+    private var isNotificationBlocked: Bool {
+        PermissionGate.isBlockedByPermission(
+            userPreference: notificationScheduler.isEnabled,
+            permission: notificationScheduler.permission
+        )
+    }
+
+    private var isLiveActivityBlocked: Bool {
+        PermissionGate.isBlockedByPermission(
+            userPreference: liveActivityController.isEnabled,
+            permission: liveActivityController.permission
+        )
+    }
+
+    private var isWeatherBlocked: Bool {
+        PermissionGate.isBlockedByPermission(
+            userPreference: weatherStore.isEnabled,
+            permission: weatherStore.permission
+        )
+    }
+
     @ViewBuilder
     private var notificationSection: some View {
         Section {
-            // 권한이 없으면 켜지지 않게 막는다 — 켜지긴 했는데 알림은 안 오는
-            // 상태가 제일 헷갈린다. 아직 안 물어봤으면 이때 물어보고, 거부돼
-            // 있으면 토글은 꺼진 채로 두고 설정으로 보낸다.
+            // **저장된 값이 아니라 실제로 동작하는지를 보여준다.** 기기 설정에서
+            // 알림을 끄고 돌아오면 스위치도 꺼져 보여야 한다 — 켜져 있는데 알림은
+            // 안 오는 상태가 사용자 입장에서 원인을 짐작할 방법이 없다.
+            // 판정은 `PermissionGate`에 있다(테스트로 덮인다).
             Toggle("알림 받기", isOn: Binding(
-                get: { notificationScheduler.isEnabled },
+                get: { notificationScheduler.isEffectivelyOn },
                 set: { isOn in
                     guard isOn else {
                         notificationScheduler.isEnabled = false
                         return
                     }
-                    Task {
-                        let granted = await notificationScheduler.requestAuthorization()
-                        notificationScheduler.isEnabled = granted
+                    switch PermissionGate.intent(for: notificationScheduler.permission) {
+                    case .enableDirectly:
+                        notificationScheduler.isEnabled = true
+                    case .requestPermission:
+                        Task {
+                            let granted = await notificationScheduler.requestAuthorization()
+                            notificationScheduler.isEnabled = granted
+                        }
+                    case .openSystemSettings:
+                        // 한 번 거부된 권한은 앱이 다시 물을 수 없다. 여기서 요청을
+                        // 시도하면 아무 일도 안 일어나고 스위치가 고장 난 것처럼 보인다.
+                        openSystemSettings()
                     }
                 }
             ))
 
-            if notificationScheduler.authorizationStatus == .denied {
+            if isNotificationBlocked {
                 Button("설정에서 알림 허용하기") {
                     openSystemSettings()
                 }
@@ -275,8 +310,8 @@ struct SettingsScreen: View {
         } header: {
             Text("알림")
         } footer: {
-            if notificationScheduler.authorizationStatus == .denied {
-                Text("기기 설정에서 알림이 꺼져 있어요.")
+            if isNotificationBlocked {
+                Text("기기 설정에서 알림이 꺼져 있어요. 허용하면 켜둔 대로 다시 옵니다.")
             }
         }
     }
@@ -290,15 +325,38 @@ struct SettingsScreen: View {
     private var liveActivitySection: some View {
         Section {
             Toggle("잠금화면에 남은 시간 표시", isOn: Binding(
-                get: { liveActivityController.isEnabled },
-                set: { liveActivityController.isEnabled = $0 }
+                get: { liveActivityController.isEffectivelyOn },
+                set: { isOn in
+                    guard isOn else {
+                        liveActivityController.isEnabled = false
+                        return
+                    }
+                    // 라이브 액티비티는 앱이 물어볼 수 있는 창이 없다 —
+                    // 시스템 설정에서만 켠다. 그래서 요청 대신 바로 보낸다.
+                    switch PermissionGate.intent(for: liveActivityController.permission) {
+                    case .enableDirectly, .requestPermission:
+                        liveActivityController.isEnabled = true
+                    case .openSystemSettings:
+                        openSystemSettings()
+                    }
+                }
             ))
+
+            if isLiveActivityBlocked {
+                Button("설정에서 라이브 액티비티 허용하기") {
+                    openSystemSettings()
+                }
+            }
         } header: {
             Text("라이브 액티비티")
         } footer: {
             // 어디서 쓰는 기능인지 말해주지 않으면, 켜두고도 아무 일이 안 일어나는
             // 스위치가 된다 — 이건 켠다고 저절로 뜨는 기능이 아니다.
-            Text("목록에서 할 일을 길게 눌러 띄워요. 시작까지 8시간 안 남은 할 일에만 쓸 수 있어요.")
+            if isLiveActivityBlocked {
+                Text("기기 설정에서 라이브 액티비티가 꺼져 있어요.")
+            } else {
+                Text("목록에서 할 일을 길게 눌러 띄워요. 시작까지 8시간 안 남은 할 일에만 쓸 수 있어요.")
+            }
         }
     }
 
@@ -308,11 +366,23 @@ struct SettingsScreen: View {
     private var weatherSection: some View {
         Section {
             Toggle("날씨 표시", isOn: Binding(
-                get: { weatherStore.isEnabled },
-                set: { weatherStore.isEnabled = $0 }
+                get: { weatherStore.isEffectivelyOn },
+                set: { isOn in
+                    guard isOn else {
+                        weatherStore.isEnabled = false
+                        return
+                    }
+                    switch PermissionGate.intent(for: weatherStore.permission) {
+                    case .enableDirectly, .requestPermission:
+                        // 아직 안 물어본 경우, 켜면 `loadIfNeeded()`가 위치 권한 창을 띄운다.
+                        weatherStore.isEnabled = true
+                    case .openSystemSettings:
+                        openSystemSettings()
+                    }
+                }
             ))
 
-            if weatherStore.isEnabled, weatherStore.unavailableReason == .locationDenied {
+            if isWeatherBlocked {
                 Button("설정에서 위치 허용하기") {
                     openSystemSettings()
                 }

@@ -29,6 +29,22 @@ final class TodoNotificationScheduler {
 
     private static let enabledKey = "notificationsEnabled"
 
+    /// 시스템 권한을 화면이 쓰는 형태로. `provisional`(조용한 알림)과 `ephemeral`은
+    /// 알림이 실제로 도착하므로 허용으로 친다.
+    var permission: PermissionState {
+        switch authorizationStatus {
+        case .authorized, .provisional, .ephemeral: .granted
+        case .denied: .denied
+        case .notDetermined: .notDetermined
+        @unknown default: .notDetermined
+        }
+    }
+
+    /// 스위치에 표시할 값 — 켜뒀어도 권한이 없으면 꺼진 것으로 보인다.
+    var isEffectivelyOn: Bool {
+        PermissionGate.isOn(userPreference: isEnabled, permission: permission)
+    }
+
     /// iOS가 앱당 허용하는 대기 중 로컬 알림은 64개다. 그 안에서 가까운 것부터
     /// 채우고, 나머지는 다음 실행 때 다시 계산되며 자연히 채워진다.
     private static let pendingLimit = 60

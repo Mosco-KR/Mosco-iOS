@@ -300,25 +300,32 @@ struct RootTabView: View {
             )
             // 위젯은 익스텐션이라 직접 못 보낸다 — App Group에 쌓아둔 걸 여기서 비운다.
             Analytics.flushPendingFromExtensions()
-            // **알림 권한을 날씨(위치)보다 먼저 묻는다.** 둘 다 첫 실행에 뜨는데,
-            // 시스템은 한 번에 하나씩 줄 세워 보여준다 — 알림이 이 앱의 본래
-            // 기능(시작 시간 알림)에 걸린 권한이라 먼저 물어야 맥락이 맞는다.
-            // await notificationScheduler.requestAuthorizationOnFirstLaunch() // TEMP
             // 처음 온 사람에게만, 그것도 **물어보고** 시작한다. 이미 할 일을 들고
             // 있는 사람(기기를 바꿔 iCloud에서 내려받은 경우)에게 "처음 오셨네요"는
             // 틀린 인사라 아예 띄우지 않는다.
             let willGuide = tutorial.startIfFirstLaunch(hasExistingData: !todos.isEmpty)
-            // **안내가 뜰 참이면 위치 권한은 나중에 묻는다.** 둘이 겹치면 앱을 아직
-            // 보지도 못한 사람에게 첫 화면에서 결정을 두 개 요구하는 셈이고, 시스템
-            // 창은 안내 위로 덮쳐서 무엇을 고르는 중인지도 흐려진다.
-            // 실패해도(권한 거부/케이퍼빌리티 미설정) 조용히 넘어가고 날씨만 안 보인다.
-            if !willGuide { weatherStore.loadIfNeeded() }
+
+            // **권한은 안내가 끝난 뒤에 모아서 묻는다** (`StartupPermissionRequest`).
+            // 안내가 안 뜨는 사람은 지금이 그 시점이다.
+            if !willGuide {
+                await StartupPermissionRequest.run(
+                    notifications: notificationScheduler,
+                    weather: weatherStore
+                )
+            }
             await cloudSyncStore.refresh()
         }
-        // 안내가 끝난(또는 건너뛴) 다음에 비로소 위치를 묻는다.
+        // **안내가 끝난(또는 건너뛴) 바로 다음이 권한을 묻는 자리다.**
+        // 앱을 한 번 보여준 뒤에 물어야 무엇에 쓰는 권한인지 알고 고를 수 있다.
+        // 한 번 거부되면 앱에서 다시 물을 수 없으므로 이 한 번이 전부다.
         .onChange(of: tutorial.isRunning) { _, isRunning in
             guard !isRunning else { return }
-            weatherStore.loadIfNeeded()
+            Task {
+                await StartupPermissionRequest.run(
+                    notifications: notificationScheduler,
+                    weather: weatherStore
+                )
+            }
         }
         // 탭 이동은 더 이상 세지 않는다. 탭이 둘뿐이고 앱이 달력으로 열리니
         // 그 수는 "기본값이 무엇인가"를 되풀이해 말할 뿐이었다. 어느 화면을
