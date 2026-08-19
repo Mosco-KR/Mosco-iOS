@@ -87,7 +87,11 @@ struct DayTodosContentView: View {
     private var viewModeButton: some View {
         let current = DayViewMode.from(viewModeRaw)
         let next: DayViewMode = current == .list ? .timeline : .list
-        return HeaderGlassButton(title: next.label, systemImage: next.symbol, drawsBackground: false) {
+        return HeaderGlassButton(
+            systemImage: next.symbol,
+            accessibilityName: "\(next.label)으로 보기",
+            drawsBackground: false
+        ) {
             withAnimation(.easeInOut(duration: 0.2)) {
                 viewModeRaw = next.rawValue
                 // 시간표로 가면 편집 모드는 의미가 없으므로 내린다.
@@ -102,8 +106,9 @@ struct DayTodosContentView: View {
     /// 여기서는 두 겹이 됐다.
     private var editButton: some View {
         HeaderGlassButton(
-            title: isEditing ? "완료" : "편집",
-            systemImage: isEditing ? nil : "arrow.up.arrow.down",
+            // 상태가 바뀌면 아이콘도 바뀐다 — 글자를 뺐으니 모양이 유일한 단서다.
+            systemImage: isEditing ? "checkmark" : "arrow.up.arrow.down",
+            accessibilityName: isEditing ? "편집 마치기" : "순서 편집",
             drawsBackground: false
         ) {
             withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }

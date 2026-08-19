@@ -212,8 +212,8 @@ struct TodayTodoScreen: View {
             // 방금 옮기던 목록이 통째로 사라진다.
             if !isEditing {
                 HeaderGlassButton(
-                    title: isSearching ? "완료" : "검색",
-                    systemImage: isSearching ? nil : "magnifyingglass"
+                    systemImage: isSearching ? "xmark" : "magnifyingglass",
+                    accessibilityName: isSearching ? "검색 닫기" : "검색"
                 ) {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         isSearching.toggle()
@@ -230,7 +230,10 @@ struct TodayTodoScreen: View {
             // 다르게 보면 "내가 시간표로 바꿨는데 저기는 왜 목록이지"가 된다.
             if !isSearching, !isEditing {
                 let next: DayViewMode = DayViewMode.from(viewModeRaw) == .list ? .timeline : .list
-                HeaderGlassButton(title: next.label, systemImage: next.symbol) {
+                HeaderGlassButton(
+                    systemImage: next.symbol,
+                    accessibilityName: "\(next.label)으로 보기"
+                ) {
                     withAnimation(.easeInOut(duration: 0.2)) { viewModeRaw = next.rawValue }
                 }
                 .accessibilityHint("오늘 할 일을 \(next.label) 모양으로 봅니다")
@@ -238,8 +241,8 @@ struct TodayTodoScreen: View {
 
             if !isSearching, DayViewMode.from(viewModeRaw) == .list {
                 HeaderGlassButton(
-                    title: isEditing ? "완료" : "편집",
-                    systemImage: isEditing ? nil : "arrow.up.arrow.down"
+                    systemImage: isEditing ? "checkmark" : "arrow.up.arrow.down",
+                    accessibilityName: isEditing ? "편집 마치기" : "순서 편집"
                 ) {
                     withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }
                 }
