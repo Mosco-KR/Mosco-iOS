@@ -3,7 +3,7 @@ import Observation
 import SwiftUI
 import WidgetKit
 
-/// 사용자가 고른 강조색을 들고 있는 곳.
+/// 사용자가 고른 테마 색을 들고 있는 곳.
 ///
 /// **App Group에 저장한다.** 위젯은 별도 프로세스라 `UserDefaults.standard`를
 /// 못 읽는다 — 앱에서 색을 바꿨는데 홈 화면 위젯만 예전 색으로 남으면 그게 더

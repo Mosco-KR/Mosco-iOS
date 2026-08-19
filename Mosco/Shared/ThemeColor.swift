@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 앱 강조색. 사용자가 설정에서 고르고, **앱과 위젯이 같은 값을 본다.**
+/// 앱 테마 색. 사용자가 설정에서 고르고, **앱과 위젯이 같은 값을 본다.**
 ///
 /// 값은 hex 문자열로 App Group에 둔다. 위젯은 별도 프로세스라
 /// `UserDefaults.standard`가 안 통하고, 색 객체는 그대로 저장할 수 없다.
@@ -20,7 +20,7 @@ nonisolated enum ThemeColor {
     static let defaultHex = "8B5CF6"
     static let storageKey = "themeAccentHex"
 
-    /// 강조색이 배경(흰색) 위에서 가져야 하는 최소 대비.
+    /// 테마 색이 배경(흰색) 위에서 가져야 하는 최소 대비.
     ///
     /// WCAG의 큰 글자 기준(3:1)을 쓴다. 버튼 글자와 아이콘이 이 색으로 그려지는데
     /// 본문 기준(4.5:1)까지 요구하면 쓸 수 있는 색이 너무 좁아져서, 사용자가 고른

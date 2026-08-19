@@ -134,7 +134,7 @@ struct SettingsScreen: View {
         )
     }
 
-    /// 앱 강조색 고르기.
+    /// 앱 테마 색 고르기.
     ///
     /// **고른 색을 거부하지 않는다.** 시스템 색 고르기는 흰색도 고를 수 있는데,
     /// "그 색은 안 됩니다"로 막으면 왜 안 되는지 설명해야 하고 설명해도 납득이
@@ -144,7 +144,7 @@ struct SettingsScreen: View {
     private var themeSection: some View {
         Section {
             ColorPicker(
-                "강조색",
+                "색 고르기",
                 selection: Binding(
                     get: { theme.accent },
                     set: { theme.select($0) }
@@ -153,17 +153,18 @@ struct SettingsScreen: View {
             )
 
             if !theme.isDefault {
-                Button("기본 색으로 되돌리기") {
+                Button("처음 색으로") {
                     theme.resetToDefault()
                 }
             }
         } header: {
-            Text("테마")
+            Text("테마 색")
         } footer: {
+            // 부연은 한 문장 (`DesignSystem/README.md` 문구 원칙 3).
             if theme.isAdjusted {
-                Text("고른 색이 밝아서 글자가 보이도록 조금 어둡게 썼어요.")
+                Text("고른 색이 밝아서 글자가 안 보일까 봐 조금 어둡게 했어요.")
             } else {
-                Text("버튼과 오늘 표시에 쓰는 색이에요. 위젯도 같이 바뀌어요.")
+                Text("버튼과 달력의 오늘 표시, 위젯까지 이 색으로 바뀌어요.")
             }
         }
     }
