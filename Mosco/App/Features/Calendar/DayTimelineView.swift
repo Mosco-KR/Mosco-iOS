@@ -70,12 +70,16 @@ struct DayTimelineView: View {
     }
 
     /// 시각 없는 할 일 — 축 위에 모아둔다. 헤더는 명사구로(문구 원칙 2).
+    ///
+    /// **축 폭에 맞추지 않고 화면 폭을 그대로 쓴다.** 예전엔 눈금 칸만큼 오른쪽으로
+    /// 밀어서 블록과 줄을 맞췄는데, 이것들은 애초에 시간축 위에 있지 않아서
+    /// 무엇에 맞춘 줄인지 알 수 없었고 헤더까지 따라 밀려 어중간했다.
+    /// 목록 화면의 셀과 같은 폭이라 오히려 익숙하다.
     private var untimedSection: some View {
         VStack(alignment: .leading, spacing: Metrics.spacingSM) {
             Text("시간 미정")
                 .font(.moscoCaption())
                 .foregroundStyle(MoscoPalette.textSecondary)
-                .padding(.leading, Self.gutterWidth + Self.gutterGap)
 
             ForEach(untimed) { todo in
                 // 목록 셀 그대로다 — 탭하면 완료되고 꾹 누르면 메뉴가 나온다.
@@ -85,10 +89,9 @@ struct DayTimelineView: View {
                     onDelete: { onDelete(todo) },
                     showsCalendarTag: showsCalendarTag
                 )
-                .padding(.leading, Self.gutterWidth + Self.gutterGap)
-                .padding(.trailing, Metrics.spacingMD)
             }
         }
+        .padding(.horizontal, Metrics.spacingMD)
     }
 
     private var axis: some View {
