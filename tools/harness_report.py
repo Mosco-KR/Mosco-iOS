@@ -494,6 +494,7 @@ def test_count(ref):
 CANON_IGNORE = {
     # 애플 프레임워크 · API
     "OSSignposter", "NLEmbedding", "WeatherKit", "SwiftData", "SwiftUI",
+    "UIColorPickerViewController", "ColorPicker", "WidgetCenter", "NSUbiquitousKeyValueStore",
     "UIWindow", "UIKit", "CloudKit", "ActivityKit", "WidgetKit", "AppIntents",
     "NaturalLanguage", "CoreLocation", "CoreML", "UserNotifications",
     # Xcode 빌드 설정 · plist 키 · 서드파티
