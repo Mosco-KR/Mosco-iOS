@@ -58,7 +58,7 @@ Mosco의 시각 언어를 정리한 문서. 코드는 이 폴더(`Common/DesignS
 | `CategoryTag` | 카테고리 칩. 5pt 점 + 이름 | `Components/CategoryTag.swift` |
 | `SurfaceCard` | 플랫 배경 + 헤어라인 보더 컨테이너 | `Components/SurfaceCard.swift` |
 | `GlassSurface` | 떠 있는 요소 전용 글라스 표면 | `Components/GlassSurface.swift` |
-| `HeaderGlassButton` | 화면 상단에 떠 있는 버튼(오늘, 설정 등) | `Components/HeaderGlassButton.swift` |
+| `HeaderGlassButton` | 화면 상단에 떠 있는 버튼. `title`을 비우면 아이콘만 선다 | `Components/HeaderGlassButton.swift` |
 | `ClassifyingDot` | 카테고리 판별 중 표시 | `Components/ClassifyingDot.swift` |
 | `WrappingHStack` | 칩이 넘칠 때 다음 줄로 흐르게 | `Components/WrappingHStack.swift` |
 | `MoscoPrimaryButtonStyle` (`.moscoPrimary`) | 주요 액션 버튼. iOS 26+에서만 `glassEffect` 적용, 그 미만은 flat accent 배경 | `Components/MoscoButtonStyle.swift` |
@@ -121,6 +121,25 @@ Toss/Apple류의 절제된 UI를 기준으로 삼는다 — 원색 대신 톤 �
 켜고 끄는 표시에 글자 칩을 쓰지 않는다: `D-DAY`를 칩으로 붙였다가 혼자 튀어서
 아이콘으로 되돌렸다. 칩 배경은 모두 `× 0.12`로 같다 — 나란히 선 칩끼리 농도가
 다르면 같은 종류로 안 읽힌다.
+
+### 헤더 버튼은 아이콘만 (2026-08-19)
+
+뷰 모드·검색·편집은 **글자 없이 아이콘만** 세운다. 셋이 나란히 서면 헤더가 문장처럼
+읽히면서 정작 화면 제목보다 시끄러워졌다.
+
+**상태가 바뀌면 아이콘도 바뀐다.** 글자를 뺐으니 모양이 유일한 단서다.
+
+| | 평소 | 그 모드 중 |
+|---|---|---|
+| 순서 편집 | `arrow.up.arrow.down` | `checkmark` |
+| 검색 | `magnifyingglass` | `xmark` |
+| 뷰 모드 | 누르면 될 모양의 아이콘 (`list.bullet` / `calendar.day.timeline.left`) | — |
+
+**아이콘만 남기면 `accessibilityName`을 반드시 준다.** 안 주면 보이스오버에서
+그냥 "버튼"이 된다.
+
+'오늘'은 글자로 남긴다 — 아이콘으로 옮길 만한 모양이 없고, 모드를 바꾸는 버튼이
+아니라 특정 날짜로 가는 버튼이라 성격이 다르다.
 
 ### 시간표 블록도 같은 언어다
 
