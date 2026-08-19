@@ -84,4 +84,5 @@ Mosco/MoscoTests/       유닛 테스트 (Swift Testing)
 도달하는 것**이고, 모든 판정은 프롬프트당 토큰(M12)으로 마무리한다.
 
 - [v1.1.0 보고서](docs/harness/reports/v1.1.0.md) — 첫 보고서. 베이스라인과 규칙 R1~R10
+- [v1.2.0 보고서](docs/harness/reports/v1.2.0.md) — 첫 채점. 프롬프트당 토큰 절반, 테스트 0→108
 - [지표 원장](docs/harness/metrics.tsv) · [규칙 원장](docs/harness/rules.md)
