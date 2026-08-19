@@ -139,31 +139,42 @@ struct TimelineLayoutTests {
 
     // MARK: 축 눈금 표기
 
-    @Test("눈금은_글자_수가_모두_같다")
-    func 눈금_폭() {
-        // 자(ruler)라서 폭이 흔들리면 세로로 훑을 때 기준선이 같이 흔들린다.
-        let labels = (0...24).map { TimelineLayout.axisLabel(hour: $0) }
-        #expect(Set(labels.map(\.count)).count == 1, "눈금 길이가 제각각이다: \(Set(labels))")
+    @Test("첫_눈금에는_오전오후를_붙인다")
+    func 첫_눈금() {
+        #expect(TimelineLayout.axisLabel(hour: 9) == "오전 9시")
+        #expect(TimelineLayout.axisLabel(hour: 15) == "오후 3시")
     }
 
-    @Test("눈금은_두_자리로_채운다")
-    func 눈금_형식() {
-        #expect(TimelineLayout.axisLabel(hour: 1) == "오전 01")
-        #expect(TimelineLayout.axisLabel(hour: 9) == "오전 09")
-        #expect(TimelineLayout.axisLabel(hour: 13) == "오후 01")
-        #expect(TimelineLayout.axisLabel(hour: 23) == "오후 11")
+    @Test("오전오후가_안_바뀌면_되풀이하지_않는다")
+    func 되풀이_안_함() {
+        // `오전 9시` `오전 10시` `오전 11시`로 늘어놓으면 읽을 것이 없는 글자가
+        // 눈금마다 반복된다.
+        #expect(TimelineLayout.axisLabel(hour: 10, previousHour: 9) == "10시")
+        #expect(TimelineLayout.axisLabel(hour: 11, previousHour: 10) == "11시")
+    }
+
+    @Test("오전오후가_바뀌는_자리에서만_다시_붙인다")
+    func 경계에서_붙임() {
+        #expect(TimelineLayout.axisLabel(hour: 12, previousHour: 11) == "오후 12시")
+        #expect(TimelineLayout.axisLabel(hour: 13, previousHour: 12) == "1시")
+        // 자정을 넘어가는 자리도 같다.
+        #expect(TimelineLayout.axisLabel(hour: 24, previousHour: 23) == "오전 12시")
     }
 
     @Test("눈금의_12시도_다른_화면과_같은_뜻이다")
     func 눈금_12시() {
         // 오전 12시가 자정, 오후 12시가 정오 — TimeExpressionParser와 같은 규칙.
-        #expect(TimelineLayout.axisLabel(hour: 0) == "오전 12")
-        #expect(TimelineLayout.axisLabel(hour: 12) == "오후 12")
+        #expect(TimelineLayout.axisLabel(hour: 0) == "오전 12시")
+        #expect(TimelineLayout.axisLabel(hour: 12) == "오후 12시")
     }
 
-    @Test("마지막_눈금_24시는_자정으로_돈다")
-    func 눈금_24시() {
-        #expect(TimelineLayout.axisLabel(hour: 24) == "오전 12")
+    @Test("눈금은_앱의_다른_시각_표기와_같은_말을_쓴다")
+    func 표기_일관성() {
+        // 한 번은 `오전 01`로 맞춰봤는데 시계가 아니라 표처럼 읽혔다.
+        // 폭 문제는 글자를 깎는 대신 오른쪽 정렬로 푼다.
+        for hour in [0, 9, 12, 15, 23] {
+            #expect(TimelineLayout.axisLabel(hour: hour).hasSuffix("시"))
+        }
     }
 
     @Test("자정까지_가는_일정도_범위를_넘지_않는다")

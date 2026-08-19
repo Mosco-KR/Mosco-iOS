@@ -35,7 +35,7 @@ Firebase Analytics를 쓰지만 `GoogleService-Info.plist`는 저장소에 들�
 (`FirebaseAnalyticsSink.configure()`가 nil을 낸다).
 시뮬레이터는 이름으로 지정한다 — UDID는 지워졌다 다시 생기면서 바뀐다.
 
-검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 94건)와
+검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 95건)와
 CI가 앞의 두 칸을 맡는다** — PR마다 App·MoscoWidget 빌드와 테스트가 자동으로 돈다
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 

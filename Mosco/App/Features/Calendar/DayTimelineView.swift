@@ -14,8 +14,10 @@ struct DayTimelineView: View {
 
     /// 한 시간이 차지하는 높이. 60pt면 30분짜리가 30pt라 제목 한 줄이 들어간다.
     private static let hourHeight: CGFloat = 60
-    /// 시각 눈금이 차지하는 폭.
-    private static let gutterWidth: CGFloat = 52
+    /// 시각 눈금이 차지하는 폭. `오후 12시`가 안 잘릴 만큼.
+    private static let gutterWidth: CGFloat = 62
+    /// 눈금과 블록 사이. 붙어 있으면 어느 줄의 시각인지 눈이 헷갈린다.
+    private static let gutterGap: CGFloat = Metrics.spacingSM
 
     private var items: [TimelineItem] {
         todos.map { todo in
@@ -65,14 +67,14 @@ struct DayTimelineView: View {
             Text("시간 미정")
                 .font(.moscoCaption())
                 .foregroundStyle(MoscoPalette.textSecondary)
-                .padding(.leading, Self.gutterWidth)
+                .padding(.leading, Self.gutterWidth + Self.gutterGap)
 
             ForEach(untimed) { todo in
                 Button { onSelect(todo) } label: {
                     TodoRow(todo: todo, showsCalendarTag: showsCalendarTag, memoDisplay: .compact)
                 }
                 .buttonStyle(.plain)
-                .padding(.leading, Self.gutterWidth)
+                .padding(.leading, Self.gutterWidth + Self.gutterGap)
                 .padding(.trailing, Metrics.spacingMD)
             }
         }
@@ -100,7 +102,7 @@ struct DayTimelineView: View {
                         .lineLimit(1)
                         .fixedSize()
                         .frame(width: Self.gutterWidth, alignment: .trailing)
-                        .padding(.trailing, Metrics.spacingSM)
+                        .padding(.trailing, Self.gutterGap)
                         // 선 위에 글자 가운데가 오도록 살짝 올린다.
                         .offset(y: -6)
                     Rectangle()
@@ -114,7 +116,7 @@ struct DayTimelineView: View {
 
     private var blocks: some View {
         GeometryReader { proxy in
-            let laneWidth = proxy.size.width - Self.gutterWidth
+            let laneWidth = proxy.size.width - Self.gutterWidth - Self.gutterGap
             ForEach(placements) { placement in
                 if let todo = todo(for: placement.id) {
                     let width = laneWidth / CGFloat(placement.columnCount)
@@ -124,7 +126,7 @@ struct DayTimelineView: View {
                     .buttonStyle(.plain)
                     .frame(width: max(width - 2, 0), height: max(height(of: placement) - 2, 0), alignment: .topLeading)
                     .offset(
-                        x: Self.gutterWidth + width * CGFloat(placement.column),
+                        x: Self.gutterWidth + Self.gutterGap + width * CGFloat(placement.column),
                         y: offset(of: placement)
                     )
                 }
@@ -146,7 +148,9 @@ struct DayTimelineView: View {
     /// `오전 9시`와 `오후 12시`가 섞이면 글자 수가 달라 눈금이 들쭉날쭉해지고,
     /// 그러면 세로로 훑을 때 기준선이 흔들린다. 두 자리로 맞춰 고정한다.
     private func hourLabel(_ hour: Int) -> String {
-        TimelineLayout.axisLabel(hour: hour)
+        // 첫 눈금이면 앞이 없다 — 그때는 오전/오후를 붙인다.
+        let previous = hour > hourRange.lowerBound ? hour - 1 : nil
+        return TimelineLayout.axisLabel(hour: hour, previousHour: previous)
     }
 }
 

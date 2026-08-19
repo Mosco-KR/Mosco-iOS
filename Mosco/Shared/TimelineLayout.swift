@@ -137,21 +137,34 @@ nonisolated enum TimelineLayout {
         return (c.hour ?? 0) * 60 + (c.minute ?? 0)
     }
 
-    /// 축 눈금에 적는 글자 — `오전 01`, `오전 12`, `오후 01`, `오후 11`.
+    /// 축 눈금에 적는 글자.
     ///
-    /// **앱의 다른 시각 표기와 일부러 다르다.** 다른 곳은 `오전 9시`처럼 읽는
-    /// 말이지만 축 눈금은 문장이 아니라 자(ruler)다. `오전 9시`와 `오후 12시`가
-    /// 섞이면 글자 수가 달라 눈금이 들쭉날쭉해지고, 세로로 훑을 때 기준선이
-    /// 흔들린다. 두 자리로 맞춰 고정한다.
+    /// **오전/오후는 바뀌는 자리에서만 붙인다** — `오전 9시`, `10시`, `11시`,
+    /// `오후 12시`, `1시`, `2시`.
+    ///
+    /// 한 번은 `오전 01`처럼 두 자리로 맞춰봤다. 폭은 가지런해졌지만 시계가 아니라
+    /// 표처럼 읽혔고, 앱의 다른 시각 표기(`오전 9시`)와도 따로 놀았다. 폭 문제는
+    /// 글자를 깎는 대신 **오른쪽 정렬**로 푼다 — 그러면 `9시`든 `오후 12시`든
+    /// 끝이 한 줄에 맞는다.
     ///
     /// 12시 처리는 다른 곳과 같다 — 오전 12시가 자정, 오후 12시가 정오다.
-    static func axisLabel(hour: Int) -> String {
+    ///
+    /// - Parameter previousHour: 바로 앞 눈금의 시각. nil이면 첫 눈금이라 항상 붙인다.
+    static func axisLabel(hour: Int, previousHour: Int? = nil) -> String {
         // 24시는 다음 날 0시다. 축의 마지막 눈금으로만 나온다.
         let normalized = hour % 24
-        let period = normalized >= 12 ? "오후" : "오전"
         var hour12 = normalized % 12
         if hour12 == 0 { hour12 = 12 }
-        return String(format: "%@ %02d", period, hour12)
+
+        let isAfternoon = normalized >= 12
+        let showsPeriod: Bool
+        if let previousHour {
+            showsPeriod = (previousHour % 24 >= 12) != isAfternoon
+        } else {
+            showsPeriod = true
+        }
+
+        return showsPeriod ? "\(isAfternoon ? "오후" : "오전") \(hour12)시" : "\(hour12)시"
     }
 
     /// 시간축을 어디부터 어디까지 그릴지.
