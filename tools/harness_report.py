@@ -501,6 +501,8 @@ CANON_IGNORE = {
     "ITSAppUsesNonExemptEncryption", "GoogleService", "DerivedData",
     # 타깃 · 스킴 · 디렉터리 이름 (Swift 심볼이 아니다)
     "MoscoWidget", "MoscoTests", "MoscoML", "MLTraining",
+    # 규범 문서가 AI 도구를 백틱으로 부를 때 — R10의 "`Read`에 offset을 준다"처럼.
+    "Read", "Write", "Edit", "Grep", "Bash", "Task", "Agent",
 }
 
 # 제거를 **기록한** 문장은 드리프트가 아니다. "PriorityTag는 없앴다"는 정확한 문서다.

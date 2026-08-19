@@ -24,6 +24,8 @@ struct DayTodosContentView: View {
     /// 끌어서 순서를 바꾸는 동안만 켜진다. 할 일 목록과 같은 `sortIndex`를 쓰므로,
     /// 여기서 정한 순서가 그쪽에도 그대로 간다.
     @State private var isEditing = false
+    /// 툴바가 모양에 따라 달라지므로 상위 뷰도 이 값을 안다.
+    @AppStorage(DayViewMode.storageKey) private var viewModeRaw = DayViewMode.list.rawValue
 
     private let calendar = Calendar.current
 
@@ -71,7 +73,28 @@ struct DayTodosContentView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .principal) { titleView }
-        ToolbarItem(placement: .topBarTrailing) { editButton }
+        ToolbarItem(placement: .topBarTrailing) { viewModeButton }
+        // 시간표에서는 순서를 끌어 옮길 수 없다 — 거기서 끄는 것은 순서가 아니라
+        // 시각이라 뜻이 달라진다. 그래서 편집 버튼도 목록에서만 보인다.
+        if DayViewMode.from(viewModeRaw) == .list {
+            ToolbarItem(placement: .topBarTrailing) { editButton }
+        }
+    }
+
+    /// 목록 ↔ 시간표. 편집 버튼과 같은 컴포넌트를 써서 두 버튼이 한 벌로 보이게 한다.
+    /// **지금 무엇으로 보고 있는지가 아니라 누르면 무엇이 되는지**를 보여준다 —
+    /// 토글은 결과를 미리 알려주는 편이 덜 헷갈린다.
+    private var viewModeButton: some View {
+        let current = DayViewMode.from(viewModeRaw)
+        let next: DayViewMode = current == .list ? .timeline : .list
+        return HeaderGlassButton(title: next.label, systemImage: next.symbol, drawsBackground: false) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                viewModeRaw = next.rawValue
+                // 시간표로 가면 편집 모드는 의미가 없으므로 내린다.
+                if next == .timeline { isEditing = false }
+            }
+        }
+        .accessibilityHint("하루치를 \(next.label) 모양으로 봅니다")
     }
 
     /// 배경은 툴바가 그린다(`drawsBackground: false`). 자체 캡슐을 들고 들어가면
@@ -189,6 +212,8 @@ private struct DayTodoList: View {
     /// 위쪽 격자와 같은 캘린더만 보여야 한다 — 격자엔 없는 일정이 아래 리스트에만
     /// 나오면 어느 쪽이 맞는지 알 수 없다.
     @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
+    /// 마지막으로 고른 모양. 오늘 할 일 탭과 **같은 값을 공유한다**.
+    @AppStorage(DayViewMode.storageKey) private var viewModeRaw = DayViewMode.list.rawValue
 
     /// 반복 인스턴스는 저장소에 없고 규칙으로 계산되므로 #Predicate로는 못 거른다.
     /// 개인용 앱 규모에선 전체를 메모리에서 거르는 게 단순하고 충분히 빠르다 —
@@ -234,6 +259,16 @@ private struct DayTodoList: View {
         // ContentUnavailableView가 제 프레임 한가운데에 선다.
         if todosForDay.isEmpty {
             emptyState
+        } else if DayViewMode.from(viewModeRaw) == .timeline {
+            // 편집(순서 바꾸기)은 목록에서만 한다 — 시간축에서 끌어 옮기면
+            // 그건 순서가 아니라 시각을 바꾸는 동작이라 뜻이 달라진다.
+            DayTimelineView(
+                todos: todosForDay,
+                showsCalendarTag: showsCalendarTag,
+                onSelect: onSelect,
+                onDelete: { onDelete([$0]) },
+                date: date
+            )
         } else {
             list
         }

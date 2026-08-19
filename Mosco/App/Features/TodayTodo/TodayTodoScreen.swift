@@ -18,6 +18,8 @@ struct TodayTodoScreen: View {
     @Query private var allTodos: [TodoItem]
     /// 캘린더 탭에서 고른 보기 설정을 여기서도 그대로 따른다.
     @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
+    /// 마지막으로 고른 모양. 캘린더 하루치 화면과 **같은 값을 공유한다**.
+    @AppStorage(DayViewMode.storageKey) private var viewModeRaw = DayViewMode.list.rawValue
     @Environment(\.modelContext) private var modelContext
     @Environment(ReviewPrompt.self) private var reviewPrompt
     @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
@@ -86,6 +88,12 @@ struct TodayTodoScreen: View {
     /// 채 제자리에 남는다.
     private var todayList: [TodoItem] {
         ordered(todayTodos)
+    }
+
+    /// 화면에 두 개 이상의 캘린더가 섞여 있을 때만 소속을 밝힌다 —
+    /// 캘린더 하루치 화면과 같은 규칙이다.
+    private var showsCalendarTag: Bool {
+        Set(todayList.compactMap { $0.calendar?.id }).count > 1
     }
 
     private var remainingCount: Int {
@@ -218,7 +226,17 @@ struct TodayTodoScreen: View {
             // '순서'가 아니라 '편집'이다. 이 모드에서 되는 일이 순서 바꾸기만이
             // 아니라 스와이프 삭제까지라서 이름이 하는 일보다 좁았고, 캘린더
             // 상세의 같은 버튼과 이름이 어긋나 두 화면이 서로 다르게 읽혔다.
-            if !isSearching {
+            // 캘린더 하루치와 **같은 값을 공유한다** — 같은 하루를 두 화면에서
+            // 다르게 보면 "내가 시간표로 바꿨는데 저기는 왜 목록이지"가 된다.
+            if !isSearching, !isEditing {
+                let next: DayViewMode = DayViewMode.from(viewModeRaw) == .list ? .timeline : .list
+                HeaderGlassButton(title: next.label, systemImage: next.symbol) {
+                    withAnimation(.easeInOut(duration: 0.2)) { viewModeRaw = next.rawValue }
+                }
+                .accessibilityHint("오늘 할 일을 \(next.label) 모양으로 봅니다")
+            }
+
+            if !isSearching, DayViewMode.from(viewModeRaw) == .list {
                 HeaderGlassButton(
                     title: isEditing ? "완료" : "편집",
                     systemImage: isEditing ? nil : "arrow.up.arrow.down"
@@ -266,6 +284,16 @@ struct TodayTodoScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .onTapGesture { dismissKeyboard() }
+        } else if !isSearching, !isEditing, DayViewMode.from(viewModeRaw) == .timeline {
+            // 검색·편집 중에는 목록으로 돌아간다 — 둘 다 줄 단위로 움직이는
+            // 동작이라 시간축 위에서는 뜻이 안 통한다.
+            DayTimelineView(
+                todos: todayList,
+                showsCalendarTag: showsCalendarTag,
+                onSelect: { editingTodo = $0 },
+                onDelete: { delete($0) },
+                date: today
+            )
         } else {
             list
         }
