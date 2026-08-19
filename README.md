@@ -20,6 +20,8 @@ iOS 17.0+ · SwiftUI + SwiftData · 1인 개발 · [App Store](https://apps.appl
 **할 일** — 지난 미완료 모아 보기와 오늘로 가져오기, 순서 직접 정하기(모든 화면 공유),
 메모, 디데이, 복사·붙여넣기, 카테고리별 색과 알림
 
+**꾸미기** — 앱 강조색을 직접 고른다. 위젯도 같이 바뀐다
+
 **바깥으로** — 홈 화면 위젯 3종, 잠금화면 위젯, 라이브 액티비티와 다이나믹 아일랜드,
 iCloud 동기화, 날씨 표시(WeatherKit), 카테고리별 알림
 
@@ -35,7 +37,7 @@ Firebase Analytics를 쓰지만 `GoogleService-Info.plist`는 저장소에 들�
 (`FirebaseAnalyticsSink.configure()`가 nil을 낸다).
 시뮬레이터는 이름으로 지정한다 — UDID는 지워졌다 다시 생기면서 바뀐다.
 
-검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 95건)와
+검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 108건)와
 CI가 앞의 두 칸을 맡는다** — PR마다 App·MoscoWidget 빌드와 테스트가 자동으로 돈다
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 

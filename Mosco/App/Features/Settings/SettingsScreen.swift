@@ -8,6 +8,8 @@ struct SettingsScreen: View {
     @Query(sort: \TodoCategory.sortOrder) private var categories: [TodoCategory]
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @Environment(\.modelContext) private var modelContext
+    /// 강조색은 앱과 위젯이 같은 값을 본다.
+    private var theme: ThemeStore { .shared }
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(WeatherStore.self) private var weatherStore
@@ -53,6 +55,7 @@ struct SettingsScreen: View {
                     Text("분류")
                 }
 
+                themeSection
                 tutorialSection
                 notificationSection
                 liveActivitySection
@@ -129,6 +132,40 @@ struct SettingsScreen: View {
             userPreference: weatherStore.isEnabled,
             permission: weatherStore.permission
         )
+    }
+
+    /// 앱 강조색 고르기.
+    ///
+    /// **고른 색을 거부하지 않는다.** 시스템 색 고르기는 흰색도 고를 수 있는데,
+    /// "그 색은 안 됩니다"로 막으면 왜 안 되는지 설명해야 하고 설명해도 납득이
+    /// 어렵다. 대신 읽을 수 있을 만큼만 눌러 쓰고, 눌렀다는 사실을 말한다 —
+    /// 말없이 바꿔놓으면 색을 잘못 고른 줄 안다.
+    @ViewBuilder
+    private var themeSection: some View {
+        Section {
+            ColorPicker(
+                "강조색",
+                selection: Binding(
+                    get: { theme.accent },
+                    set: { theme.select($0) }
+                ),
+                supportsOpacity: false
+            )
+
+            if !theme.isDefault {
+                Button("기본 색으로 되돌리기") {
+                    theme.resetToDefault()
+                }
+            }
+        } header: {
+            Text("테마")
+        } footer: {
+            if theme.isAdjusted {
+                Text("고른 색이 밝아서 글자가 보이도록 조금 어둡게 썼어요.")
+            } else {
+                Text("버튼과 오늘 표시에 쓰는 색이에요. 위젯도 같이 바뀌어요.")
+            }
+        }
     }
 
     @ViewBuilder

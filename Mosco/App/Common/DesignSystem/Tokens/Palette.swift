@@ -9,9 +9,14 @@ enum MoscoPalette {
     /// `should`/`could`/`wont`는 쓰는 곳이 없어져서 걷어냈다.
     static let must = Color(hex: 0xEF4444)
 
-    /// 브랜드 액센트. 우선순위 색과 분리해 버튼 등 액션에만 사용 — 파란색은
-    /// "could" 우선순위와도 겹치고 흔한 기본값이라, 좀 더 트렌디한 바이올렛으로.
-    static let accent = Color(hex: 0x8B5CF6)
+    /// 브랜드 액센트. 버튼 등 액션에만 쓴다.
+    ///
+    /// **사용자가 설정에서 바꿀 수 있다** (2026-08-19). 그래서 상수가 아니라
+    /// 매번 읽는 값이다 — 상수로 두면 색을 바꿔도 이미 그려진 화면이 안 따라온다.
+    /// 기본값은 처음부터 쓰던 바이올렛이고, 너무 밝은 색을 고르면 읽을 수 있을
+    /// 만큼 눌러서 나온다 (`ThemeColor`).
+    @MainActor
+    static var accent: Color { ThemeStore.shared.accent }
 
     /// 카드가 있는 화면(리스트, 설정류)의 배경. 카드와 대비되도록 톤을 낮춘다.
     static let background = Color(uiColor: .systemGroupedBackground)

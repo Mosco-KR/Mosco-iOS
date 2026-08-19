@@ -18,12 +18,20 @@ extension Color {
 /// 구별이 잘 되도록 색상환을 고르게 훑는다. 색은 hex로 저장해서 Category가
 /// SwiftUI를 몰라도 되게 한다(모델은 순수 데이터로 유지).
 enum CategoryColorPalette {
-    /// 앱 테마 색(바이올렛). 앱 쪽은 `MoscoPalette.accent`로 쓰지만 그건 앱 타깃에만
-    /// 있어서, 위젯과 라이브 액티비티는 여기를 본다 — 잠금화면의 '오늘' 표시가
-    /// 시스템 기본 파랑으로 나오던 게 이걸 안 두고 `Color.accentColor`를 쓴 탓이었다.
-    static let accentHex = "8B5CF6"
-
-    static var accent: Color { color(forHex: accentHex) }
+    /// 앱 테마 색. 앱 쪽은 `MoscoPalette.accent`로 쓰지만 그건 앱 타깃에만 있어서,
+    /// 위젯과 라이브 액티비티는 여기를 본다 — 잠금화면의 '오늘' 표시가 시스템 기본
+    /// 파랑으로 나오던 게 이걸 안 두고 `Color.accentColor`를 쓴 탓이었다.
+    ///
+    /// 기본값은 `ThemeColor.defaultHex` 하나뿐이다. 예전엔 여기에도 같은 hex를
+    /// 따로 적어뒀는데, 두 곳에 있으면 한쪽만 바뀌어 앱과 위젯 색이 갈라진다.
+    ///
+    /// **사용자가 고른 색을 따라간다** (2026-08-19). 위젯도 App Group에서 같은
+    /// 값을 읽으므로 앱과 홈 화면의 강조색이 갈라지지 않는다. 못 읽으면 기본색이다.
+    static var accent: Color {
+        let stored = UserDefaults(suiteName: SharedModelContainer.appGroupID)?
+            .string(forKey: ThemeColor.storageKey)
+        return color(forHex: ThemeColor.readableHex(stored))
+    }
 
     static let hexValues: [String] = [
         "F43F5E", // 로즈
