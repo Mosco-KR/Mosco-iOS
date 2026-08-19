@@ -84,6 +84,7 @@ xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
 
 ## 5. 설정
 
+- [ ] '캘린더'·'카테고리' 행을 누르면 각각의 화면으로 들어간다. 개수가 맞다
 - [ ] 카테고리 추가·이름·색 변경
 - [ ] 기본 카테고리는 삭제 불가, 이름·색은 변경 가능
 - [ ] 카테고리 삭제 시 할 일들이 기본 카테고리로 넘어간다

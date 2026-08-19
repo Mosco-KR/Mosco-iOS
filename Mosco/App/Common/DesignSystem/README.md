@@ -63,6 +63,7 @@ Mosco의 시각 언어를 정리한 문서. 코드는 이 폴더(`Common/DesignS
 | `WrappingHStack` | 칩이 넘칠 때 다음 줄로 흐르게 | `Components/WrappingHStack.swift` |
 | `MoscoPrimaryButtonStyle` (`.moscoPrimary`) | 주요 액션 버튼. iOS 26+에서만 `glassEffect` 적용, 그 미만은 flat accent 배경 | `Components/MoscoButtonStyle.swift` |
 | `TodoCategoryBar` · `TodoCheckMark` | 할 일 셀의 왼쪽 막대와 완료 체크. **목록 셀과 시간표 블록이 같은 것을 쓴다** | `Features/Calendar/TodoRowParts.swift` |
+| `SettingsEntryRow` · `SettingsColorRow` | 설정의 진입 행(아이콘+이름+개수)과 색 목록 행 | `Features/Settings/CalendarListScreen.swift` |
 
 `PriorityTag`와 `DemoPriority`는 우선순위 → 카테고리 전환 때 없앴다. 등급 칩이
 필요해 보이면 `CategoryTag`를 쓴다.

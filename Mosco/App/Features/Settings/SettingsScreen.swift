@@ -20,84 +20,37 @@ struct SettingsScreen: View {
     /// 같은 계층에 `.sheet`를 두 개 붙이면 뒤에 붙은 것만 살아난다(카테고리를 눌러도
     /// 시트가 안 뜨던 원인). 캘린더 섹션을 추가할 때 그 시트를 `Section`에 따로
     /// 붙여봤다가 같은 문제를 다시 만났다 — 시트는 하나만 두고 대상으로 가른다.
-    @State private var editorTarget: EditorTarget?
     /// 데이터 초기화는 두 단계로 확인받는다.
     @State private var showsResetFirstConfirm = false
     @State private var showsResetSecondConfirm = false
     @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
 
-    private enum EditorTarget: Identifiable {
-        case newCategory
-        case existingCategory(TodoCategory)
-        case newCalendar
-        case existingCalendar(TodoCalendar)
-
-        var id: String {
-            switch self {
-            case .newCategory: "new-category"
-            case .existingCategory(let category): "category-\(category.id.uuidString)"
-            case .newCalendar: "new-calendar"
-            case .existingCalendar(let calendar): "calendar-\(calendar.id.uuidString)"
-            }
-        }
-
-        var category: TodoCategory? {
-            if case .existingCategory(let category) = self { return category }
-            return nil
-        }
-
-        var calendar: TodoCalendar? {
-            if case .existingCalendar(let calendar) = self { return calendar }
-            return nil
-        }
-
-        var isCalendar: Bool {
-            switch self {
-            case .newCalendar, .existingCalendar: true
-            case .newCategory, .existingCategory: false
-            }
-        }
-    }
 
     var body: some View {
         NavigationStack {
             List {
-                calendarSection
-
                 Section {
-                    ForEach(categories) { category in
-                        Button {
-                            editorTarget = .existingCategory(category)
-                        } label: {
-                            HStack(spacing: 10) {
-                                Circle()
-                                    .fill(category.color)
-                                    .frame(width: 14, height: 14)
-                                Text(category.name)
-                                    .foregroundStyle(MoscoPalette.textPrimary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(MoscoPalette.textSecondary.opacity(0.5))
-                            }
-                            // 이게 없으면 글자와 화살표에만 터치가 잡히고 그 사이
-                            // 빈 공간은 안 눌린다 — 행 전체를 눌러야 자연스럽다.
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .deleteDisabled(category.isDefault)
-                    }
-                    .onDelete(perform: delete)
-                } header: {
-                    Text("카테고리")
-                }
-
-                Section {
-                    Button {
-                        editorTarget = .newCategory
+                    NavigationLink {
+                        CalendarListScreen()
                     } label: {
-                        Label("새 카테고리 추가", systemImage: "plus.circle.fill")
+                        SettingsEntryRow(
+                            systemImage: "square.stack.3d.up",
+                            title: "캘린더",
+                            detail: "\(calendars.count)개"
+                        )
                     }
+
+                    NavigationLink {
+                        CategoryListScreen()
+                    } label: {
+                        SettingsEntryRow(
+                            systemImage: "tag",
+                            title: "카테고리",
+                            detail: "\(categories.count)개"
+                        )
+                    }
+                } header: {
+                    Text("분류")
                 }
 
                 tutorialSection
@@ -117,104 +70,10 @@ struct SettingsScreen: View {
                     Button("완료") { dismiss() }
                 }
             }
-            .sheet(item: $editorTarget) { target in
-                if target.isCalendar {
-                    calendarEditor(for: target)
-                } else {
-                    categoryEditor(for: target)
-                }
-            }
         }
     }
 
-    private func categoryEditor(for target: EditorTarget) -> some View {
-        CategoryEditorSheet(
-            existing: target.category,
-            usedColorHexValues: categories.map(\.colorHex),
-            onSave: { draft in
-                if let editing = target.category {
-                    editing.name = draft.name
-                    editing.colorHex = draft.colorHex
-                    editing.notifiesBeforeStart = draft.notifiesBeforeStart
-                    editing.notificationLeadMinutes = draft.notificationLeadMinutes
-                } else {
-                    let category = TodoCategory(
-                        name: draft.name,
-                        colorHex: draft.colorHex,
-                        sortOrder: categories.count
-                    )
-                    category.notifiesBeforeStart = draft.notifiesBeforeStart
-                    category.notificationLeadMinutes = draft.notificationLeadMinutes
-                    modelContext.insert(category)
-                }
-            },
-            onDelete: target.category.map { editing in
-                {
-                    guard let defaultCategory = categories.first(where: \.isDefault) else { return }
-                    TodoCategory.delete(editing, reassigningTodosTo: defaultCategory, in: modelContext)
-                }
-            }
-        )
-    }
 
-    private func calendarEditor(for target: EditorTarget) -> some View {
-        CalendarEditorSheet(
-            existing: target.calendar,
-            usedColorHexValues: calendars.map(\.colorHex),
-            onSave: { draft in
-                if let editing = target.calendar {
-                    editing.name = draft.name
-                    editing.colorHex = draft.colorHex
-                } else {
-                    modelContext.insert(
-                        TodoCalendar(name: draft.name, colorHex: draft.colorHex, sortOrder: calendars.count)
-                    )
-                }
-            },
-            onDelete: target.calendar.map { editing in
-                {
-                    guard let fallback = calendars.first(where: \.isDefault) else { return }
-                    TodoCalendar.delete(editing, reassigningTodosTo: fallback, in: modelContext)
-                }
-            }
-        )
-    }
-
-    /// 캘린더 묶음 관리. 카테고리 섹션과 같은 패턴이라 조작 방법을 새로 배울 게 없다.
-    @ViewBuilder
-    private var calendarSection: some View {
-        Section {
-            ForEach(calendars) { calendar in
-                Button {
-                    editorTarget = .existingCalendar(calendar)
-                } label: {
-                    HStack(spacing: 10) {
-                        Circle()
-                            .fill(CategoryColorPalette.color(forHex: calendar.colorHex))
-                            .frame(width: 14, height: 14)
-                        Text(calendar.name)
-                            .foregroundStyle(MoscoPalette.textPrimary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(MoscoPalette.textSecondary.opacity(0.5))
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .deleteDisabled(calendar.isDefault)
-            }
-            .onDelete(perform: deleteCalendars)
-
-            Button {
-                editorTarget = .newCalendar
-            } label: {
-                Label("새 캘린더 추가", systemImage: "plus.circle.fill")
-            }
-        } header: {
-            Text("캘린더")
-        }
-    }
 
     /// 안내를 다시 보는 문.
     ///
@@ -604,17 +463,5 @@ struct SettingsScreen: View {
         UIApplication.shared.open(url)
     }
 
-    private func deleteCalendars(at offsets: IndexSet) {
-        guard let fallback = calendars.first(where: \.isDefault) else { return }
-        for index in offsets {
-            TodoCalendar.delete(calendars[index], reassigningTodosTo: fallback, in: modelContext)
-        }
-    }
 
-    private func delete(at offsets: IndexSet) {
-        guard let defaultCategory = categories.first(where: \.isDefault) else { return }
-        for index in offsets {
-            TodoCategory.delete(categories[index], reassigningTodosTo: defaultCategory, in: modelContext)
-        }
-    }
 }
