@@ -265,7 +265,9 @@ private struct DayTodoList: View {
             DayTimelineView(
                 todos: todosForDay,
                 showsCalendarTag: showsCalendarTag,
-                onSelect: onSelect
+                onSelect: onSelect,
+                onDelete: { onDelete([$0]) },
+                date: date
             )
         } else {
             list

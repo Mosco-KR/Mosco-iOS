@@ -247,12 +247,7 @@ struct TodoRow: View {
     /// 동그라미가 그 자리였는데, 색을 두 군데 쓰면 어느 쪽이 무슨 뜻인지 알 수 없게
     /// 된다 — 자리가 옮겨간 것이지 늘어난 게 아니다.
     private var categoryBar: some View {
-        Capsule()
-            .fill(accentColor)
-            .frame(width: 4)
-            // 셀 높이에서 위아래로 조금 물러난다 — 끝까지 채우면 카드 모서리의
-            // 둥근 곡선과 부딪혀 막대 끝이 잘려 보인다.
-            .padding(.vertical, 2)
+        TodoCategoryBar(color: accentColor)
     }
 
     /// 완료 표시. **버튼이 아니라 표시 전용이다** — 누르는 건 셀 전체가 받는다.
@@ -264,18 +259,7 @@ struct TodoRow: View {
     /// 원이 아니라 둥근 사각형인 건 셀·카드·태그가 전부 둥근 사각형/캡슐이기
     /// 때문이다. 한 행에서 혼자만 정원이면 다른 데서 가져다 놓은 것처럼 보인다.
     private var checkMark: some View {
-        let box = RoundedRectangle(cornerRadius: 8, style: .continuous)
-
-        return ZStack {
-            box.fill(isDone ? MoscoPalette.textSecondary : Color.clear)
-            box.strokeBorder(MoscoPalette.textSecondary.opacity(isDone ? 0 : 0.45), lineWidth: 1.75)
-            Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(MoscoPalette.surface)
-                .opacity(isDone ? 1 : 0)
-                .scaleEffect(isDone ? 1 : 0.4)
-        }
-        .frame(width: 26, height: 26)
+        TodoCheckMark(isDone: isDone)
     }
 
     // MARK: - 잠금화면에 띄우기
@@ -286,32 +270,15 @@ struct TodoRow: View {
     /// 셀 body와 함께 만들어져서, 관찰되지 않는 값을 읽으면 문구가 고정돼 버린다.
 
     /// 셀을 눌렀을 때. 반복 일정이면 보고 있는 날짜의 인스턴스만 뒤집는다.
+    /// 완료를 뒤집는다. 알맹이는 `TodoCompletion`에 있다 — 시간표 블록도 같은
+    /// 함수를 쓴다. 화면마다 따로 쓰면 한쪽만 기록되거나 튜토리얼이 안 넘어간다.
     private func toggleCompletion() {
-        // **뒤집기 전에 값을 떠둔다.** `isDone`은 저장된 값이 아니라 그때그때
-        // `todo`를 읽는 계산 프로퍼티다 — 뒤집은 뒤에 읽으면 이미 새 값이라,
-        // 예전 코드처럼 나중에 `!isDone`으로 새 상태를 구하면 **항상 반대**가 나왔다.
-        // 그래서 완료할 때 `complete_task`가 `completed=false`로 기록되고, 리뷰
-        // 부탁은 완료가 아니라 완료를 **푸는** 순간에 세어지고 있었다.
-        let wasDone = isDone
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
-            if let occurrenceDate {
-                todo.setCompleted(!wasDone, on: occurrenceDate)
-            } else {
-                todo.isCompleted.toggle()
-            }
-        }
-        let nowCompleted = !wasDone
-        Analytics.log(
-            .todoCompleted(
-                source: "app",
-                completed: nowCompleted,
-                isRepeating: todo.repeatRule != .none
-            )
+        TodoCompletion.toggle(
+            todo,
+            occurrenceDate: occurrenceDate,
+            tutorial: tutorial,
+            reviewPrompt: reviewPrompt
         )
-        tutorial?.didToggleCompletion(id: todo.id, completed: nowCompleted)
-        // 할 일을 끝낸 직후는 앱이 사용자에게 뭔가를 해준 순간이라, 리뷰를
-        // 부탁하기 좋은 자리다. 조건이 다 찼는지는 `ReviewPrompt`가 정한다.
-        if nowCompleted { reviewPrompt.recordCompletion() }
     }
 
     /// 날짜/시간 관련 정보를 태그 하나로 합치는 정책:

@@ -10,7 +10,15 @@ import SwiftUI
 struct DayTimelineView: View {
     let todos: [TodoItem]
     let showsCalendarTag: Bool
+    /// 수정 화면으로 보낸다 — 꾹 눌러 나오는 메뉴의 '수정'.
     let onSelect: (TodoItem) -> Void
+    /// 이 할 일을 지운다 — 메뉴의 '삭제'.
+    var onDelete: (TodoItem) -> Void = { _ in }
+    /// 반복 일정의 완료를 날짜별로 기록하려면 어느 날인지 알아야 한다.
+    var date: Date? = nil
+
+    @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
+    @Environment(ReviewPrompt.self) private var reviewPrompt
 
     /// 한 시간이 차지하는 높이. 60pt면 30분짜리가 30pt라 제목 한 줄이 들어간다.
     private static let hourHeight: CGFloat = 60
@@ -70,10 +78,13 @@ struct DayTimelineView: View {
                 .padding(.leading, Self.gutterWidth + Self.gutterGap)
 
             ForEach(untimed) { todo in
-                Button { onSelect(todo) } label: {
-                    TodoRow(todo: todo, showsCalendarTag: showsCalendarTag, memoDisplay: .compact)
-                }
-                .buttonStyle(.plain)
+                // 목록 셀 그대로다 — 탭하면 완료되고 꾹 누르면 메뉴가 나온다.
+                TodoRow(
+                    todo: todo,
+                    onTap: { onSelect(todo) },
+                    onDelete: { onDelete(todo) },
+                    showsCalendarTag: showsCalendarTag
+                )
                 .padding(.leading, Self.gutterWidth + Self.gutterGap)
                 .padding(.trailing, Metrics.spacingMD)
             }
@@ -120,10 +131,27 @@ struct DayTimelineView: View {
             ForEach(placements) { placement in
                 if let todo = todo(for: placement.id) {
                     let width = laneWidth / CGFloat(placement.columnCount)
-                    Button { onSelect(todo) } label: {
-                        TimelineBlock(todo: todo, showsCalendarTag: showsCalendarTag)
-                    }
-                    .buttonStyle(.plain)
+                    TimelineBlock(
+                        todo: todo,
+                        // **목록과 같다 — 몸통을 누르면 완료된다.** 수정은 꾹 눌러
+                        // 나오는 메뉴에 있다. 화면마다 같은 손짓이 다른 일을 하면
+                        // 어느 쪽이 맞는지 매번 생각해야 한다.
+                        onToggle: {
+                            TodoCompletion.toggle(
+                                todo,
+                                occurrenceDate: date,
+                                tutorial: tutorial,
+                                reviewPrompt: reviewPrompt
+                            )
+                        }
+                    )
+                    // 꾹 누르면 목록과 **똑같은** 메뉴가 나온다.
+                    .modifier(TodoActions(
+                        todo: todo,
+                        occurrenceDate: date,
+                        onTap: { onSelect(todo) },
+                        onDelete: { onDelete(todo) }
+                    ))
                     .frame(width: max(width - 2, 0), height: max(height(of: placement) - 2, 0), alignment: .topLeading)
                     .offset(
                         x: Self.gutterWidth + Self.gutterGap + width * CGFloat(placement.column),
@@ -154,40 +182,62 @@ struct DayTimelineView: View {
     }
 }
 
-/// 축 위에 놓이는 블록 하나. 카드 표면은 기존 토큰을 그대로 쓴다.
+/// 축 위에 놓이는 블록 하나.
+///
+/// **목록 셀과 같은 언어로 그린다** — 중립색 카드, 헤어라인 테두리, 왼쪽 카테고리
+/// 막대, 완료 체크. 예전엔 카테고리 색을 배경에 옅게 깔고 띠를 세웠는데, 목록은
+/// 색을 체크 한 곳에만 쓰는 규칙이라 두 화면이 서로 다른 앱처럼 보였다
+/// (`DesignSystem/README.md`의 "색은 한 행에 한 번").
+///
+/// 높이가 30pt까지 내려갈 수 있어서 목록 셀보다 촘촘하다. 조각은 같고 크기만 줄인다.
 private struct TimelineBlock: View {
     let todo: TodoItem
-    let showsCalendarTag: Bool
+    let onToggle: () -> Void
+
+    /// 블록이 낮으면 시각 줄을 접는다 — 제목이 먼저다.
+    @State private var height: CGFloat = 0
+
+    private var isDone: Bool { todo.isCompleted }
+    private var accentColor: Color { todo.category?.color ?? MoscoPalette.textSecondary }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(todo.title)
-                .font(.moscoCaption().weight(.semibold))
-                .foregroundStyle(MoscoPalette.textPrimary)
-                .strikethrough(todo.isCompleted)
-                .lineLimit(2)
-            if let range = todo.timeRangeLabel {
-                Text(range)
-                    .font(.moscoCaption())
-                    .foregroundStyle(MoscoPalette.textSecondary)
-                    .lineLimit(1)
+        let shape = RoundedRectangle(cornerRadius: Metrics.buttonRadius, style: .continuous)
+
+        HStack(alignment: .top, spacing: 6) {
+            TodoCategoryBar(color: accentColor)
+
+            Button(action: onToggle) {
+                TodoCheckMark(isDone: isDone, size: 20)
             }
+            .buttonStyle(.plain)
+            .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(todo.title)
+                    .font(.moscoCaption().weight(.semibold))
+                    .strikethrough(isDone)
+                    .foregroundStyle(isDone ? MoscoPalette.textSecondary : MoscoPalette.textPrimary)
+                    .lineLimit(2)
+
+                // 30분짜리 블록에서는 두 줄이 안 들어간다. 제목을 자르느니 시각을 접는다.
+                if height >= 44, let range = todo.timeRangeLabel {
+                    Text(range)
+                        .font(.moscoCaption())
+                        .foregroundStyle(MoscoPalette.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, Metrics.spacingSM)
-        .padding(.vertical, Metrics.spacingXS)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // 색은 한 행에 한 번 — 카테고리 색은 왼쪽 띠에만 쓰고 배경은 톤으로 낮춘다.
-        .background(alignment: .leading) {
-            RoundedRectangle(cornerRadius: Metrics.buttonRadius, style: .continuous)
-                .fill((todo.category?.color ?? MoscoPalette.accent).opacity(todo.isCompleted ? 0.06 : 0.12))
-        }
-        .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(todo.category?.color ?? MoscoPalette.accent)
-                .frame(width: 3)
-                .padding(.vertical, 2)
-        }
-        .opacity(todo.isCompleted ? 0.55 : 1)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(MoscoPalette.surface, in: shape)
+        .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.4), lineWidth: 0.5))
+        .opacity(isDone ? 0.55 : 1)
+        .contentShape(shape)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
     }
 }

@@ -62,6 +62,7 @@ Mosco의 시각 언어를 정리한 문서. 코드는 이 폴더(`Common/DesignS
 | `ClassifyingDot` | 카테고리 판별 중 표시 | `Components/ClassifyingDot.swift` |
 | `WrappingHStack` | 칩이 넘칠 때 다음 줄로 흐르게 | `Components/WrappingHStack.swift` |
 | `MoscoPrimaryButtonStyle` (`.moscoPrimary`) | 주요 액션 버튼. iOS 26+에서만 `glassEffect` 적용, 그 미만은 flat accent 배경 | `Components/MoscoButtonStyle.swift` |
+| `TodoCategoryBar` · `TodoCheckMark` | 할 일 셀의 왼쪽 막대와 완료 체크. **목록 셀과 시간표 블록이 같은 것을 쓴다** | `Features/Calendar/TodoRowParts.swift` |
 
 `PriorityTag`와 `DemoPriority`는 우선순위 → 카테고리 전환 때 없앴다. 등급 칩이
 필요해 보이면 `CategoryTag`를 쓴다.
@@ -120,6 +121,18 @@ Toss/Apple류의 절제된 UI를 기준으로 삼는다 — 원색 대신 톤 �
 켜고 끄는 표시에 글자 칩을 쓰지 않는다: `D-DAY`를 칩으로 붙였다가 혼자 튀어서
 아이콘으로 되돌렸다. 칩 배경은 모두 `× 0.12`로 같다 — 나란히 선 칩끼리 농도가
 다르면 같은 종류로 안 읽힌다.
+
+### 시간표 블록도 같은 언어다
+
+축 위의 블록은 목록 셀과 **같은 조각**으로 그린다 — 중립색 카드, 헤어라인 테두리,
+왼쪽 카테고리 막대, 완료 체크. 높이가 30pt까지 내려가므로 크기만 줄인다.
+
+한 번은 블록에만 카테고리 색을 배경에 옅게 깔고 왼쪽에 띠를 세웠다. 목록은 색을
+체크 한 곳에만 쓰는데 시간표만 배경까지 물들어서, **두 화면이 서로 다른 앱에서
+온 것처럼 보였다.** 되돌렸다.
+
+손짓도 같다 — **몸통을 누르면 완료, 꾹 누르면 메뉴.** 시간표에서만 탭이 수정으로
+가면 어느 쪽이 맞는지 매번 생각해야 한다.
 
 ### 색은 한 행에 한 번
 

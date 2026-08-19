@@ -290,7 +290,9 @@ struct TodayTodoScreen: View {
             DayTimelineView(
                 todos: todayList,
                 showsCalendarTag: showsCalendarTag,
-                onSelect: { editingTodo = $0 }
+                onSelect: { editingTodo = $0 },
+                onDelete: { delete($0) },
+                date: today
             )
         } else {
             list
