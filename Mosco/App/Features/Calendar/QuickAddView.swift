@@ -182,13 +182,20 @@ struct QuickAddView: View {
             }
         }
         .overlay(alignment: .bottomLeading) {
-            if let suggestion = timeSuggestion {
+            // **둘은 같은 높이에 뜬다.** 시간 제안은 가로로 늘어나는 목록이라
+            // 폭을 다 쓰고, 카테고리 창은 오른쪽에서 나온다 — 같이 뜨면 겹친다.
+            //
+            // **사용자가 연 것이 이긴다.** 카테고리 창은 점을 눌러서 연 것이고
+            // 시간 제안은 저절로 뜬 것이라, 겹칠 때 물러날 쪽은 시간 제안이다.
+            // 제목에 시각 표현이 남아 있으면 카테고리 창을 닫을 때 다시 나온다.
+            if let suggestion = timeSuggestion, !showCategoryOptions {
                 timeSuggestionPopup(suggestion)
                     .offset(y: -54)
                     .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomLeading)))
             }
         }
         .animation(.easeInOut(duration: 0.15), value: timeSuggestion)
+        .animation(.easeInOut(duration: 0.15), value: showCategoryOptions)
         .padding(.horizontal, Metrics.spacingMD)
         .padding(.top, Metrics.spacingSM)
         .padding(.bottom, Metrics.spacingSM)
