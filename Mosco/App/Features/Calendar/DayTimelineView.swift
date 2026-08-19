@@ -42,8 +42,21 @@ struct DayTimelineView: View {
                 axis
             }
             .padding(.vertical, Metrics.spacingMD)
+            // 빈 자리를 눌러도 키보드가 내려가야 한다. VStack만으로는 글자가 없는
+            // 곳이 터치를 안 받아서, 아래쪽 여백을 눌렀을 때 아무 일도 안 일어났다.
+            .frame(maxWidth: .infinity, minHeight: 0, alignment: .topLeading)
+            .contentShape(Rectangle())
         }
         .background(MoscoPalette.canvas)
+        // 목록 모드와 같은 규칙이다. 이게 없으면 아래 입력창에 글을 쓰다가
+        // **키보드를 내릴 방법이 없다** — 시간표에는 누를 빈 셀조차 없다.
+        .scrollDismissesKeyboard(.immediately)
+        .simultaneousGesture(TapGesture().onEnded {
+            UIApplication.shared.sendAction(
+                #selector(UIResponder.resignFirstResponder),
+                to: nil, from: nil, for: nil
+            )
+        })
     }
 
     /// 시각 없는 할 일 — 축 위에 모아둔다. 헤더는 명사구로(문구 원칙 2).
@@ -80,8 +93,12 @@ struct DayTimelineView: View {
             ForEach(Array(hourRange), id: \.self) { hour in
                 HStack(alignment: .top, spacing: 0) {
                     Text(hourLabel(hour))
-                        .font(.moscoCaption())
+                        .font(.moscoCaption().monospacedDigit())
                         .foregroundStyle(MoscoPalette.textSecondary)
+                        // 자릿수가 같아도 숫자 폭이 다르면 눈금이 흔들린다.
+                        // monospacedDigit + 줄바꿈 금지로 못 박는다.
+                        .lineLimit(1)
+                        .fixedSize()
                         .frame(width: Self.gutterWidth, alignment: .trailing)
                         .padding(.trailing, Metrics.spacingSM)
                         // 선 위에 글자 가운데가 오도록 살짝 올린다.
@@ -123,9 +140,13 @@ struct DayTimelineView: View {
         CGFloat(placement.startMinute - hourRange.lowerBound * 60) / 60 * Self.hourHeight
     }
 
-    /// `오전 9시`처럼 앱의 다른 시각 표기와 같은 말을 쓴다.
+    /// `오전 01`처럼 **폭이 같은** 눈금. 여기서만 앱의 다른 시각 표기와 다르다.
+    ///
+    /// 다른 곳은 `오전 9시`처럼 읽는 말이지만, 축 눈금은 읽는 문장이 아니라 자다.
+    /// `오전 9시`와 `오후 12시`가 섞이면 글자 수가 달라 눈금이 들쭉날쭉해지고,
+    /// 그러면 세로로 훑을 때 기준선이 흔들린다. 두 자리로 맞춰 고정한다.
     private func hourLabel(_ hour: Int) -> String {
-        hour == 24 ? "밤 12시" : TimeExpressionParser.koreanTimeLabel(hour24: hour, minute: 0)
+        TimelineLayout.axisLabel(hour: hour)
     }
 }
 

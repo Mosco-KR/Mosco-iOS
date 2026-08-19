@@ -137,6 +137,35 @@ struct TimelineLayoutTests {
         #expect(range.contains(1))
     }
 
+    // MARK: 축 눈금 표기
+
+    @Test("눈금은_글자_수가_모두_같다")
+    func 눈금_폭() {
+        // 자(ruler)라서 폭이 흔들리면 세로로 훑을 때 기준선이 같이 흔들린다.
+        let labels = (0...24).map { TimelineLayout.axisLabel(hour: $0) }
+        #expect(Set(labels.map(\.count)).count == 1, "눈금 길이가 제각각이다: \(Set(labels))")
+    }
+
+    @Test("눈금은_두_자리로_채운다")
+    func 눈금_형식() {
+        #expect(TimelineLayout.axisLabel(hour: 1) == "오전 01")
+        #expect(TimelineLayout.axisLabel(hour: 9) == "오전 09")
+        #expect(TimelineLayout.axisLabel(hour: 13) == "오후 01")
+        #expect(TimelineLayout.axisLabel(hour: 23) == "오후 11")
+    }
+
+    @Test("눈금의_12시도_다른_화면과_같은_뜻이다")
+    func 눈금_12시() {
+        // 오전 12시가 자정, 오후 12시가 정오 — TimeExpressionParser와 같은 규칙.
+        #expect(TimelineLayout.axisLabel(hour: 0) == "오전 12")
+        #expect(TimelineLayout.axisLabel(hour: 12) == "오후 12")
+    }
+
+    @Test("마지막_눈금_24시는_자정으로_돈다")
+    func 눈금_24시() {
+        #expect(TimelineLayout.axisLabel(hour: 24) == "오전 12")
+    }
+
     @Test("자정까지_가는_일정도_범위를_넘지_않는다")
     func 자정() {
         let range = TimelineLayout.visibleHourRange([item("밤샘", 22, 24)])

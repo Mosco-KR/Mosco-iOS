@@ -137,6 +137,23 @@ nonisolated enum TimelineLayout {
         return (c.hour ?? 0) * 60 + (c.minute ?? 0)
     }
 
+    /// 축 눈금에 적는 글자 — `오전 01`, `오전 12`, `오후 01`, `오후 11`.
+    ///
+    /// **앱의 다른 시각 표기와 일부러 다르다.** 다른 곳은 `오전 9시`처럼 읽는
+    /// 말이지만 축 눈금은 문장이 아니라 자(ruler)다. `오전 9시`와 `오후 12시`가
+    /// 섞이면 글자 수가 달라 눈금이 들쭉날쭉해지고, 세로로 훑을 때 기준선이
+    /// 흔들린다. 두 자리로 맞춰 고정한다.
+    ///
+    /// 12시 처리는 다른 곳과 같다 — 오전 12시가 자정, 오후 12시가 정오다.
+    static func axisLabel(hour: Int) -> String {
+        // 24시는 다음 날 0시다. 축의 마지막 눈금으로만 나온다.
+        let normalized = hour % 24
+        let period = normalized >= 12 ? "오후" : "오전"
+        var hour12 = normalized % 12
+        if hour12 == 0 { hour12 = 12 }
+        return String(format: "%@ %02d", period, hour12)
+    }
+
     /// 시간축을 어디부터 어디까지 그릴지.
     ///
     /// 늘 0시~24시를 그리면 새벽 여섯 시간이 늘 비어 있고, 정작 일정이 몰린
