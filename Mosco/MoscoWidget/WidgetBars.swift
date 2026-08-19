@@ -191,7 +191,11 @@ struct WidgetDayNumber: View {
             .frame(width: diameter, height: diameter)
             .background {
                 if isToday {
-                    Circle().fill(Color.accentColor)
+                    // **`Color.accentColor`를 쓰지 않는다** — 잠금화면에서 시스템
+                    // 기본 파랑으로 나온 적이 있고, 사용자가 고른 테마 색도
+                    // 안 따라온다. 규범에 적혀 있던 것을 여기서만 어기고 있었다
+                    // (`DesignSystem/README.md`).
+                    Circle().fill(CategoryColorPalette.accent)
                 }
             }
             .opacity(inMonth ? 1 : 0.35)
