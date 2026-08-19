@@ -10,6 +10,8 @@ struct SettingsScreen: View {
     @Environment(\.modelContext) private var modelContext
     /// 강조색은 앱과 위젯이 같은 값을 본다.
     private var theme: ThemeStore { .shared }
+    /// 고르는 중인 색. nil이면 고른 것이 없다 — 값이 있으면 아직 적용 전이다.
+    @State private var draftColor: Color?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(WeatherStore.self) private var weatherStore
@@ -143,16 +145,41 @@ struct SettingsScreen: View {
     @ViewBuilder
     private var themeSection: some View {
         Section {
+            // **고른 즉시 바뀌지 않는다.** 색을 고르는 동안 앱 전체가 따라
+            // 바뀌면 무엇을 고르는 중인지가 흐려지고, 잘못 스친 색이 그대로
+            // 적용된 것처럼 보인다. 고른 것은 미리보기로만 두고 '적용'에서 바꾼다.
             ColorPicker(
                 "색 고르기",
                 selection: Binding(
-                    get: { theme.accent },
-                    set: { theme.select($0) }
+                    get: { draftColor ?? theme.accent },
+                    set: { draftColor = $0 }
                 ),
                 supportsOpacity: false
             )
 
-            if !theme.isDefault {
+            if let draft = draftColor {
+                // 실제로 칠해질 색을 보여준다 — 밝은 색은 눌러서 쓰므로,
+                // 고른 색 그대로 미리 보여주면 적용 뒤에 다른 색이 나온다.
+                let applied = ThemeColor.color(fromHex: draft.hexString)
+                LabeledContent("미리보기") {
+                    HStack(spacing: 8) {
+                        Text("버튼")
+                            .font(.moscoCaption().weight(.semibold))
+                            .foregroundStyle(applied)
+                        Circle().fill(applied).frame(width: 22, height: 22)
+                    }
+                }
+
+                Button("적용") {
+                    theme.select(draft)
+                    draftColor = nil
+                }
+                Button("취소", role: .cancel) {
+                    draftColor = nil
+                }
+            }
+
+            if draftColor == nil, !theme.isDefault {
                 Button("처음 색으로") {
                     theme.resetToDefault()
                 }
@@ -161,7 +188,9 @@ struct SettingsScreen: View {
             Text("테마 색")
         } footer: {
             // 부연은 한 문장 (`DesignSystem/README.md` 문구 원칙 3).
-            if theme.isAdjusted {
+            if draftColor != nil {
+                Text("적용을 눌러야 바뀌어요.")
+            } else if theme.isAdjusted {
                 Text("고른 색이 밝아서 글자가 안 보일까 봐 조금 어둡게 했어요.")
             } else {
                 Text("버튼과 달력의 오늘 표시, 위젯까지 이 색으로 바뀌어요.")
