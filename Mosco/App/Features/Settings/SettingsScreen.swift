@@ -58,7 +58,9 @@ struct SettingsScreen: View {
                 themeSection
                 tutorialSection
                 notificationSection
-                liveActivitySection
+                // 맥에는 라이브 액티비티가 없어서 스위치도 없다. 켤 수 없는 것을
+                // 켜라고 두면 설정 목록이 거짓말을 한다.
+                if TodoLiveActivityController.isSupported { liveActivitySection }
                 weatherSection
                 syncSection
                 reviewSection

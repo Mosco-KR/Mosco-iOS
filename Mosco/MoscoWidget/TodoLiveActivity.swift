@@ -1,3 +1,9 @@
+// **Mac(Catalyst)에는 ActivityKit이 없다.** 라이브 액티비티는 iOS 잠금화면과
+// 다이나믹 아일랜드의 것이라 맥에는 그릴 자리 자체가 없다. 파일째 빠지고,
+// 그 자리를 부르던 화면도 맥에서는 항목을 감춘다
+// (`TodoLiveActivityController.isSupported`).
+#if !targetEnvironment(macCatalyst)
+
 import ActivityKit
 import SwiftUI
 import WidgetKit
@@ -251,3 +257,5 @@ struct TodoLiveActivity: Widget {
         return CategoryColorPalette.color(forHex: hex)
     }
 }
+
+#endif

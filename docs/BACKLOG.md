@@ -187,12 +187,17 @@
       한쪽만 바뀌어 앱과 위젯 색이 갈라진다
 
 ### Mac·주간 스트립·현재 시각 (2026-08-21)
-- [ ] Mac 지원 — **Mac Catalyst로 따로 만든다** (2026-08-21 결정). "Mac에서 iPhone
-      앱 그대로"(`SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD`)는 켰다가 되돌렸다.
-      네이티브 macOS 타깃은 버렸다 — UIKit 다리(격자 터치, 오버레이 창, 입력창)를
-      전부 다시 써야 해서 사실상 두 번째 앱이 된다. 별도 브랜치·PR로 간다
-- [ ] Catalyst에서 라이브 액티비티가 없다 — 그 자리(꾹 눌러 '잠금화면에 띄우기')를
-      Mac에서 어떻게 할지 정해야 한다. 감추기가 기본값 후보
+### Mac Catalyst (2026-08-22, `feat/mac-catalyst`)
+- [~] 빌드 설정 — App·위젯 4개 블록에 `SUPPORTS_MACCATALYST = YES`,
+      `SUPPORTED_PLATFORMS`에 `macosx`. 켜도 iOS 빌드는 그대로 통과한다
+- [~] 라이브 액티비티를 맥에서 감춘다 — ActivityKit이 Catalyst에 아예 없다.
+      컨트롤러의 **바깥 API는 그대로 두고 속만** `#if !targetEnvironment(macCatalyst)`로
+      가렸다. 호출부 세 곳은 안 건드렸다. 꾹 눌러 나오는 '잠금화면에 띄우기'와
+      설정 토글은 `TodoLiveActivityController.isSupported`로 감춘다
+- [ ] 맥다운 창 — 최소·기본 창 크기, 메뉴바, 키보드 단축키. 아직 아무것도 안 했다
+- [ ] 맥에서 실제로 열어보고 무엇이 어색한지 — 격자 터치(`CellTouchBridge`)가
+      트랙패드에서 어떻게 도는지, 오버레이 창(튜토리얼)이 맥에서 서는지
+- [ ] 서명·배포 — Mac용 프로비저닝, App Store Connect에 Mac 버전 추가
 - [~] 하루치 페이지 상단에 주간 스트립 — 77d0649에서 걷어냈던 `WeekStripView`를 되살린다.
       달 전체로 접혔다 펴지는 구조는 되살리지 않는다
 - [~] 주간 스트립 좌우 스와이프로 주 넘기기 — 페이지 전체 스와이프는 안 한다.

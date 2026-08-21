@@ -127,7 +127,9 @@ struct TodoActions: ViewModifier {
         // 만들지 않는다. 여기서만 띄울 수 있는 건 앱이 자기 자신을 깨울 수
         // 없어서다(`TodoLiveActivityController` 참고): 꾹 누르는 이 순간이
         // 앱이 확실히 앞에 나와 있는 자리다.
-        if todo.startTime != nil, !isDone {
+        // 맥에는 라이브 액티비티가 없다(`TodoLiveActivityController.isSupported`).
+        // 눌러도 아무 일이 안 일어나는 항목을 두느니 자리를 안 만든다.
+        if TodoLiveActivityController.isSupported, todo.startTime != nil, !isDone {
             Button {
                 Task { await toggleLiveActivity() }
             } label: {
