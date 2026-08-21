@@ -1,4 +1,6 @@
+#if !targetEnvironment(macCatalyst)
 import ActivityKit
+#endif
 import Foundation
 import Observation
 import OSLog
@@ -26,6 +28,17 @@ private let logger = Logger(subsystem: "com.Mosco.App", category: "live-activity
 @MainActor
 @Observable
 final class TodoLiveActivityController {
+    /// **맥(Catalyst)에는 ActivityKit이 없다.** 타입과 바깥 API는 그대로 두고
+    /// 속만 비운다 — 호출부 세 곳(`RootTabView`·`SettingsScreen`·`TodoActions`)이
+    /// 플랫폼을 몰라도 되게 하려는 것이다. 대신 화면에서 이 값을 보고 항목을 감춘다.
+    static var isSupported: Bool {
+        #if targetEnvironment(macCatalyst)
+        false
+        #else
+        true
+        #endif
+    }
+
     /// 인텐트도 이 하나를 부른다. 인스턴스가 둘이면 각자 다른 활동을 들고 있게 되고,
     /// 그러면 잠금화면에 같은 것이 두 개 뜬다.
     static let shared = TodoLiveActivityController()
@@ -67,8 +80,10 @@ final class TodoLiveActivityController {
     private(set) var showingTodoID: String?
 
     @ObservationIgnored private let calendar = Calendar.current
+    #if !targetEnvironment(macCatalyst)
     /// 지금 띄워둔 활동. 앱을 껐다 켜면 시스템이 들고 있던 것을 되찾는다.
     @ObservationIgnored private var activity: Activity<TodoActivityAttributes>?
+    #endif
 
     private init() {
         // 키가 없으면(첫 실행) 켜진 상태로 시작한다 — 알림 스위치와 같은 규칙.
@@ -78,7 +93,12 @@ final class TodoLiveActivityController {
     /// 시스템의 라이브 액티비티 허용 여부. 여기엔 "아직 안 물어봄"이 없다 —
     /// 사용자가 설정에서 켜고 끄는 것이라 앱이 물어볼 수 있는 창 자체가 없다.
     var permission: PermissionState {
+        #if targetEnvironment(macCatalyst)
+        // 맥에는 켤 수 있는 스위치가 없다. 항목 자체를 감추므로 화면에는 안 쓰인다.
+        .denied
+        #else
         ActivityAuthorizationInfo().areActivitiesEnabled ? .granted : .denied
+        #endif
     }
 
     /// 스위치에 표시할 값 — 켜뒀어도 시스템에서 꺼져 있으면 꺼진 것으로 보인다.
@@ -95,6 +115,9 @@ final class TodoLiveActivityController {
     /// 밀어내는데, 그 상태에서는 "무엇을 기다리는 중인지"를 알 수 없다.
     @discardableResult
     func start(todo: TodoItem, on day: Date, now: Date = .now) async -> StartResult {
+        #if targetEnvironment(macCatalyst)
+        return .unavailable
+        #else
         guard isEnabled, ActivityAuthorizationInfo().areActivitiesEnabled else {
             logger.info("라이브 액티비티가 꺼져 있어 띄우지 못함")
             return .unavailable
@@ -123,6 +146,7 @@ final class TodoLiveActivityController {
             logger.error("라이브 액티비티 시작 실패: \(error.localizedDescription)")
             return .unavailable
         }
+        #endif
     }
 
     /// 사용자가 직접 내린다. 목록의 같은 메뉴에서 부른다.
@@ -142,6 +166,9 @@ final class TodoLiveActivityController {
     /// `@Query` 배열이 없고, 그렇다고 경로를 둘로 나누면 "앱에서 볼 때와 잠금화면에서
     /// 볼 때가 다르다"는 종류의 버그가 생길 자리가 된다.
     func sync(now: Date = .now) async {
+        #if targetEnvironment(macCatalyst)
+        return
+        #else
         adoptRunningActivity()
         guard let activity else { return }
 
@@ -173,6 +200,7 @@ final class TodoLiveActivityController {
         }
 
         await activity.update(content(for: todo, on: day, start: start))
+        #endif
     }
 
     /// 앱이 꺼져 있는 동안에도 활동은 살아 있다. 다시 켰을 때 그걸 못 찾으면
@@ -181,21 +209,26 @@ final class TodoLiveActivityController {
     /// **뷰를 그리는 도중에는 부르지 않는다** — 관찰되는 `showingTodoID`를 건드리므로,
     /// body 안에서 부르면 그리는 중에 상태를 바꾸는 꼴이 된다. `sync()`가 앱이
     /// 앞으로 나올 때와 할 일이 바뀔 때마다 부르므로 그것으로 충분하다.
+    #if !targetEnvironment(macCatalyst)
     private func adoptRunningActivity() {
         guard activity == nil else { return }
         activity = Activity<TodoActivityAttributes>.activities.first
         showingTodoID = activity?.attributes.todoID
     }
+    #endif
 
     private func end() async {
         showingTodoID = nil
+        #if !targetEnvironment(macCatalyst)
         guard let activity else { return }
         await activity.end(nil, dismissalPolicy: .immediate)
         self.activity = nil
+        #endif
     }
 
     // MARK: - 내용
 
+    #if !targetEnvironment(macCatalyst)
     private func content(
         for todo: TodoItem,
         on day: Date,
@@ -221,6 +254,7 @@ final class TodoLiveActivityController {
             staleDate: start
         )
     }
+    #endif
 
     // MARK: - 저장소
 
