@@ -118,6 +118,26 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             | xcbeautify --renderer github-actions
 
+      # 맥은 별도 빌드다 — iOS가 통과해도 Catalyst는 깨질 수 있다. 실제로
+      # 라이브 액티비티(ActivityKit)가 Catalyst에 없어서 조건부 컴파일로
+      # 가려뒀는데, 그 조건을 잘못 건드리면 여기서만 터진다.
+      #
+      # **잡을 나누지 않고 같은 잡의 단계로 둔다.** 잡을 나누면 체크아웃과 패키지
+      # 받기를 처음부터 다시 하는데, Firebase SDK 받는 시간이 실행 시간의 절반이고
+      # macOS 러너는 분당 과금이 제일 비싸다. 여기서는 캐시된 .spm-cache를 그대로 쓴다.
+      #
+      # 앱 스킴이 위젯 익스텐션까지 함께 빌드하므로 맥 쪽 위젯도 같이 덮인다.
+      - name: Mac Catalyst 빌드
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Mosco/Mosco.xcodeproj \
+            -scheme App \
+            -destination 'platform=macOS,variant=Mac Catalyst' \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcbeautify --renderer github-actions
+
       # 실패했을 때 로그만 보고 원인을 못 찾는 경우가 있다. 결과 번들을 받아
       # Xcode로 열면 어느 테스트가 왜 깨졌는지 그대로 보인다.
       - name: 실패 시 결과 번들 올리기

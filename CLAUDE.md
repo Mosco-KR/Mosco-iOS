@@ -25,10 +25,11 @@ tools/harness_report.py      버전별 지표 추출
 tools/deadcode_audit.py      안 쓰이는 코드 훑기. periphery는 이 프로젝트에서 못 쓴다
 ```
 
-배포 타깃 iOS 17.0. 번들 ID `com.Mosco.App`. Swift 88파일 ≈ 11,900줄.
-**테스트 타깃 `MoscoTests`가 있다** (Swift Testing, 108건). **CI도 있다** —
-PR마다 App·MoscoWidget 빌드와 테스트가 자동으로 돈다
-(`.github/workflows/ci.yml`). 그래도 먼저 돌리는 것은 AI다 — CI는 마지막 그물이지
+배포 타깃 iOS 17.0. 번들 ID `com.Mosco.App`. Swift 106파일 ≈ 13,900줄.
+**테스트 타깃 `MoscoTests`가 있다** (Swift Testing, 112건). **CI도 있다** —
+PR마다 App·MoscoWidget 빌드와 테스트, 그리고 Mac Catalyst 빌드가 자동으로 돈다
+(`.github/workflows/ci.yml`). Catalyst를 따로 빌드하는 것은 **iOS가 통과해도 맥은
+깨질 수 있어서**다 — 라이브 액티비티가 조건부 컴파일로 가려져 있다. 그래도 먼저 돌리는 것은 AI다 — CI는 마지막 그물이지
 편집 후 확인을 대신하지 않는다 (R1).
 
 > **시뮬레이터는 AI가 직접 쓰지 않는다.** 열지도, 탭하지도, 캡처하지도 않는다.
