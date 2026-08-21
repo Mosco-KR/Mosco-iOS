@@ -200,14 +200,14 @@ struct SettingsScreen: View {
                     case .openSystemSettings:
                         // 한 번 거부된 권한은 앱이 다시 물을 수 없다. 여기서 요청을
                         // 시도하면 아무 일도 안 일어나고 스위치가 고장 난 것처럼 보인다.
-                        openSystemSettings()
+                        openSystemSettings(.notifications)
                     }
                 }
             ))
 
             if isNotificationBlocked {
                 Button("설정에서 알림 허용하기") {
-                    openSystemSettings()
+                    openSystemSettings(.notifications)
                 }
             }
         } header: {
@@ -280,14 +280,14 @@ struct SettingsScreen: View {
                         // 아직 안 물어본 경우, 켜면 `loadIfNeeded()`가 위치 권한 창을 띄운다.
                         weatherStore.isEnabled = true
                     case .openSystemSettings:
-                        openSystemSettings()
+                        openSystemSettings(.location)
                     }
                 }
             ))
 
             if isWeatherBlocked {
                 Button("설정에서 위치 허용하기") {
-                    openSystemSettings()
+                    openSystemSettings(.location)
                 }
             }
 
@@ -502,8 +502,35 @@ struct SettingsScreen: View {
     /// RootTabView의 시드와 같은 색 — 앱 액센트.
     private static let seedColorHex = "8B5CF6"
 
-    private func openSystemSettings() {
-        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+    /// 시스템 설정의 어느 창을 열지. **맥에서만 의미가 있다** — iOS는 어느
+    /// 경우든 이 앱의 설정 화면 하나로 간다.
+    private enum SystemSettingsPane {
+        case notifications
+        case location
+        /// 딱 맞는 창이 없을 때(iCloud 로그인 등). 맥에서는 시스템 설정만 연다.
+        case general
+    }
+
+    /// **맥에는 iOS의 '앱별 설정' 화면이 없다.** `openSettingsURLString`을 그대로
+    /// 열면 아무 일도 안 일어나서, 버튼이 고장 난 것처럼 보인다(2026-08-22에
+    /// 맥에서 확인). 그래서 맥에서는 시스템 설정의 해당 창을 직접 연다.
+    ///
+    /// 창 주소는 macOS 버전에 따라 바뀔 수 있다. 못 열면 시스템 설정이 그냥
+    /// 첫 화면으로 뜨는 것이 최악이라, 실패해도 앱은 아무 일 없다.
+    private func openSystemSettings(_ pane: SystemSettingsPane = .general) {
+        #if targetEnvironment(macCatalyst)
+        let string = switch pane {
+        case .notifications:
+            "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
+        case .location:
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocationServices"
+        case .general:
+            "x-apple.systempreferences:"
+        }
+        #else
+        let string = UIApplication.openSettingsURLString
+        #endif
+        guard let url = URL(string: string) else { return }
         UIApplication.shared.open(url)
     }
 
