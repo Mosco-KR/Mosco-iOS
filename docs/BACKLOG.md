@@ -194,7 +194,10 @@
       컨트롤러의 **바깥 API는 그대로 두고 속만** `#if !targetEnvironment(macCatalyst)`로
       가렸다. 호출부 세 곳은 안 건드렸다. 꾹 눌러 나오는 '잠금화면에 띄우기'와
       설정 토글은 `TodoLiveActivityController.isSupported`로 감춘다
-- [ ] 맥다운 창 — 최소·기본 창 크기, 메뉴바, 키보드 단축키. 아직 아무것도 안 했다
+- [~] 맥 창 최소 크기 480×640 — 더 줄이면 달 격자의 막대 용량이 0이 돼서 일정이
+      있는 날이 빈 날처럼 보인다(`MonthPageMetrics.barCapacity`). 640이면 막대
+      3개가 남는다. `SceneDelegate.applyMacWindowSizeLimits` (2026-08-22)
+- [ ] 맥다운 창 나머지 — 기본 창 크기, 메뉴바, 키보드 단축키. 아직 안 했다
 - [ ] 맥에서 실제로 열어보고 무엇이 어색한지 — 격자 터치(`CellTouchBridge`)가
       트랙패드에서 어떻게 도는지, 오버레이 창(튜토리얼)이 맥에서 서는지
 - [ ] 서명·배포 — Mac용 프로비저닝, App Store Connect에 Mac 버전 추가
