@@ -466,7 +466,6 @@ struct TodayTodoScreen: View {
             ForEach(overdueTodos) { todo in
                 row(todo, showsDate: true)
             }
-            .onDelete { delete(overdueTodos, at: $0) }
 
             Button {
                 // 옮기는 동안 `overdueTodos`가 계속 다시 계산되므로 먼저 떠둔다.
@@ -500,7 +499,6 @@ struct TodayTodoScreen: View {
                 row(todo)
             }
             .onMove { move(todayList, from: $0, to: $1) }
-            .onDelete { delete(todayList, at: $0) }
         } header: {
             plainHeader("오늘 할 일", count: todayList.count)
         }
@@ -532,7 +530,6 @@ struct TodayTodoScreen: View {
                     .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
                 }
                 .onMove { move(backlogTodos, from: $0, to: $1) }
-                .onDelete { delete(backlogTodos, at: $0) }
             }
         } header: {
             collapsibleHeader(
@@ -649,11 +646,6 @@ struct TodayTodoScreen: View {
         }
     }
 
-    private func delete(_ items: [TodoItem], at offsets: IndexSet) {
-        for index in offsets where items.indices.contains(index) {
-            delete(items[index])
-        }
-    }
 
     /// 지난 항목/백로그를 오늘로. 순서 번호는 맨 뒤로 보내서, 이미 오늘 줄을 세워둔
     /// 항목들 사이로 끼어들지 않게 한다.

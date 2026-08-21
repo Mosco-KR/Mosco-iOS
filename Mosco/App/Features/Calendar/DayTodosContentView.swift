@@ -360,10 +360,10 @@ private struct DayTodoList: View {
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
             }
+            // **`onDelete`를 달지 않는다.** 그게 스와이프 삭제를 만드는 자리다.
+            // 삭제는 꾹 눌러 나오는 메뉴 하나로 간다(`TodoActions`) — 확인 대화가
+            // 붙어 있고, 튜토리얼도 그 길을 가르친다.
             .onMove(perform: move)
-            .onDelete { offsets in
-                onDelete(offsets.map { todosForDay[$0] })
-            }
         }
         .environment(\.editMode, .constant(isEditing ? .active : .inactive))
         // 안내가 겨누는 줄이 손가락에 밀려 화면 밖으로 나가지 않게.
