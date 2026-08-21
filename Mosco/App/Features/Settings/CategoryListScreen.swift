@@ -36,9 +36,7 @@ struct CategoryListScreen: View {
                         SettingsColorRow(color: category.color, name: category.name)
                     }
                     .buttonStyle(.plain)
-                    .deleteDisabled(category.isDefault)
                 }
-                .onDelete(perform: delete)
             } footer: {
                 Text("할 일에 자동으로 붙는 묶음이에요. 카테고리마다 색과 알림을 따로 정해요.")
             }
@@ -84,10 +82,4 @@ struct CategoryListScreen: View {
         }
     }
 
-    private func delete(at offsets: IndexSet) {
-        guard let defaultCategory = categories.first(where: \.isDefault) else { return }
-        for index in offsets {
-            TodoCategory.delete(categories[index], reassigningTodosTo: defaultCategory, in: modelContext)
-        }
-    }
 }

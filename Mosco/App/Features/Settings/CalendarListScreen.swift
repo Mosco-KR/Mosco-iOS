@@ -42,9 +42,7 @@ struct CalendarListScreen: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .deleteDisabled(calendar.isDefault)
                 }
-                .onDelete(perform: delete)
             } footer: {
                 Text("일과 개인처럼 크게 나눌 때 써요. 기본 캘린더는 삭제할 수 없어요.")
             }
@@ -83,12 +81,6 @@ struct CalendarListScreen: View {
         }
     }
 
-    private func delete(at offsets: IndexSet) {
-        guard let fallback = calendars.first(where: \.isDefault) else { return }
-        for index in offsets {
-            TodoCalendar.delete(calendars[index], reassigningTodosTo: fallback, in: modelContext)
-        }
-    }
 }
 
 /// 색 점 + 이름 + 화살표. 캘린더와 카테고리 목록이 같은 모양을 쓴다.

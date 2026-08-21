@@ -9,10 +9,21 @@ import UIKit
 /// 하루인지 헷갈렸고 되돌아가는 길도 직접 만든 화살표 하나뿐이었다. 페이지를
 /// 밀어 넣으면 앞뒤 관계가 분명해지고 뒤로 가기는 시스템이 맡는다.
 ///
-/// 여기서 좌우 스와이프로 날짜를 넘기지 않는 건, 그게 셀의 스와이프 삭제와 방향이
-/// 같아 서로 먹히기 때문이다. 날짜를 바꾸려면 뒤로 나가 달력에서 고른다.
+/// **날짜는 맨 위 주간 스트립에서 바꾼다.** 본문에는 좌우 스와이프를 걸지 않는다 —
+/// 그건 셀의 스와이프 삭제와 방향이 같아 서로 먹힌다. 스트립 한 줄에만 걸어두면
+/// 두 손짓이 자리로 구분된다.
 struct DayTodosContentView: View {
-    let date: Date
+    /// 지금 보고 있는 날짜. 달력에서 눌러 들어온 날짜로 시작한다. 뒤에 남은
+    /// 달력은 들어온 자리를 그대로 지키므로(`CalendarScreen.select`) 여기서
+    /// 옮겨 다닌 결과를 밖으로 올리지 않는다.
+    @State private var shownDate: Date
+    /// 스트립이 보여주는 주의 시작일. 날짜를 고르면 그 날이 든 주로 따라간다.
+    @State private var visibleWeekStart: Date
+
+    init(date: Date) {
+        _shownDate = State(initialValue: date)
+        _visibleWeekStart = State(initialValue: WeekWindow.normalized(date))
+    }
 
     @Environment(\.modelContext) private var modelContext
     @Environment(TodoClipboard.self) private var clipboard
@@ -34,7 +45,7 @@ struct DayTodosContentView: View {
         // 재사용하면서 date만 갈아끼우고, 그러면 반복 일정의 완료 상태가 바뀐
         // 것처럼 보여 TodoRow의 완료 스프링이 실행된다(체크를 누른 것처럼 깜빡였다).
         DayTodoList(
-            date: date,
+            date: shownDate,
             isEditing: isEditing,
             onSelect: { editingTodo = $0 },
             onDelete: { todos in
@@ -43,7 +54,7 @@ struct DayTodosContentView: View {
                 for todo in todos { modelContext.delete(todo) }
             }
         )
-        .id(date)
+        .id(shownDate)
         // List가 키보드에 반응해 content inset을 또 조정하면 컴포즈 바의 반응과
         // 겹쳐 이중으로 움직인다. List는 키보드를 무시하고, 컴포즈 바만 따라가게 한다.
         .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -53,8 +64,9 @@ struct DayTodosContentView: View {
         // 커지면 히트 영역이 따라오지 않는다. 먼저 붙인 쪽이 안쪽(위)에 온다.
         .safeAreaInset(edge: .bottom, spacing: Metrics.spacingSM) { pasteBar }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            QuickAddView(date: date, editingTodo: $editingTodo, analyticsSource: "calendar_day")
+            QuickAddView(date: shownDate, editingTodo: $editingTodo, analyticsSource: "calendar_day")
         }
+        .safeAreaInset(edge: .top, spacing: 0) { weekStrip }
         .background(MoscoPalette.canvas.ignoresSafeArea())
         // 밀려 들어온 페이지라 시스템 내비게이션 바를 그대로 쓴다 — 뒤로 가기
         // 버튼과 가장자리 스와이프를 공짜로 얻는다. 직접 만든 헤더로는 그 두 개를
@@ -115,16 +127,54 @@ struct DayTodosContentView: View {
         }
     }
 
+    /// 페이지 머리에 붙는 주간 스트립. 좌우로 밀면 주가 넘어가고, 날짜를 누르면
+    /// 본문이 그날로 바뀐다 — 하루 건너뛰려고 달력까지 나갔다 오지 않아도 된다.
+    ///
+    /// 스트립은 떠 있는 요소가 아니므로 불투명한 캔버스 위에 그리고 아래에
+    /// 경계선 한 줄만 둔다(글라스는 쓰지 않는다).
+    private var weekStrip: some View {
+        GeometryReader { proxy in
+            WeekPagerView(
+                width: proxy.size.width,
+                today: calendar.startOfDay(for: Date()),
+                selectedDate: shownDate,
+                weatherSymbol: { weatherStore.weather(for: $0)?.symbolName },
+                visibleWeekStart: $visibleWeekStart,
+                onSelect: select
+            )
+        }
+        .frame(height: WeekStripView.height)
+        .background(MoscoPalette.canvas)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(MoscoPalette.border)
+                .frame(height: 0.5)
+        }
+    }
+
+    /// 스트립에서 다른 날을 고른다.
+    private func select(_ day: Date) {
+        let start = calendar.startOfDay(for: day)
+        guard start != shownDate else { return }
+        // 고치던 항목은 그 날의 것이다 — 날짜가 바뀌면 입력창을 새로 만들기로
+        // 되돌린다. 안 그러면 다른 날 화면에서 어제 항목을 고치고 있게 된다.
+        editingTodo = nil
+        shownDate = start
+        // 달 경계를 걸친 주에서 옆 달 날짜를 눌렀을 때, 스트립이 그대로 있어야
+        // 방금 누른 칸이 눈앞에 남는다. 같은 주면 아무 일도 안 일어난다.
+        visibleWeekStart = WeekWindow.normalized(start)
+    }
+
     /// 날짜와 그날 날씨를 한 줄로. 날씨는 예전에 주간 스트립의 날짜 칸에 붙어
     /// 있었는데, 그 스트립이 사라지면서 갈 곳을 잃었다 — 하루를 보는 화면이야말로
     /// 그날 날씨가 필요한 자리다.
     private var titleView: some View {
         HStack(spacing: 6) {
-            Text(date.koreanMonthDayWeekday)
+            Text(shownDate.koreanMonthDayWeekday)
                 .font(.moscoBody().weight(.semibold))
                 .foregroundStyle(MoscoPalette.textPrimary)
 
-            if let weather = weatherStore.weather(for: date) {
+            if let weather = weatherStore.weather(for: shownDate) {
                 Image(systemName: weather.symbolName)
                     .font(.system(size: 12))
                     .foregroundStyle(MoscoPalette.textSecondary)
@@ -169,7 +219,7 @@ struct DayTodosContentView: View {
         HStack(spacing: 6) {
             Button {
                 withAnimation(.easeOut(duration: 0.2)) {
-                    clipboard.paste(copied, on: date, in: modelContext)
+                    clipboard.paste(copied, on: shownDate, in: modelContext)
                 }
                 Analytics.log(.todoDuplicated)
             } label: {
@@ -295,8 +345,8 @@ private struct DayTodoList: View {
 
     private var list: some View {
         List {
-            // 리스트에서 날짜를 넘기던 스와이프를 걷어냈으므로, 좌우 스와이프를
-            // 원래 자리인 스와이프 삭제로 되돌린다.
+            // 날짜를 넘기는 스와이프는 맨 위 주간 스트립에만 있다. 줄에는
+            // 좌우 손짓이 없다 — 삭제는 꾹 눌러 나오는 메뉴가 맡는다.
             ForEach(todosForDay) { todo in
                 TodoRow(
                     todo: todo,
@@ -310,10 +360,10 @@ private struct DayTodoList: View {
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
             }
+            // **`onDelete`를 달지 않는다.** 그게 스와이프 삭제를 만드는 자리다.
+            // 삭제는 꾹 눌러 나오는 메뉴 하나로 간다(`TodoActions`) — 확인 대화가
+            // 붙어 있고, 튜토리얼도 그 길을 가르친다.
             .onMove(perform: move)
-            .onDelete { offsets in
-                onDelete(offsets.map { todosForDay[$0] })
-            }
         }
         .environment(\.editMode, .constant(isEditing ? .active : .inactive))
         // 안내가 겨누는 줄이 손가락에 밀려 화면 밖으로 나가지 않게.
