@@ -1,7 +1,10 @@
-import Foundation
 import CoreLocation
+import Foundation
 import Observation
+import OSLog
 import WeatherKit
+
+private let logger = Logger(subsystem: "com.Mosco.App", category: "weather")
 
 /// 하루치 날씨 요약 — 뷰가 필요한 것만 담는다. WeatherKit 타입을 그대로 뷰까지
 /// 흘리지 않아야, 날씨를 못 받아온 상태(권한 없음/오프라인)를 그냥 "값이 없다"로
@@ -102,6 +105,11 @@ final class WeatherStore {
 
     private func load() async {
         guard let location = await locationProvider.currentLocation() else {
+            // **실패한 이유는 로그로 남긴다.** 화면 문구는 "위치 권한이 없어요"
+            // 한 줄이라 어느 상태에서 막힌 건지까지는 안 보인다.
+            logger.warning(
+                "날씨: 위치를 못 받았다 (권한 상태 \(CLLocationManager().authorizationStatus.rawValue))"
+            )
             unavailableReason = .locationDenied
             return
         }
@@ -119,6 +127,9 @@ final class WeatherStore {
             dailyByDayKey = result
             unavailableReason = nil
         } catch {
+            // localizedDescription만으로는 WeatherKit 실패 원인을 알 수 없는 일이
+            // 많아서 원본도 같이 남긴다.
+            logger.error("날씨: WeatherKit 실패 — \(String(describing: error))")
             unavailableReason = .serviceFailed(error.localizedDescription)
         }
     }

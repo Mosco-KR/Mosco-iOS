@@ -200,7 +200,24 @@
 - [ ] 맥다운 창 나머지 — 기본 창 크기, 메뉴바, 키보드 단축키. 아직 안 했다
 - [ ] 맥에서 실제로 열어보고 무엇이 어색한지 — 격자 터치(`CellTouchBridge`)가
       트랙패드에서 어떻게 도는지, 오버레이 창(튜토리얼)이 맥에서 서는지
-- [ ] 서명·배포 — Mac용 프로비저닝, App Store Connect에 Mac 버전 추가
+- [~] 맥에서 날씨가 아예 안 불리던 것 — 첫 로드가 scenePhase 변화와 첫 실행 권한
+      흐름 둘로만 열려 있었는데, 맥은 창이 이미 활성인 채로 떠서 그 변화가 안 오고
+      권한을 이미 정해둔 사람은 첫 흐름도 안 지나간다. `RootTabView`의 `.task`에서
+      한 번 부른다(아직 안 물어본 상태에서는 안 부른다 — 권한창이 안내를 덮는다)
+- [~] 맥에서 '설정에서 ~ 허용하기'가 아무 일도 안 하던 것 —
+      `UIApplication.openSettingsURLString`은 iOS의 앱별 설정 주소다. 맥에서는
+      시스템 설정의 해당 창(알림 / 위치 서비스)을 직접 연다. 창 주소는 macOS
+      버전을 탄다
+- [~] 앱 샌드박스 — Mac App Store가 요구한다. iOS와 파일을 나눠서
+      `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`로 맥에만 붙인다(`App-Mac.entitlements`,
+      `MoscoWidget-Mac.entitlements`). 네트워크·위치 키를 같이 넣었고, 실제로
+      무엇이 더 막히는지는 맥에서 돌려봐야 안다 (2026-08-22)
+- [x] Mac용 프로비저닝 — 이미 자동으로 발급돼 있었다. 서명된 Catalyst 빌드의
+      `application-identifier`가 `W5QTRMS954.com.Mosco.App`이다 (2026-08-22 확인)
+- [ ] App Store Connect에 Mac 버전 추가 — 새 앱이 아니라 지금 레코드에 macOS
+      플랫폼을 얹는다. Mac 스크린샷(1280×800 이상)과 '이 버전의 새로운 기능'은
+      따로 채워야 하고, 심사도 따로 한 번 더 받는다. 계정으로 하는 일이다
+- [ ] 수출 규정 — `Info.plist`에 `ITSAppUsesNonExemptEncryption`. 맥 빌드에도 묻는다
 - [~] 하루치 페이지 상단에 주간 스트립 — 77d0649에서 걷어냈던 `WeekStripView`를 되살린다.
       달 전체로 접혔다 펴지는 구조는 되살리지 않는다
 - [~] 주간 스트립 좌우 스와이프로 주 넘기기 — 페이지 전체 스와이프는 안 한다.

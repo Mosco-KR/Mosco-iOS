@@ -187,3 +187,27 @@ WeatherKit을 쓰면  Weather 상표와 법적 출처 링크를 화면에 표시
 - 로그 한 줄이 추측 세 번보다 쌌다. `[스와이프]`가 한 줄도 안 찍혔다는 사실이
   곧 답이었다. AI가 시뮬레이터를 못 여는 자리에서는 **탐침을 심어 사람에게 실행을
   부탁하는 것**이 다음 수단이다(R2를 어기지 않는다).
+
+## 맥과 iOS는 entitlements 파일을 같이 쓰지 않는다
+
+Mac App Store는 **앱 샌드박스**(`com.apple.security.app-sandbox`)를 요구하는데,
+그건 맥에만 있는 키다. 한 파일에 몰아넣으면 iOS 빌드의 프로비저닝 프로파일과
+어긋날 자리를 만든다.
+
+`CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`로 SDK마다 다른 파일을 물린다 —
+`App-Mac.entitlements`는 `App.entitlements`에 샌드박스·네트워크·위치 키를 더한
+것이고, 위젯도 같은 방식으로 하나 더 있다. **위젯 익스텐션도 따로 샌드박스를
+켜야 한다** — 앱만 켜면 맥에서 익스텐션이 걸린다.
+
+맞게 들어갔는지는 파일이 아니라 **서명된 산출물**로 확인한다. 빌드 설정을
+잘못 걸어도 빌드는 통과하기 때문이다.
+
+```bash
+codesign -d --entitlements :- <경로>/App.app
+```
+
+같은 방법으로 2026-08-22에 두 가지를 확인했다 — 맥 프로비저닝이 이미 발급돼
+있다는 것(`application-identifier`에 팀 접두사가 붙어 있었다), 그리고 앱 그룹은
+맥에서도 iOS 형식(`group.com.Mosco.App`) 그대로 쓴다는 것(맥에서는 팀 접두사가
+필요한 경우가 있어 의심했는데 Catalyst는 아니었다. `~/Library/Group Containers/`에
+그 이름으로 실제 폴더가 있다).

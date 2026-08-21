@@ -375,6 +375,16 @@ struct RootTabView: View {
             }
         }
         .onAppear(perform: seedIfNeeded)
+        // **첫 날씨는 여기서 받는다.** 예전엔 scenePhase가 .active로 *바뀔 때*와
+        // 첫 실행 권한 흐름, 둘로만 열렸다. 맥은 창이 이미 활성인 채로 떠서 그
+        // 변화가 안 오고, 권한을 이미 정해둔 사람은 첫 흐름도 안 지나간다 —
+        // 그래서 맥에서 날씨가 통째로 안 떴다(2026-08-22).
+        //
+        // **아직 안 물어본 상태에서는 부르지 않는다.** 그러면 위치 권한창이
+        // 안내(튜토리얼) 위로 덮친다 — 묻는 순서는 StartupPermissionRequest 몫이다.
+        .task {
+            if weatherStore.permission == .granted { weatherStore.loadIfNeeded() }
+        }
         // 중복 정리는 **켤 때 한 번이 아니라 목록이 바뀔 때마다** 돌아야 한다.
         // iCloud를 켠 뒤로는 이런 순서가 실제로 벌어진다: 앱을 새로 깔면 로컬이
         // 비어 있으니 기본 캘린더·카테고리를 즉시 만드는데, 그 **뒤에** 클라우드에서
