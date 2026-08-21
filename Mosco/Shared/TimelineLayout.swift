@@ -172,9 +172,27 @@ nonisolated enum TimelineLayout {
     /// 늘 0시~24시를 그리면 새벽 여섯 시간이 늘 비어 있고, 정작 일정이 몰린
     /// 시간대는 좁아진다. 그래서 **일정이 있는 범위**를 한 시간씩 여유를 두고 낸다.
     /// 일정이 없으면 하루 일과에 해당하는 기본 범위를 쓴다.
+    ///
+    /// - Parameter hour: 축이 반드시 품어야 하는 시각. 현재 시각 줄을 그릴 때
+    ///   쓴다 — 새벽 세 시에 열었는데 축이 8시부터면 줄을 그릴 자리가 없다.
+    ///   nil이면 일정만 보고 정한다.
     static func visibleHourRange(
         _ items: [TimelineItem],
-        fallback: ClosedRange<Int> = 8...22
+        fallback: ClosedRange<Int> = 8...22,
+        including hour: Int? = nil
+    ) -> ClosedRange<Int> {
+        let base = eventHourRange(items, fallback: fallback)
+        guard let hour else { return base }
+
+        let clamped = min(max(hour, 0), 24)
+        // 마지막 눈금이 h면 h시부터 h+1시까지가 그려진다 — 상한을 h로 맞추면
+        // 그 한 시간 안의 어느 분에든 줄을 놓을 수 있다.
+        return min(base.lowerBound, clamped)...max(base.upperBound, clamped)
+    }
+
+    private static func eventHourRange(
+        _ items: [TimelineItem],
+        fallback: ClosedRange<Int>
     ) -> ClosedRange<Int> {
         let timed = items.filter(\.isTimed)
         guard !timed.isEmpty else { return fallback }

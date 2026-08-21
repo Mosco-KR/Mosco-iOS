@@ -182,4 +182,33 @@ struct TimelineLayoutTests {
         let range = TimelineLayout.visibleHourRange([item("밤샘", 22, 24)])
         #expect(range.upperBound == 24, "24시를 넘겨 그리면 빈 칸이 생긴다")
     }
+
+    // MARK: 현재 시각을 품는 범위
+
+    @Test("새벽에_열어도_현재_시각_줄을_놓을_자리가_있다")
+    func 현재_시각_아래로_넓힌다() {
+        // 일정이 없으면 기본 범위가 8...22다. 새벽 3시에 열면 줄을 놓을 데가 없다.
+        let range = TimelineLayout.visibleHourRange([], including: 3)
+        #expect(range.lowerBound == 3)
+        #expect(range.upperBound == 22, "위쪽은 건드리지 않는다")
+    }
+
+    @Test("한밤에_열어도_현재_시각_줄을_놓을_자리가_있다")
+    func 현재_시각_위로_넓힌다() {
+        let range = TimelineLayout.visibleHourRange([item("회의", 10, 11)], including: 23)
+        #expect(range.contains(23))
+        #expect(range.lowerBound == 9, "아래쪽은 건드리지 않는다")
+    }
+
+    @Test("현재_시각이_이미_범위_안이면_축이_그대로다")
+    func 현재_시각이_범위_안() {
+        let base = TimelineLayout.visibleHourRange([item("회의", 10, 11)])
+        let withNow = TimelineLayout.visibleHourRange([item("회의", 10, 11)], including: 10)
+        #expect(base == withNow)
+    }
+
+    @Test("현재_시각을_안_주면_예전과_같은_범위다")
+    func 현재_시각_없음() {
+        #expect(TimelineLayout.visibleHourRange([], including: nil) == 8...22)
+    }
 }
