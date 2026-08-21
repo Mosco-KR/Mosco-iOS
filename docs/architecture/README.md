@@ -7,6 +7,7 @@
 |---|---|
 | [CURRENT.md](CURRENT.md) | **지금 구조.** 레이어별 현황, 결합이 센 다섯 곳, 품질 기준선 |
 | [PATTERNS.md](PATTERNS.md) | **쓸 수 있는 설계와 패턴.** 13가지를 장단점·비용·적합도로 비교 |
+| [REFACTOR-PLAN.md](REFACTOR-PLAN.md) | **무엇을 어떤 순서로 고칠 것인가.** 위험이 낮은 것부터 다섯 단계 |
 
 읽는 순서는 `CURRENT.md` → `PATTERNS.md`다. 지금 무엇이 문제인지 모른 채 패턴을
 고르면 유행을 고르게 된다.
