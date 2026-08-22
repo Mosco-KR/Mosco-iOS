@@ -177,9 +177,18 @@ def report_deviation(base: str) -> int:
 
     hits = []
     for line in added:
+        body = line[1:]
+        # 주석은 걷는다. 레이어 검사와 같은 이유 — 주석에서 언급하는 것은 사용이
+        # 아니고, 안 걷으면 위반 아닌 것이 잡혀서 이 검사를 아무도 안 믿게 된다.
+        stripped = body.lstrip()
+        if stripped.startswith(("//", "*", "/*")):
+            continue
+        body = LINE_COMMENT.sub(" ", body)
         for pattern, label, why in NEW_CONCEPTS:
-            if pattern.search(line):
-                hits.append((label, why, line[1:].strip()[:70]))
+            # 새 프로토콜 패턴만 '+' 붙은 원본 줄을 본다(줄 맨 앞을 봐야 해서).
+            target = line if label == "새 프로토콜" else body
+            if pattern.search(target):
+                hits.append((label, why, body.strip()[:70]))
 
     new_files = subprocess.run(
         ["git", "diff", f"{base}...HEAD", "--name-only", "--diff-filter=A", "--", "*.swift"],
