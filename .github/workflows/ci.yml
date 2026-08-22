@@ -138,6 +138,27 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             | xcbeautify --renderer github-actions
 
+      # 컴파일도 테스트도 통과하면서 틀릴 수 있는 것들이 있다 — entitlements,
+      # plist 키, 앱과 위젯의 버전 일치. v1.3.0에서 두 번 물렸고 둘 다 사람이
+      # 실기기 로그를 붙여준 뒤에야 드러났다. 여기서 막으면 커밋 시점으로 당겨진다.
+      # 근거: docs/verification.md "계약 검증"
+      - name: 설정·산출물 계약 검사
+        run: tools/artifact_check.sh
+
+      # 품질 숫자는 **실패시키지 않는다.** 리팩터링 중에는 잠깐 나빠지는 구간이
+      # 있고, 그때마다 빨간불이면 규칙이 일을 막는다. 대신 매 실행에 기록을 남겨
+      # 추세를 본다. 근거: docs/verification.md "품질 검증을 어떻게 셀 것인가"
+      - name: 코드 품질 기준선 (기록만)
+        continue-on-error: true
+        run: |
+          python3 tools/quality_baseline.py | tee /tmp/quality.txt
+          {
+            echo '### 코드 품질 기준선'
+            echo '```'
+            cat /tmp/quality.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # 실패했을 때 로그만 보고 원인을 못 찾는 경우가 있다. 결과 번들을 받아
       # Xcode로 열면 어느 테스트가 왜 깨졌는지 그대로 보인다.
       - name: 실패 시 결과 번들 올리기
