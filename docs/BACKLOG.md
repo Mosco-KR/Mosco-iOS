@@ -29,7 +29,8 @@
 - [ ] 애플 워치 지원
 - [ ] 결제 모듈
 - [ ] 가격 A/B 테스트
-- [ ] 수출 규정 문서 이슈 — `Info.plist`에 `ITSAppUsesNonExemptEncryption` 넣어 해소
+- [x] 수출 규정 문서 이슈 — `Info.plist`에 `ITSAppUsesNonExemptEncryption`가 이미
+      들어가 있다. 2026-08-22에 `tools/artifact_check.sh`로 확인했다
 - [ ] 카테고리 분류 기준선 만들기 — 입력·기대 카테고리 쌍 30개. `docs/TRAPS.md` 참고
 
 ## 하네스를 만들면서 드러난 것
@@ -75,7 +76,8 @@
 
 순서대로 한다. 위에서부터 반복해서 깨진 순이다.
 
-- [x] **테스트 타깃 생성** — `MoscoTests`, Swift Testing, TEST_HOST = App. App 스킴에
+- [x] **테스트 타깃 생성** — `MoscoTests`, Swift Testing, **호스트 앱 없음**
+      (`TEST_HOST`를 안 쓴다 — 예전 기록이 틀렸다, 2026-08-22 정정). App 스킴에
       물려서 스킴 하나로 빌드와 테스트가 같이 돈다 (2026-08-18)
 - [x] 날짜 경계 — 월말/월초에 같은 날짜가 두 번 나오지 않는다 · `MonthLayoutTests` 8건
 - [x] 반복 일정 전개 — 3일짜리가 걸친 날짜 전부에 나온다 · `RecurrenceTests`
@@ -217,7 +219,7 @@
 - [ ] App Store Connect에 Mac 버전 추가 — 새 앱이 아니라 지금 레코드에 macOS
       플랫폼을 얹는다. Mac 스크린샷(1280×800 이상)과 '이 버전의 새로운 기능'은
       따로 채워야 하고, 심사도 따로 한 번 더 받는다. 계정으로 하는 일이다
-- [ ] 수출 규정 — `Info.plist`에 `ITSAppUsesNonExemptEncryption`. 맥 빌드에도 묻는다
+- [x] 수출 규정 — 키가 이미 있다 (2026-08-22 확인)
 - [~] 하루치 페이지 상단에 주간 스트립 — 77d0649에서 걷어냈던 `WeekStripView`를 되살린다.
       달 전체로 접혔다 펴지는 구조는 되살리지 않는다
 - [~] 주간 스트립 좌우 스와이프로 주 넘기기 — 페이지 전체 스와이프는 안 한다.
@@ -249,6 +251,32 @@
 - [ ] 스와이프 삭제 같은 제스처는 지금 구성으로 테스트를 못 쓴다 — XCUITest에는
       호스트 앱이 필요한데 테스트 타깃은 앱을 안 띄운다(CI 서명 때문에 그렇게 했다).
       R7이 "UI 테스트도 만든다"고 적어둔 것과 이 구성이 부딪힌다. 정해야 한다
+
+### 전수 조사 뒤에 남은 것 (2026-08-22)
+
+계획은 `docs/architecture/REFACTOR-PLAN.md`에 있다. 여기에는 그 밖의 것만 적는다.
+
+- [ ] **권한 파일과 규칙을 맞춘다** — AI가 자기 권한 파일을 못 고치므로 사람이 해야
+      한다. R2는 시뮬레이터를 금지하는데 `.claude/settings.json`의 `allow`에
+      `Bash(xcrun simctl boot *)`·`Bash(xcrun simctl io * screenshot *)`가 있고
+      `settings.local.json`에는 `Bash(xcrun simctl *)`가 있다. 규칙대로라면 PR
+      스크린샷용 `io ... screenshot`과 읽기 전용 `list`만 남기고 나머지는 뺀다.
+      반대로 R1이 매번 요구하는 `xcodebuild ... test`는 어느 `allow`에도 없어서
+      매번 승인을 탄다 — 그건 넣는다. `Bash(git commit -m ' *)`는 "커밋은 요청받을
+      때만"과 어긋나므로 뺄지 정한다
+- [ ] 지표 정의 넷 고치기 (M15·M6·M11·M4) + M16·M17·M18 구현.
+      스키마를 올리고 이전 버전 전체를 다시 돌려야 한다 — `docs/harness/rules.md`
+- [ ] `tools/quality_baseline.py`·`tools/artifact_check.sh`를 CI에 물릴지 정하기.
+      물리면 계약·품질 검증이 PR 시점으로 당겨진다
+- [ ] `deadcode_audit.py`가 어디에도 안 물려 있다 — 정기 실행 자리를 정한다
+- [ ] `StyleGuideView`(109줄)가 어디서도 안 열린다. `DesignSystem/README.md`는
+      "앱을 실행하면 뜬다"고 적혀 있는데 진입 경로가 없다. 넣든지 지우든지
+- [ ] `MonthGridCache`가 비우지 않는 정적 딕셔너리다. 무한히 자란다
+- [ ] `TodoActivityAttributes`에 `nonisolated`가 없다 — 프로세스 간 주고받는 값인데
+      암묵적 MainActor다
+- [ ] 호스트 앱을 붙일지 정한다. 지금 R7은 "UI 테스트도 만든다"고 적어놓고 구조상
+      못 한다 — 문서와 현실이 어긋난 상태다
+- [ ] AI 사용 보고서 v1.3.0을 위키에 올린다 (공개 저장소라 사람이 확인 후)
 
 ## 버림
 

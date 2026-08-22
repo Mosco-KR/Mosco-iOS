@@ -65,7 +65,7 @@ description: 작업을 마치고 사람에게 확인을 넘길 때 쓰는 검증
 
 ```
 빌드    App ✅ / MoscoWidget ✅
-테스트  MonthLayoutTests 6개 통과 — 월말/월초 중복, 5주·6주 격자
+테스트  MonthLayoutTests 7개 통과 — 월말/월초 중복, 5주·6주 격자
 카드    아래 2건
 못 봄   위젯 렌더링 (실기기)
 ```

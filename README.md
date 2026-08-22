@@ -37,9 +37,9 @@ Firebase Analytics를 쓰지만 `GoogleService-Info.plist`는 저장소에 들�
 (`FirebaseAnalyticsSink.configure()`가 nil을 낸다).
 시뮬레이터는 이름으로 지정한다 — UDID는 지워졌다 다시 생기면서 바뀐다.
 
-검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 108건)와
-CI가 앞의 두 칸을 맡는다** — PR마다 App·MoscoWidget 빌드와 테스트가 자동으로 돈다
-([.github/workflows/ci.yml](.github/workflows/ci.yml)).
+검증 사다리는 빌드 → 테스트 → 사람 → 심사다. **`MoscoTests`(Swift Testing, 112건)와
+CI가 앞의 두 칸을 맡는다** — PR마다 App·MoscoWidget 빌드와 테스트, 그리고 Mac
+Catalyst 빌드가 자동으로 돈다 ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 ```bash
 xcodebuild -project Mosco/Mosco.xcodeproj -scheme App -sdk iphonesimulator \
@@ -68,7 +68,7 @@ Mosco/MoscoTests/       유닛 테스트 (Swift Testing)
 
 | 문서 | 무엇이 있나 |
 |---|---|
-| [CLAUDE.md](CLAUDE.md) | AI 작업 규칙 열 개 (R1~R10). 규칙마다 담당 지표가 있다 |
+| [CLAUDE.md](CLAUDE.md) | AI 작업 규칙 열한 개 (R1~R11). 규칙마다 담당 지표가 있다 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | 커밋·브랜치·PR·문서 갱신 규칙 |
 | [RELEASING.md](RELEASING.md) | 버전 규칙, 태그, 릴리스 노트 쓰는 법 |
 | [docs/TRAPS.md](docs/TRAPS.md) | 한 번씩 크게 시간을 쓴 플랫폼 함정 |
