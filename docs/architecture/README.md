@@ -5,6 +5,7 @@
 
 | 문서 | 무엇이 있나 |
 |---|---|
+| [DECISIONS.md](DECISIONS.md) | **판단 문서.** 무엇을 정해야 하고 선택지가 무엇인지. 여기부터 읽는다 |
 | [CURRENT.md](CURRENT.md) | **지금 구조.** 레이어별 현황, 결합이 센 다섯 곳, 품질 기준선 |
 | [PATTERNS.md](PATTERNS.md) | **쓸 수 있는 설계와 패턴.** 13가지를 장단점·비용·적합도로 비교 |
 | [REFACTOR-PLAN.md](REFACTOR-PLAN.md) | **무엇을 어떤 순서로 고칠 것인가.** 위험이 낮은 것부터 다섯 단계 |
