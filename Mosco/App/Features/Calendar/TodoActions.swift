@@ -19,6 +19,11 @@ struct TodoActions: ViewModifier {
     var onDelete: (() -> Void)? = nil
 
     @Environment(TodoClipboard.self) private var clipboard
+    /// **싱글턴을 직접 부르지 않는다.** `RootTabView`가 이미 같은 인스턴스를
+    /// 환경에 주입하고 있다 — 여기서만 `.shared`를 부르면 같은 타입을 두 방식으로
+    /// 쓰는 셈이고, 테스트나 프리뷰에서 갈아끼울 자리가 사라진다
+    /// (`docs/architecture/CONVENTIONS.md` 2절).
+    @Environment(TodoLiveActivityController.self) private var liveActivityController
     /// 튜토리얼이 없는 자리에서도 안전하도록 옵셔널로 받는다.
     @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
@@ -191,7 +196,7 @@ struct TodoActions: ViewModifier {
     }
 
     private var isShowingLiveActivity: Bool {
-        TodoLiveActivityController.shared.showingTodoID == todo.id.uuidString
+        liveActivityController.showingTodoID == todo.id.uuidString
     }
 
     /// 떠 있으면 내리고, 아니면 띄운다. 막히면 이유를 알린다.
@@ -200,7 +205,7 @@ struct TodoActions: ViewModifier {
     /// `startTime`은 시·분만 의미가 있어서(`TodoItem` 참고) 날짜와 합쳐야 실제
     /// 시각이 된다.
     private func toggleLiveActivity() async {
-        let controller = TodoLiveActivityController.shared
+        let controller = liveActivityController
 
         if isShowingLiveActivity {
             await controller.stop()
