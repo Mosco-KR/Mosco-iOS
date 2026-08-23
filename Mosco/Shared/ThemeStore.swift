@@ -17,10 +17,24 @@ final class ThemeStore {
     private(set) var selectedHex: String
 
     private let defaults: UserDefaults
+    /// 위젯에 다시 그리라고 알리는 자리. 테스트에서는 아무것도 안 하는 것으로
+    /// 갈아끼운다 — 테스트 프로세스에는 다시 그릴 위젯이 없다.
+    private let notifyWidgets: () -> Void
 
-    private init() {
-        defaults = UserDefaults(suiteName: SharedModelContainer.appGroupID) ?? .standard
+    /// **저장소를 받는다.** 예전엔 `private init()`이 App Group을 직접 열어서,
+    /// 이 타입의 어떤 것도 테스트할 수 없었다(`docs/architecture/CONVENTIONS.md` 4절).
+    /// 앱은 그대로 `shared`를 쓰고, 테스트만 자기 저장소를 넣는다.
+    init(
+        defaults: UserDefaults,
+        notifyWidgets: @escaping () -> Void = { WidgetCenter.shared.reloadAllTimelines() }
+    ) {
+        self.defaults = defaults
+        self.notifyWidgets = notifyWidgets
         selectedHex = defaults.string(forKey: ThemeColor.storageKey) ?? ThemeColor.defaultHex
+    }
+
+    private convenience init() {
+        self.init(defaults: UserDefaults(suiteName: SharedModelContainer.appGroupID) ?? .standard)
     }
 
     /// 실제로 화면에 칠하는 색 — 너무 밝으면 읽을 수 있을 만큼 눌러서 나온다.
@@ -47,7 +61,7 @@ final class ThemeStore {
         defaults.set(hex, forKey: ThemeColor.storageKey)
         // 위젯은 자정에만 스스로 다시 그린다 — 색을 바꿨는데 홈 화면이 하루 종일
         // 예전 색이면 안 바뀐 걸로 보인다.
-        WidgetCenter.shared.reloadAllTimelines()
+        notifyWidgets()
     }
 }
 

@@ -38,6 +38,25 @@ enum SharedModelContainer {
     /// 그러면 같은 프로세스 안에 둘이 생길 수 있는 자리가 남는다.
     static let sharedIfAvailable: ModelContainer? = open()
 
+    /// **테스트용 컨테이너.** 디스크도 App Group도 CloudKit도 안 쓰고 메모리에만
+    /// 만든다.
+    ///
+    /// 이게 없으면 모델 인스턴스가 필요한 로직을 한 줄도 테스트할 수 없다 —
+    /// `TodoItem`의 반복 판정이 대표적이다. 앱·위젯·알림이 실제로 부르는 것은
+    /// 그쪽인데 `TodoSnapshot` 복사본만 테스트가 있었다.
+    static func inMemory() throws -> ModelContainer {
+        try ModelContainer(
+            for: schema,
+            configurations: ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: true,
+                // **CloudKit을 반드시 꺼야 한다.** 기본값이 .automatic이라 그냥 두면
+                // 테스트 프로세스가 iCloud 컨테이너를 붙이려다 죽는다(entitlement가 없다).
+                cloudKitDatabase: .none
+            )
+        )
+    }
+
     static func make() -> ModelContainer {
         guard let container = sharedIfAvailable else {
             // 로컬조차 못 열면 데이터가 아예 안 열리는 상태라 더 할 수 있는 게 없다.

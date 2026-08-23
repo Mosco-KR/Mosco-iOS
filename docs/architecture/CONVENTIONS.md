@@ -11,6 +11,47 @@
 
 ---
 
+## 0. 레이어와 의존 방향
+
+폴더에 이름을 붙였다. 새 구조를 도입한 게 아니라 **이미 그렇게 돌고 있던 것에 이름을
+준 것**이다.
+
+```mermaid
+flowchart RL
+    P["프레젠테이션<br/>App/Features/<br/><i>화면</i>"] --> A["어댑터·인프라<br/>App/Common/<br/><i>시스템 연동, 디자인 시스템</i>"]
+    A --> D["도메인<br/>Shared/<br/><i>순수 계산 + 모델</i>"]
+    P --> D
+    W["위젯<br/>MoscoWidget/"] --> D
+    T["테스트<br/>MoscoTests/"] --> D
+
+    style D fill:#e8e0ff,stroke:#8B5CF6,stroke-width:2px
+```
+
+**화살표는 안쪽으로만 간다.** 도메인은 바깥을 모른다.
+
+이름을 붙이는 값은 셋이다. "새 코드 어디 두지"에 즉답할 수 있고, 폴더만 보고 성격을
+짐작할 수 있고, **기계가 방향을 검사할 수 있다.**
+
+```bash
+python3 tools/quality_baseline.py   # "레이어 의존 방향" 절
+```
+
+`Shared/ → App/` 방향은 검사할 필요가 없다. **위젯과 테스트 빌드가 이미 막는다** —
+그 두 타깃은 `App/`을 컴파일하지 않으므로 컴파일러가 잡는다. 같은 타깃 안이라
+컴파일러가 못 잡는 둘만 스크립트가 본다.
+
+### 지금 어긋나 있는 넷 (2026-08-22)
+
+이름을 붙이자마자 드러난 것들이다. **당장 고치지 않고 기록해둔다** — 리팩터링
+2·3단계에서 함께 처리한다.
+
+| 위반 | 어디 | 어떻게 풀 것인가 |
+|---|---|---|
+| Settings → Calendar | `CategoryListScreen`이 `Calendar/`의 `CategoryEditorSheet`를 쓴다 | **시트를 `Settings/`로 옮긴다.** 쓰는 쪽이 Settings다 |
+| Calendar → Settings | `CalendarScreen`이 `SettingsScreen()`을 시트로 띄운다 | 위와 합쳐 **순환**이 된다. 시트를 옮기면 이쪽만 남는데, **화면 이동은 예외로 둔다** (6절) |
+| TodayTodo → Calendar | `TodayTodoScreen`이 `Calendar/`의 `DayTimelineView`를 쓴다 | 둘 다 쓰는 것은 위로 올린다 (6절) |
+| 어댑터 → 화면 | `EmbeddingCategoryClassifier`가 `Features/`의 `CategoryClassifying` 프로토콜을 구현 | **프로토콜을 `Shared/`로 내린다.** 구현은 `Common/`에 남는다 |
+
 ## 1. 로직을 어디 두나
 
 가장 중요한 규칙 하나다.
@@ -99,9 +140,11 @@
 
 ## 6. 파일을 어디 두나
 
-- **한 Feature 폴더에 다른 Feature가 쓰는 것을 두지 않는다.** 지금 어긋난 곳이 있다 —
-  `CategoryEditorSheet`가 `Calendar/`에 있는데 `Settings/`가 쓴다. 그래서 두 폴더가
-  서로를 참조한다
+- **한 Feature 폴더에 다른 Feature가 쓰는 것을 두지 않는다.** 지금 어긋난 곳이
+  셋이고 0절에 표로 있다
+- **화면 이동은 예외다.** 화면 A가 화면 B를 시트로 띄우거나 밀어 넣는 것은 의존이
+  아니라 흐름이다. 지금은 라우팅 층이 없으니 부르는 쪽이 직접 띄운다. 화면이 두 배가
+  되면 다시 본다 (`PATTERNS.md` B4)
 - 둘 이상의 Feature가 쓰면 `App/Common/`으로 올린다
 - 앱과 위젯이 같이 쓰면 `Shared/`로 내린다 (선택이 아니라 필수)
 
