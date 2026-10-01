@@ -1,7 +1,8 @@
 # Mosco Design System
 
-Mosco의 시각 언어를 정리한 문서. 코드는 이 폴더(`Common/DesignSystem/`) 안에 있고, 전체를
-한눈에 보려면 앱을 실행했을 때 뜨는 `StyleGuideView`를 참고.
+Mosco의 시각 언어를 정리한 문서. 코드는 이 폴더(`Common/DesignSystem/`) 안에 있다.
+전체를 한눈에 보려면 `StyleGuideView.swift`를 Xcode에서 열어 프리뷰를 켠다 —
+앱 안에는 이 화면으로 가는 진입 경로가 없다.
 
 ## 원칙
 

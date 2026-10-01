@@ -6,7 +6,6 @@
 #   · iCloud 키-값 저장소 entitlement가 빠져서 재설치를 못 건너왔다
 #   · 그걸 고친 값이 시뮬레이터에서 앱을 아예 못 뜨게 했다 (실기기·CI는 초록)
 #
-# 근거: docs/verification.md "계약 검증"
 #
 #   tools/artifact_check.sh            설정 파일만 검사 (빠르다)
 #   tools/artifact_check.sh <앱경로>   서명된 산출물까지 검사

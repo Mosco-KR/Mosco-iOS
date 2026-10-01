@@ -40,8 +40,6 @@
 - [x] `DesignSystem/README.md`가 없는 파일(`PriorityTag`, `DemoPriority`)과 틀린 hex 값을
       가리키던 것 — 팔레트·컴포넌트 표를 실제 코드에 맞춰 고쳤다. M8로 계속 감시된다 (2026-08-18)
 - [x] `README.md`가 11바이트 스텁이던 것 — 기능·구조·문서 지도를 채웠다 (2026-08-18)
-- [x] PR 템플릿의 "관련 테스트 통과" — 테스트 타깃이 생길 때까지 `/verify` 훑음으로
-      읽는다고 `CONTRIBUTING.md`에 명시했다 (2026-08-18)
 - [x] 커밋 하나에 여러 작업이 섞이던 것 — `CONTRIBUTING.md` 커밋 절에 규칙을 넣었다 (2026-08-18)
 
 ## 죽은 코드 훑기에서 나온 것 (2026-08-18)
@@ -91,7 +89,7 @@
       확장 (2026-08-18)
 
 순수 로직을 덮은 뒤 화면 흐름을 UI 테스트로 남긴다 — 첫 실행·튜토리얼·할 일
-만들기·삭제 확인 순. `/verify` 목록에서 테스트로 옮긴 항목은 그 목록에서 지운다.
+만들기·삭제 확인 순.
 
 - [ ] UI 테스트 — 첫 실행과 튜토리얼 건너뛰기
 - [ ] UI 테스트 — 한 줄 입력으로 할 일이 만들어진다
@@ -256,27 +254,17 @@
 
 계획은 `docs/architecture/REFACTOR-PLAN.md`에 있다. 여기에는 그 밖의 것만 적는다.
 
-- [ ] **권한 파일과 규칙을 맞춘다** — AI가 자기 권한 파일을 못 고치므로 사람이 해야
-      한다. R2는 시뮬레이터를 금지하는데 `.claude/settings.json`의 `allow`에
-      `Bash(xcrun simctl boot *)`·`Bash(xcrun simctl io * screenshot *)`가 있고
-      `settings.local.json`에는 `Bash(xcrun simctl *)`가 있다. 규칙대로라면 PR
-      스크린샷용 `io ... screenshot`과 읽기 전용 `list`만 남기고 나머지는 뺀다.
-      반대로 R1이 매번 요구하는 `xcodebuild ... test`는 어느 `allow`에도 없어서
-      매번 승인을 탄다 — 그건 넣는다. `Bash(git commit -m ' *)`는 "커밋은 요청받을
-      때만"과 어긋나므로 뺄지 정한다
-- [ ] 지표 정의 넷 고치기 (M15·M6·M11·M4) + M16·M17·M18 구현.
-      스키마를 올리고 이전 버전 전체를 다시 돌려야 한다 — `docs/harness/rules.md`
-- [ ] `tools/quality_baseline.py`·`tools/artifact_check.sh`를 CI에 물릴지 정하기.
-      물리면 계약·품질 검증이 PR 시점으로 당겨진다
+- [ ] **권한 파일을 정리한다** — AI가 자기 권한 파일을 못 고치므로 사람이 해야 한다.
+      `settings.local.json`에 일회성 명령이 수십 개 쌓여 있다. 매번 쓰는 것만 남기고
+      정리한다. 자주 쓰는 `xcodebuild ... test`는 어느 `allow`에도 없어서 매번 승인을
+      탄다 — 그건 넣는다
 - [ ] `deadcode_audit.py`가 어디에도 안 물려 있다 — 정기 실행 자리를 정한다
 - [ ] `StyleGuideView`(109줄)가 어디서도 안 열린다. `DesignSystem/README.md`는
       "앱을 실행하면 뜬다"고 적혀 있는데 진입 경로가 없다. 넣든지 지우든지
 - [ ] `MonthGridCache`가 비우지 않는 정적 딕셔너리다. 무한히 자란다
 - [ ] `TodoActivityAttributes`에 `nonisolated`가 없다 — 프로세스 간 주고받는 값인데
       암묵적 MainActor다
-- [ ] 호스트 앱을 붙일지 정한다. 지금 R7은 "UI 테스트도 만든다"고 적어놓고 구조상
-      못 한다 — 문서와 현실이 어긋난 상태다
-- [ ] AI 사용 보고서 v1.3.0을 위키에 올린다 (공개 저장소라 사람이 확인 후)
+- [ ] 호스트 앱을 붙일지 정한다. 지금 구조에서는 UI 테스트를 못 쓴다
 
 ## 버림
 

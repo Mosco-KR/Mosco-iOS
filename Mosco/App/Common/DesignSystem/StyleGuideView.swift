@@ -7,7 +7,7 @@ struct StyleGuideView: View {
                 VStack(alignment: .leading, spacing: Metrics.spacingXL) {
                     header
                     quickInputPreviewSection
-                    prioritySection
+                    categoryPaletteSection
                     colorSection
                     typographySection
                     buttonSection
@@ -26,7 +26,7 @@ struct StyleGuideView: View {
             Text("Mosco")
                 .font(.moscoLargeTitle())
                 .foregroundStyle(MoscoPalette.textPrimary)
-            Text("한 줄로 던지면, 우선순위는 자동으로.")
+            Text("한 줄로 던지면, 카테고리는 자동으로.")
                 .font(.moscoBody())
                 .foregroundStyle(MoscoPalette.textSecondary)
         }
@@ -50,7 +50,7 @@ struct StyleGuideView: View {
         }
     }
 
-    private var prioritySection: some View {
+    private var categoryPaletteSection: some View {
         SectionContainer(title: "카테고리 색상 팔레트 (사용자가 직접 고른다)") {
             SurfaceCard {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: Metrics.spacingSM) {

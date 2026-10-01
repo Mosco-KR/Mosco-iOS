@@ -4,7 +4,6 @@
 "지속 가능한 코드인가"는 느낌이라 그대로 두면 판정이 매번 달라진다. 셀 수 있는
 것만이라도 매번 같은 방법으로 세서, 리팩터링 전후를 비교할 수 있게 한다.
 
-근거: docs/verification.md "품질 검증을 어떻게 셀 것인가"
 기준선: docs/architecture/CURRENT.md "품질 기준선"
 
     python3 tools/quality_baseline.py            # 표로 출력
@@ -148,9 +147,9 @@ NEW_CONCEPTS = [
     (re.compile(r"UserDefaults\.standard"), "전역 저장소 직접 접근",
      "주입받게 할 수 있는지 본다"),
     (re.compile(r"\.font\(\.system\(size:"), "폰트 크기 하드코딩",
-     "토큰을 쓰거나 토큰에 추가하고 말한다 (R6)"),
+     "토큰을 쓰거나 토큰에 추가하고 말한다"),
     (re.compile(r"//\s*TEMP:"), "임시 코드",
-     "커밋 전에 걷는다 (R11)"),
+     "커밋 전에 걷는다"),
     (re.compile(r"try!|as!|\bfatalError\("), "실패를 감추는 표현",
      "왜 여기서는 죽어도 되는지 근거가 필요하다"),
 ]
@@ -164,7 +163,7 @@ def report_deviation(base: str) -> int:
     그 판단을 돕는 것이 이 모드다 — 무엇이 새로 들어왔는지만 알려준다.
 
     판정은 하지 않는다. 새 개념이 필요한 변경도 당연히 있다. 다만 그런 변경은
-    PR에서 🔴로 두고 근거를 적는다 (docs/review-criteria.md).
+    PR에서 사람이 한 번 보고 넘어간다.
     """
     diff = subprocess.run(
         ["git", "diff", f"{base}...HEAD", "--", "*.swift"],
@@ -209,7 +208,7 @@ def report_deviation(base: str) -> int:
                 print(f"\n  ⚠️  {label} — {why}")
                 seen.add(label)
             print(f"      {snippet}")
-        print("\n  이런 것이 있으면 그 파일은 🔴다 (docs/review-criteria.md).")
+        print("\n  이런 것이 있으면 그 파일은 사람이 본다.")
     else:
         print("  ✅ 새로 들인 개념 없음 — 기존 관례 안에서 쓴 변경이다")
     print()
@@ -312,7 +311,7 @@ def main() -> int:
     print(f"  {mark} // TEMP: 표식        {stats['temp']:>6}   (0이어야 한다)")
 
     print("\n  세지 못하는 것: 같은 로직의 복사본, Feature 간 순환 의존,")
-    print("  추상화의 적정성. 이건 사람이 본다 (docs/review-criteria.md).\n")
+    print("  추상화의 적정성. 이건 사람이 본다.\n")
     return 0
 
 
