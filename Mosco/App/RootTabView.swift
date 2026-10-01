@@ -3,9 +3,8 @@ import SwiftData
 import StoreKit
 import WidgetKit
 
-/// 네이티브 TabView 그대로 — iOS 26+에서는 탭 바가 시스템이 알아서 리퀴드
-/// 글래스로 그려준다. "오늘" 버튼은 이제 CalendarScreen의 헤더 오른쪽에
-/// 고정된 글래스 버튼으로 있어서, 여기서는 따로 얹을 게 없다.
+/// 앱의 뿌리. 화면은 달력 하나이고(탭 없음), 여기서는 앱 전체가 함께 쓰는
+/// 저장소들을 환경에 얹고 실행·백그라운드 전환 때 할 일을 맡는다.
 struct RootTabView: View {
     @State private var weatherStore = WeatherStore()
     @State private var notificationScheduler = TodoNotificationScheduler()
@@ -32,14 +31,6 @@ struct RootTabView: View {
     @Query private var calendars: [TodoCalendar]
     /// 시드는 앱 실행당 한 번만. `onAppear`은 여러 번 불릴 수 있다.
     @State private var didSeed = false
-    /// 앱을 켜면 달력부터 — 할 일과 메모는 거기서 한 번씩 옆으로 가면 된다.
-    @State private var selectedTab: Tab = .calendar
-
-    /// 탭은 둘이다. '다가오는'(앞으로 2주)은 달력 탭과 같은 질문에 답하고 있어서
-    /// 걷어냈다 — 앞날은 달력이, 지금 할 일은 목록이 맡는다.
-    private enum Tab: Hashable {
-        case todo, calendar
-    }
     /// 알림 재예약의 입력 — 할 일이나 카테고리 설정이 바뀌면 이 배열도 바뀌므로,
     /// 이걸 지켜보다가 통째로 다시 계산한다.
     @Query private var todos: [TodoItem]
@@ -192,7 +183,7 @@ struct RootTabView: View {
             // 지금 눌러야 할 것이 가려지고, 그 순간은 부탁하기에도 나쁜 자리다.
             guard !tutorial.isRunning else { return }
             requestReview()
-            reviewPrompt.consumePending()
+            reviewPrompt.didRequest()
             Analytics.log(.reviewPromptRequested)
         }
     }
@@ -204,9 +195,11 @@ struct RootTabView: View {
     private func createPracticeTodo() {
         let today = Calendar.current.startOfDay(for: .now)
         let todo = TodoItem(
-            title: "러닝",
+            title: TutorialPractice.title,
             date: today,
-            startTime: Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: today),
+            startTime: Calendar.current.date(
+                bySettingHour: TutorialPractice.hour24, minute: 0, second: 0, of: today
+            ),
             category: categories.first(where: \.isDefault) ?? categories.first
         )
         todo.calendar = calendars.first(where: \.isDefault) ?? calendars.first
@@ -229,25 +222,15 @@ struct RootTabView: View {
     }
 
     var body: some View {
-        ZStack {
-            // 라벨 텍스트 없이 아이콘만 — `Label` 대신 `Image`를 주면 시스템이
-            // 아이콘 전용 탭으로 그린다. 접근성 이름은 `accessibilityLabel`로 남긴다
-            // (텍스트를 지운다고 VoiceOver 사용자까지 못 읽게 하면 안 된다).
-            TabView(selection: $selectedTab) {
-                TodayTodoScreen()
-                    .tabItem { Image(systemName: "list.bullet") }
-                    .accessibilityLabel("할 일")
-                    .tag(Tab.todo)
-
-                CalendarScreen()
-                    .tabItem { Image(systemName: "calendar") }
-                    .accessibilityLabel("달력")
-                    .tag(Tab.calendar)
-            }
-            // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다 — 앱 테마(바이올렛)가
-            // 선택된 탭 색상에도 이어지도록 지정.
+        // **탭이 없다. 달력이 홈이다** (1.4.0). 예전엔 '할 일'·'달력' 두 탭이었는데,
+        // 앱은 늘 달력으로 열렸고 입력창은 달력 화면에 없었다 — 처음 온 사람이
+        // 할 일 하나 적어보기까지 길을 찾아야 했다. 오늘 탭이 하던 일은 달력에서
+        // 오늘을 누르면 열리는 오늘 페이지가 맡는다(`DayTodosContentView`).
+        // 첫 화면에 달력이 보이는 것은 바꾸지 않는다 — 열자마자 일정을 확인하는
+        // 게 이 앱을 여는 이유다.
+        CalendarScreen()
+            // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다.
             .tint(MoscoPalette.accent)
-        }
         .environment(weatherStore)
         .environment(notificationScheduler)
         .environment(cloudSyncStore)
@@ -255,26 +238,6 @@ struct RootTabView: View {
         .environment(reviewPrompt)
         .environment(liveActivityController)
         .environment(tutorial)
-        // 안내가 요구하는 탭으로 옮긴다. 탭을 옮기는 일은 여기서만 한다 —
-        // 튜토리얼은 "어느 탭이 필요하다"까지만 말하고 실제 이동은 관여하지 않는다.
-        .onChange(of: tutorial.step) { _, step in
-            switch step?.tab {
-            case .todo: selectedTab = .todo
-            case .calendar: selectedTab = .calendar
-            case nil: break
-            }
-        }
-        // 마지막 '정리' 단계는 마스크를 걷고 돌아서(시스템 메뉴를 열어야 하므로)
-        // 탭 바가 열려 있다. 거기서 탭을 옮기면 안내가 가리키던 줄이 사라지므로
-        // 제자리로 되돌린다.
-        .onChange(of: selectedTab) { _, tab in
-            guard let wanted = tutorial.step?.tab else { return }
-            switch (wanted, tab) {
-            case (.todo, .calendar): selectedTab = .todo
-            case (.calendar, .todo): selectedTab = .calendar
-            default: break
-            }
-        }
         // "제가 대신 적어드릴까요?"를 눌렀을 때. 안내가 직접 모델을 건드리지 않고
         // 요청만 올리는 건, 저장소에 무엇을 넣을지는 화면 쪽 사정이기 때문이다.
         .onChange(of: tutorial.practiceTodoRequest) { _, request in
@@ -290,8 +253,9 @@ struct RootTabView: View {
             // 처음 쓴 날과 오늘 쓴 것을 기록해둔다 — 리뷰는 며칠 써본 뒤에만 부탁한다.
             reviewPrompt.registerLaunch()
             // 실행 자체는 Firebase가 `session_start`·`first_open`으로 이미 센다.
-            // 우리가 더할 수 있는 건 "무엇을 얼마나 들고 있는가"뿐이다.
-            Analytics.log(
+            // 우리가 더할 수 있는 건 "무엇을 얼마나 들고 있는가"뿐이고, 그건 그 사람에게
+            // 붙는 값이라 이벤트가 아니라 사용자 속성으로 둔다.
+            Analytics.set(
                 .dataScale(
                     todoCount: todos.count,
                     categoryCount: categories.count,
@@ -306,6 +270,16 @@ struct RootTabView: View {
             // 처음 온 사람에게만, 그것도 **물어보고** 시작한다. 이미 할 일을 들고
             // 있는 사람(기기를 바꿔 iCloud에서 내려받은 경우)에게 "처음 오셨네요"는
             // 틀린 인사라 아예 띄우지 않는다.
+            // 오늘 탭이 사라졌다는 안내를 띄울지 **튜토리얼보다 먼저** 정한다 — 그 뒤엔
+            // 처음 온 사람도 안내에 답한 상태가 돼서 예전 사용자와 구분이 안 된다.
+            let defaults = UserDefaults.standard
+            defaults.set(
+                CalendarHomeNotice.decide(
+                    current: defaults.string(forKey: CalendarHomeNotice.key) ?? "",
+                    answeredTutorialBefore: tutorial.hasAnswered
+                ),
+                forKey: CalendarHomeNotice.key
+            )
             let willGuide = tutorial.startIfFirstLaunch(hasExistingData: !todos.isEmpty)
 
             // **권한은 안내가 끝난 뒤에 모아서 묻는다** (`StartupPermissionRequest`).

@@ -29,7 +29,8 @@ nonisolated enum CalendarEventExpander {
                 start: todo.start,
                 end: todo.end,
                 isCompleted: todo.isCompleted(on: todo.start, calendar: calendar),
-                createdAt: todo.createdAt
+                createdAt: todo.createdAt,
+                startMinutes: todo.startMinutes
             )
         ]
 
@@ -58,7 +59,8 @@ nonisolated enum CalendarEventExpander {
                     end: end,
                     // 반복은 날짜별로 완료 상태가 다르다 — 그 인스턴스의 기록만 본다.
                     isCompleted: todo.completedDayKeys.contains(cursor.dayKey),
-                    createdAt: todo.createdAt
+                    createdAt: todo.createdAt,
+                    startMinutes: todo.startMinutes
                 )
             )
         }

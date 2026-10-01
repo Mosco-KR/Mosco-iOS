@@ -63,8 +63,37 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// using SwiftUI Lifecycle" 경고가 그 뜻이다). 그래서 여기서 받는다.
     private func handle(_ contexts: Set<UIOpenURLContext>) {
         for context in contexts {
+            if let on = InternalUser.command(from: context.url) {
+                markInternalUser(on)
+                continue
+            }
             guard let kind = WidgetDeepLink.kind(from: context.url) else { continue }
             Analytics.log(.widgetTapped(kind: kind))
+            // '오늘 할 일' 위젯과 라이브 액티비티는 오늘 페이지로 바로 연다.
+            if WidgetDeepLink.opensTodayPage(kind: kind) {
+                AppNavigation.shared.wantsTodayPage = true
+            }
+        }
+    }
+
+    /// 개발자·테스트 기기 표시를 켜거나 끈다(`mosco://internal`). 사용자에게는
+    /// 보이지 않는 길이라 화면 대신 알림창 하나로 됐다는 것만 알린다 — 아무 반응이
+    /// 없으면 링크가 먹었는지 알 수 없다.
+    private func markInternalUser(_ on: Bool) {
+        InternalUser.set(on, cloud: CloudIdentityStore(), local: UserDefaults.standard)
+        Analytics.set(.internalUser(on))
+        let alert = UIAlertController(
+            title: on ? "이 기기를 내부 사용자로 표시했어요" : "내부 사용자 표시를 껐어요",
+            message: nil,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "확인", style: .default))
+        // 앱이 꺼져 있다가 링크로 켜진 경우 화면이 아직 안 올라왔을 수 있다.
+        // 시트가 떠 있으면 그 위에 띄워야 한다 — 맨 아래 화면에 띄우면 조용히 무시된다.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+            var top = self?.window?.rootViewController
+            while let presented = top?.presentedViewController { top = presented }
+            top?.present(alert, animated: true)
         }
     }
 }

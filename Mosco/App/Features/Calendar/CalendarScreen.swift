@@ -16,6 +16,14 @@ struct CalendarScreen: View {
     /// 값이 들어오면 하루치 페이지가 밀려 들어온다(`navigationDestination`).
     @State private var selectedDate: Date?
     @State private var showsSettings = false
+    @State private var showsMonthPicker = false
+    @State private var showsSearch = false
+    @State private var searchPickedDate: Date?
+    @State private var navigation = AppNavigation.shared
+    /// 오늘 탭이 사라진 걸 예전 사용자에게 한 번 알린다(`CalendarHomeNotice`).
+    @AppStorage(CalendarHomeNotice.key) private var homeNotice = ""
+    /// 홈 입력창이 고치고 있는 할 일. 홈에는 목록이 없어 대개 비어 있다.
+    @State private var homeEditingTodo: TodoItem?
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
     @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     /// 숨긴 캘린더들. 비어 있으면 전부 보인다.
@@ -59,6 +67,50 @@ struct CalendarScreen: View {
             // 할 일 관찰을 이 리프 하나에 가둔다 — 이 화면의 body는 할 일이 바뀌어도
             // 다시 돌지 않는다.
             .background(TodoQueryBridge(store: store))
+            // 다른 달을 보고 있을 때만 '이번 달'이 떠오른다.
+            .jumpBack("이번 달", isShown: visibleMonth != .containing(Date())) {
+                goToToday()
+            }
+            // 입력창은 늘 아래에 있다 — 앱을 켜자마자 적을 수 있어야 한다. 예전엔
+            // 달력 화면에 입력창이 없어서, 날짜를 눌러 들어가야 적을 수 있었다.
+            // 오늘로 적힌다(입력창의 날짜 칩으로 바꿀 수 있다).
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                QuickAddView(
+                    date: calendar.startOfDay(for: Date()),
+                    editingTodo: $homeEditingTodo,
+                    analyticsSource: "calendar_home"
+                )
+            }
+            .sheet(isPresented: $showsMonthPicker) {
+                MonthPickerSheet(month: $visibleMonth)
+            }
+            // '오늘 할 일' 위젯·라이브 액티비티로 들어오면 오늘 페이지를 바로 연다.
+            // 꺼져 있다 켜진 경우엔 URL이 먼저 와 있으므로 처음 값도 본다.
+            .onChange(of: navigation.wantsTodayPage, initial: true) { _, wants in
+                guard wants else { return }
+                navigation.wantsTodayPage = false
+                select(Date())
+            }
+            .overlay(alignment: .bottom) {
+                // 다른 달을 볼 때는 그 자리를 '이번 달' 버튼이 쓰므로 비켜준다.
+                if homeNotice == CalendarHomeNotice.pending, visibleMonth == .containing(Date()) {
+                    homeMoveNotice
+                        .padding(.horizontal, Metrics.spacingMD)
+                        .padding(.bottom, Metrics.spacingSM)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: homeNotice)
+            // 검색 결과를 고르면 시트가 닫힌 **뒤에** 그날 페이지를 연다 — 닫히는 중에
+            // 밀어 넣으면 내비게이션이 씹힌다.
+            .sheet(isPresented: $showsSearch, onDismiss: {
+                if let date = searchPickedDate {
+                    searchPickedDate = nil
+                    select(date)
+                }
+            }) {
+                SearchSheet { searchPickedDate = $0 }
+            }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $selectedDate) { day in
                 DayTodosContentView(date: day)
@@ -110,6 +162,10 @@ struct CalendarScreen: View {
     /// 장치가 필요했다. 이제는 그 장치 자체가 필요 없다.
     private func select(_ day: Date) {
         let start = calendar.startOfDay(for: day)
+        // 안내가 가리키던 일(오늘을 눌러 열기)을 했으면 안내는 할 일을 다 했다.
+        if homeNotice == CalendarHomeNotice.pending, calendar.isDateInToday(start) {
+            homeNotice = CalendarHomeNotice.done
+        }
         selectedDate = start
         tutorial?.didOpenDay(start)
     }
@@ -153,27 +209,44 @@ struct CalendarScreen: View {
                     .font(.system(size: 38, weight: .bold).monospacedDigit())
                     .contentTransition(.numericText(value: Double(visibleMonth.month)))
 
-                Text("월")
-                    .font(.moscoTitle())
-                    .foregroundStyle(MoscoPalette.textSecondary)
-
-                // 올해가 아닌 달을 보고 있을 때만 연도를 붙인다.
-                if visibleMonth.year != calendar.component(.year, from: Date()) {
-                    Text(verbatim: "\(visibleMonth.year)년")
-                        .font(.moscoCaption())
+                // '월'·연도·화살표를 한 덩어리로 세로 가운데에 맞춘다. 화살표가 위첨자처럼
+                // 붙으면 누르는 건지 장식인지 헷갈렸다. 달 고르기가 열리면 위로 뒤집힌다.
+                HStack(alignment: .center, spacing: 5) {
+                    Text("월")
+                        .font(.moscoTitle())
                         .foregroundStyle(MoscoPalette.textSecondary)
-                        .transition(.opacity)
+
+                    // 올해가 아닌 달을 보고 있을 때만 연도를 붙인다.
+                    if visibleMonth.year != calendar.component(.year, from: Date()) {
+                        Text(verbatim: "\(visibleMonth.year)년")
+                            .font(.moscoCaption())
+                            .foregroundStyle(MoscoPalette.textSecondary)
+                            .transition(.opacity)
+                    }
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(MoscoPalette.textSecondary)
+                        .rotationEffect(.degrees(showsMonthPicker ? 180 : 0))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showsMonthPicker)
                 }
             }
             .foregroundStyle(MoscoPalette.textPrimary)
             .animation(.spring(response: 0.25, dampingFraction: 0.9), value: visibleMonth)
+            // 달 이름을 누르면 달 고르기 — 몇 달을 넘겨 가야 하는 일을 한 번에 끝낸다.
+            .contentShape(Rectangle())
+            .onTapGesture { showsMonthPicker = true }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("달을 골라 이동합니다")
 
             calendarChip
 
             Spacer()
 
+            // '오늘'은 여기 없다 — 달력의 오늘 동그라미가 이미 말하고, 다른 달을 볼 때만
+            // 아래에 '이번 달'이 떠오른다(`jumpBack`). 늘 박혀 있으면 같은 말을 두 번 한다.
+            searchButton
             settingsButton
-            todayButton
         }
     }
 
@@ -258,6 +331,55 @@ struct CalendarScreen: View {
         )
     }
 
+    /// 업데이트 뒤 처음 한 번. 탭 바를 눌러 오늘 할 일을 보던 사람에게 그 자리가
+    /// 어디로 갔는지 알린다. 오늘을 눌러보거나 닫으면 다시 안 뜬다.
+    private var homeMoveNotice: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "hand.point.up.left.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(MoscoPalette.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("오늘 할 일은 여기로 옮겼어요")
+                    .font(.moscoCaption().weight(.semibold))
+                    .foregroundStyle(MoscoPalette.textPrimary)
+                Text("달력에서 오늘을 누르면 열려요")
+                    .font(.moscoCaption())
+                    .foregroundStyle(MoscoPalette.textSecondary)
+            }
+            Spacer(minLength: 0)
+            Button {
+                homeNotice = CalendarHomeNotice.done
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(MoscoPalette.textSecondary)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("안내 닫기")
+        }
+        .padding(.leading, 14)
+        .padding(.vertical, 10)
+        .padding(.trailing, 4)
+        // 떠 있는 요소라 글라스를 쓴다(규범: 글라스는 떠 있는 것에만).
+        .moscoGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.1), radius: 12, y: 4)
+    }
+
+    private var searchButton: some View {
+        Button {
+            showsSearch = true
+        } label: {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(MoscoPalette.accent)
+                .frame(width: 34, height: 34)
+        }
+        .moscoGlass(in: Circle())
+        .accessibilityLabel("검색")
+    }
+
     private var settingsButton: some View {
         Button {
             showsSettings = true
@@ -271,30 +393,6 @@ struct CalendarScreen: View {
     }
 
     /// 항상 상단 오른쪽에 고정 — 압축 여부/현재 달 여부와 무관하게 항상 눌러서
-    /// 오늘이 있는 달로, 펼쳐진 상태로 돌아올 수 있다.
-    ///
-    /// 오늘 날씨가 있으면 같은 캡슐 안에 아이콘과 기온을 붙인다 — 날씨만을 위한
-    /// 자리를 새로 만들지 않고, 이미 "오늘"을 가리키는 버튼에 얹는 편이 헤더가
-    /// 안 복잡해진다. 못 받아왔으면 원래 모습 그대로다.
-    /// "오늘"만 담는다. 예전엔 여기에 날씨 아이콘과 기온까지 붙어 있었는데, 그
-    /// 폭 때문에 헤더가 넘쳐서 달 숫자가 잘리고 버튼 글자가 두 줄로 깨졌다.
-    /// 날씨는 주간 스트립의 날짜 칸에 날짜별로 이미 나오므로, 헤더에서 한 번 더
-    /// 자리를 차지할 이유가 없다.
-    private var todayButton: some View {
-        Button {
-            goToToday()
-        } label: {
-            Text("오늘")
-                .font(.moscoCaption().weight(.semibold))
-                .foregroundStyle(MoscoPalette.accent)
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.horizontal, 14)
-                .frame(height: 34)
-        }
-        .moscoGlass(in: Capsule())
-    }
-
     private var weekdayHeader: some View {
         HStack(spacing: 0) {
             ForEach(KoreanCalendar.weekdaySymbols, id: \.self) { symbol in

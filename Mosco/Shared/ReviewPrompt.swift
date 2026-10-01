@@ -17,6 +17,13 @@ import Observation
 /// 불렀는데, 셀은 완료 직후 목록에서 걸러져 사라질 수 있는 뷰다 — 1.2초 뒤 화면에
 /// 없는 뷰가 시트를 띄우려 하는 셈이었다. 지금은 이 타입이 "부탁할 때가 됐다"는
 /// 깃발만 세우고, 앱이 살아있는 한 항상 떠 있는 `RootTabView`가 실제 요청을 낸다.
+///
+/// **기회를 썼다고 적는 건 실제로 요청을 낸 뒤다**(`didRequest`). 1.3.1 전에는 깃발을
+/// 세우는 순간 적었는데, 깃발은 메모리에만 있어서 요청이 나가기 전에 앱이 종료되면
+/// 창은 한 번도 안 떴는데 그 버전의 기회와 90일이 같이 날아갔다.
+///
+/// `Shared/`에 두는 건 조건들을 테스트로 덮기 위해서다(`ReviewPromptTests`) —
+/// 저장소·버전·시각을 밖에서 넣을 수 있다.
 @Observable
 @MainActor
 final class ReviewPrompt {
@@ -55,16 +62,30 @@ final class ReviewPrompt {
         static let lastActiveDay = "reviewPromptLastActiveDay"
     }
 
-    private var defaults: UserDefaults { .standard }
+    private let defaults: UserDefaults
+    private let currentVersion: String
+    private let now: () -> Date
+
+    init(
+        defaults: UserDefaults = .standard,
+        currentVersion: String = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "?",
+        now: @escaping () -> Date = { .now }
+    ) {
+        self.defaults = defaults
+        self.currentVersion = currentVersion
+        self.now = now
+    }
 
     /// 실행할 때 한 번 부른다. 앱을 처음 연 날을 기록하고(이미 있으면 그대로),
     /// 오늘이 처음이면 "쓴 날" 수를 하나 올린다.
     func registerLaunch() {
         if defaults.object(forKey: Key.firstLaunch) == nil {
-            defaults.set(Date.now, forKey: Key.firstLaunch)
+            defaults.set(now(), forKey: Key.firstLaunch)
         }
 
-        let today = Calendar.current.startOfDay(for: .now)
+        let today = Calendar.current.startOfDay(for: now())
         let lastActive = defaults.object(forKey: Key.lastActiveDay) as? Date
         guard lastActive.map({ Calendar.current.startOfDay(for: $0) }) != today else { return }
         defaults.set(today, forKey: Key.lastActiveDay)
@@ -73,9 +94,8 @@ final class ReviewPrompt {
 
     /// 할 일을 **완료**했을 때 부른다(해제는 세지 않는다).
     ///
-    /// 판단과 기록을 한 번에 하는 게 중요하다. 여러 행이 거의 동시에 완료되면
-    /// 각자 조건을 통과해 리뷰창을 두 번 예약하려 할 수 있는데, 여기서 바로
-    /// 잠가버리면 그 창이 없다.
+    /// 여러 행이 거의 동시에 완료되면 각자 조건을 통과해 리뷰창을 두 번 예약하려 할
+    /// 수 있다. 깃발이 서 있는 동안은 다시 세우지 않으므로 그 창이 없다.
     func recordCompletion() {
         let count = defaults.integer(forKey: Key.completions) + 1
         defaults.set(count, forKey: Key.completions)
@@ -92,15 +112,15 @@ final class ReviewPrompt {
         )
     }
 
-    /// 실제로 요청을 내보낸 뒤 `RootTabView`가 부른다.
-    func consumePending() {
+    /// 실제로 요청을 내보낸 뒤 `RootTabView`가 부른다. **여기서 기회를 쓴 것으로 적는다.**
+    func didRequest() {
         isPending = false
+        markRequested()
     }
 
     private func askIfEligible(completionCount: Int, threshold: Int) {
         guard !isPending else { return }
         guard isEligible(completionCount: completionCount, threshold: threshold) else { return }
-        markRequested()
         isPending = true
     }
 
@@ -110,7 +130,7 @@ final class ReviewPrompt {
 
         guard let firstLaunch = defaults.object(forKey: Key.firstLaunch) as? Date,
               let daysSinceFirstLaunch = Calendar.current.dateComponents(
-                  [.day], from: firstLaunch, to: .now
+                  [.day], from: firstLaunch, to: now()
               ).day,
               daysSinceFirstLaunch >= Self.minimumDaysSinceFirstLaunch
         else { return false }
@@ -121,7 +141,7 @@ final class ReviewPrompt {
 
         if let lastDate = defaults.object(forKey: Key.lastDate) as? Date,
            let daysSinceLastPrompt = Calendar.current.dateComponents(
-               [.day], from: lastDate, to: .now
+               [.day], from: lastDate, to: now()
            ).day,
            daysSinceLastPrompt < Self.minimumDaysBetweenPrompts {
             return false
@@ -132,10 +152,6 @@ final class ReviewPrompt {
 
     private func markRequested() {
         defaults.set(currentVersion, forKey: Key.lastVersion)
-        defaults.set(Date.now, forKey: Key.lastDate)
-    }
-
-    private var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        defaults.set(now(), forKey: Key.lastDate)
     }
 }

@@ -51,6 +51,10 @@ final class TutorialCoordinator {
 
     var isRunning: Bool { step != nil }
 
+    /// 시작 카드에 답한 적이 있는가(해봤든 건너뛰었든). 업데이트 안내가 예전 사용자를
+    /// 가려내는 데 쓴다(`CalendarHomeNotice`).
+    var hasAnswered: Bool { defaults.bool(forKey: Key.answered) }
+
     /// 튜토리얼이 도는 동안에는 셀을 꾹 눌러도 메뉴가 안 뜬다 — 시스템 메뉴는
     /// 마스크 위로 떠서 화면을 통째로 덮기 때문에, 지금 따라가야 할 지시가 가려진다.
     /// 정리(`cleanUp`) 단계에서만 연다. 그 단계는 그 메뉴를 여는 것이 곧 과제다.
@@ -227,10 +231,10 @@ final class TutorialCoordinator {
         case .typeTitle, .pickTime, .send:
             // 대신 만들어준다. 만들어진 결과는 `didCreateTodo`로 다시 들어온다.
             practiceTodoRequest += 1
-        case .complete:
-            move(to: .openDay)
         case .openDay:
             openDayRequest += 1
+        case .complete:
+            move(to: .cleanUp)
         case .cleanUp:
             move(to: .finish)
         case .welcome, .finish:
@@ -275,16 +279,26 @@ final class TutorialCoordinator {
         switch step {
         case .typeTitle, .pickTime, .send:
             practiceTodoID = todo.id
-            move(to: .complete)
+            // 방금 적은 것은 달력의 오늘 칸에 막대로 올라간다 — 이제 그 칸을 열 차례.
+            move(to: .openDay)
         default:
             break
         }
     }
 
     /// 할 일의 완료 상태가 바뀌었다.
+    ///
+    /// **체크가 들어가는 걸 본 다음에 넘어간다.** 누르자마자 다음 지시로 바꾸면
+    /// 방금 누른 칸에 체크가 그려지기도 전에 말이 바뀌어 무엇을 해냈는지 못 본다.
+    /// 체크 스프링(0.35초)이 자리를 잡을 만큼 기다린다.
     func didToggleCompletion(id: UUID, completed: Bool) {
-        guard step == .complete, id == practiceTodoID, completed else { return }
-        move(to: .openDay)
+        guard step == .complete, id == practiceTodoID else { return }
+        guard completed else {
+            // 기다리는 사이 다시 눌러 풀었다 — 넘어가지 않고 이 단계에 남는다.
+            pendingTask?.cancel()
+            return
+        }
+        move(to: .cleanUp, after: 0.7)
     }
 
     /// 달력에서 하루 페이지를 열었다.
@@ -292,13 +306,13 @@ final class TutorialCoordinator {
         guard step == .openDay else { return }
         guard Calendar.current.isDateInToday(date) else { return }
         // 페이지가 밀려 들어오는 동안 말을 걸면 글자가 화면과 함께 미끄러진다.
-        move(to: .cleanUp, after: 0.5)
+        move(to: .complete, after: 0.5)
     }
 
-    /// 하루 페이지에서 뒤로 나갔다. 정리 단계는 그 페이지 위에서만 성립하므로
+    /// 오늘 페이지에서 뒤로 나갔다. 끝내기·정리 단계는 그 페이지 위에서만 성립하므로
     /// 달력 단계로 되돌린다 — 없는 줄을 가리키고 있는 것보다 낫다.
     func didCloseDay() {
-        guard step == .cleanUp else { return }
+        guard step == .complete || step == .cleanUp else { return }
         pendingTask?.cancel()
         move(to: .openDay)
     }
@@ -325,7 +339,7 @@ final class TutorialCoordinator {
         case .typeTitle, .pickTime, .send:
             return [.composeBar]
         case .complete:
-            return practiceTodoID.map { [.todayRow($0)] } ?? []
+            return practiceTodoID.map { [.dayRow($0)] } ?? []
         case .openDay:
             return [.todayCell]
         case .cleanUp:

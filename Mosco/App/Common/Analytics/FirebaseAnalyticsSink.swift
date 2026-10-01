@@ -53,4 +53,8 @@ struct FirebaseAnalyticsSink: AnalyticsSink {
     func setUserID(_ id: String) {
         FirebaseAnalytics.Analytics.setUserID(id)
     }
+
+    func setUserProperty(_ value: String, forName name: String) {
+        FirebaseAnalytics.Analytics.setUserProperty(value, forName: name)
+    }
 }

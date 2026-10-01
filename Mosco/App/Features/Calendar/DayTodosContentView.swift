@@ -58,6 +58,15 @@ struct DayTodosContentView: View {
         // List가 키보드에 반응해 content inset을 또 조정하면 컴포즈 바의 반응과
         // 겹쳐 이중으로 움직인다. List는 키보드를 무시하고, 컴포즈 바만 따라가게 한다.
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        // 오늘이 아닌 날을 보고 있을 때만 '오늘'이 떠오른다. 주간 스트립을 넘기다
+        // 멀리 왔어도 한 번에 돌아온다.
+        .jumpBack("오늘", isShown: !Calendar.current.isDateInToday(shownDate)) {
+            let today = Calendar.current.startOfDay(for: .now)
+            withAnimation(.easeInOut(duration: 0.25)) {
+                shownDate = today
+                visibleWeekStart = WeekWindow.normalized(today)
+            }
+        }
         // 붙여넣기 줄과 컴포즈 바를 **각각 따로** 붙인다. 둘을 VStack 하나로
         // 묶어 넘겼더니 그려지기는 해도 탭이 하나도 안 들어왔다 —
         // safeAreaInset은 넘긴 뷰를 그대로 한 덩어리로 앉히는데, 그 덩어리가
@@ -307,12 +316,39 @@ private struct DayTodoList: View {
         Set(todosForDay.compactMap { $0.calendar?.id }).count > 1
     }
 
+    // MARK: 오늘 페이지 — 예전 오늘 탭이 하던 일
+
+    @Environment(ReviewPrompt.self) private var reviewPrompt
+    /// 디데이 카드를 눌러 여는 자세히 보기.
+    @State private var detailTodo: TodoItem?
+
+    /// 오늘을 볼 때만 디데이·지난 할 일·날짜 없는 할 일이 붙는다. 다른 날 페이지는
+    /// 그날 목록만 — 거기에 지난 할 일이 붙으면 "이날 할 일"이 실제보다 많아 보인다.
+    private var isToday: Bool { Calendar.current.isDateInToday(date) }
+
+    private var visibleTodos: [TodoItem] {
+        let hidden = CalendarSelection.hidden(from: hiddenCalendarIDs)
+        return allTodos.filter { CalendarSelection.matches($0, hidden: hidden) }
+    }
+
+    private var dDayTodos: [TodoItem] { isToday ? TodayPage.dDays(in: visibleTodos, today: date) : [] }
+    private var overdueTodos: [TodoItem] { isToday ? TodayPage.overdue(in: visibleTodos, today: date) : [] }
+    private var backlogTodos: [TodoItem] { isToday ? TodayPage.backlog(in: visibleTodos) : [] }
+
+    private var remainingCount: Int {
+        todosForDay.filter { !$0.isCompleted(on: date) }.count
+    }
+
+    private var hasTodaySections: Bool {
+        !dDayTodos.isEmpty || !overdueTodos.isEmpty || !backlogTodos.isEmpty
+    }
+
     var body: some View {
         // **비었을 때는 List를 쓰지 않는다.** List 안에 넣으면 안내가 첫 행 자리,
         // 즉 화면 맨 위에 붙어서 그 아래로 빈 공간이 길게 남는다 — 아무것도 없다는
         // 말을 하면서 화면의 대부분을 비워두는 셈이다. 리스트를 통째로 걷어내면
         // ContentUnavailableView가 제 프레임 한가운데에 선다.
-        if todosForDay.isEmpty {
+        if todosForDay.isEmpty && !hasTodaySections {
             emptyState
         } else if DayViewMode.from(viewModeRaw) == .timeline {
             // 편집(순서 바꾸기)은 목록에서만 한다 — 시간축에서 끌어 옮기면
@@ -332,9 +368,11 @@ private struct DayTodoList: View {
     /// 설명은 붙이지 않는다 — 바로 아래에 입력창이 커서까지 깜빡이며 놓여 있어서,
     /// "아래에 적으면 이날 할 일이 돼요"는 눈에 보이는 것을 한 번 더 말하는 셈이다.
     private var emptyState: some View {
+        // 빈 화면은 다음에 할 일을 말한다(문구 원칙 8). 입력창이 바로 아래에 있다.
         ContentUnavailableView(
             "이날은 비어 있어요",
-            systemImage: "checkmark.circle"
+            systemImage: "checkmark.circle",
+            description: Text("아래에 적으면 이날 할 일이 돼요")
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // 목록이 없어도 빈 자리를 눌러 키보드를 내릴 수 있어야 한다 — 리스트가
@@ -345,25 +383,39 @@ private struct DayTodoList: View {
 
     private var list: some View {
         List {
-            // 날짜를 넘기는 스와이프는 맨 위 주간 스트립에만 있다. 줄에는
-            // 좌우 손짓이 없다 — 삭제는 꾹 눌러 나오는 메뉴가 맡는다.
-            ForEach(todosForDay) { todo in
-                TodoRow(
-                    todo: todo,
-                    occurrenceDate: date,
-                    onTap: { onSelect(todo) },
-                    onDelete: { onDelete([todo]) },
-                    showsCalendarTag: showsCalendarTag
-                )
-                .tutorialTarget(.dayRow(todo.id))
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
+            if !dDayTodos.isEmpty { dDaySection }
+            if !overdueTodos.isEmpty { overdueSection }
+            if isToday, remainingCount > TodayPage.overloadThreshold { overloadNotice }
+            Section {
+                // 날짜를 넘기는 스와이프는 맨 위 주간 스트립에만 있다. 줄에는
+                // 좌우 손짓이 없다 — 삭제는 꾹 눌러 나오는 메뉴가 맡는다.
+                ForEach(todosForDay) { todo in
+                    // 오늘은 메모 전문(예전 오늘 탭처럼 — 적어둔 게 있으면 그것까지가
+                    // 할 일이다), 다른 날은 세 줄.
+                    row(todo, memo: isToday ? .full : .compact)
+                        .tutorialTarget(.dayRow(todo.id))
+                }
+                // **`onDelete`를 달지 않는다.** 그게 스와이프 삭제를 만드는 자리다.
+                // 삭제는 꾹 눌러 나오는 메뉴 하나로 간다(`TodoActions`) — 확인 대화가
+                // 붙어 있고, 튜토리얼도 그 길을 가르친다.
+                .onMove(perform: move)
+            } header: {
+                // 섹션이 하나뿐이면 머리가 필요 없다. 오늘처럼 여럿이 붙을 때만 '할 일'을
+                // 세우고, 남은 개수는 이 한 곳에서만 말한다.
+                if hasTodaySections {
+                    sectionHeader("할 일", trailing: "\(remainingCount)개 남음")
+                }
             }
-            // **`onDelete`를 달지 않는다.** 그게 스와이프 삭제를 만드는 자리다.
-            // 삭제는 꾹 눌러 나오는 메뉴 하나로 간다(`TodoActions`) — 확인 대화가
-            // 붙어 있고, 튜토리얼도 그 길을 가르친다.
-            .onMove(perform: move)
+            if !backlogTodos.isEmpty { backlogSection }
+        }
+        // 오늘 할 일을 **다** 끝낸 순간 — 리뷰를 부탁하기에 이 앱에서 가장 좋은 자리다.
+        // 예전엔 오늘 탭이 알렸다. 할 일이 애초에 없던 날(0 → 0)은 성취가 아니다.
+        .onChange(of: remainingCount) { previous, current in
+            guard isToday, previous > 0, current == 0, !todosForDay.isEmpty else { return }
+            reviewPrompt.recordDayCleared()
+        }
+        .sheet(item: $detailTodo) { todo in
+            TodoDetailSheet(todo: todo)
         }
         .environment(\.editMode, .constant(isEditing ? .active : .inactive))
         // 안내가 겨누는 줄이 손가락에 밀려 화면 밖으로 나가지 않게.
@@ -374,6 +426,169 @@ private struct DayTodoList: View {
         // 막지 않으면서 같이 받는다. 스크롤 시작 시에도 바로 내려가게 처리.
         .scrollDismissesKeyboard(.immediately)
         .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
+    }
+
+    private func row(_ todo: TodoItem, showsDate: Bool = false, memo: TodoRow.MemoDisplay) -> some View {
+        TodoRow(
+            todo: todo,
+            showsDate: showsDate,
+            occurrenceDate: date,
+            onTap: { onSelect(todo) },
+            onDelete: { onDelete([todo]) },
+            showsCalendarTag: showsCalendarTag,
+            memoDisplay: memo
+        )
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
+    }
+
+    private func sectionHeader(_ title: String, trailing: String) -> some View {
+        HStack(spacing: 6) {
+            Text(title)
+            Text(trailing).foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
+            Spacer()
+        }
+        .font(.moscoCaption())
+        .foregroundStyle(MoscoPalette.textSecondary)
+    }
+
+    // MARK: 오늘 페이지의 덧붙는 칸들 — 모양은 예전 오늘 탭 그대로
+
+    /// 세로로 쌓지 않고 가로로 넘겨 보는 카드 — 세로로 쌓으면 디데이 몇 개만으로
+    /// 오늘 할 일이 화면 밖으로 밀려난다.
+    private var dDaySection: some View {
+        Section {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(dDayTodos) { todo in
+                        dDayCard(todo, isNearest: todo.id == dDayTodos.first?.id)
+                    }
+                }
+                .padding(.horizontal, Metrics.spacingMD)
+            }
+            .scrollClipDisabled()
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 0, trailing: 0))
+        } header: {
+            sectionHeader("디데이", trailing: "")
+        }
+    }
+
+    /// 가장 가까운 하나만 채운다 — 나머지는 옅게.
+    private func dDayCard(_ todo: TodoItem, isNearest: Bool) -> some View {
+        let today = Calendar.current.startOfDay(for: .now)
+        let day = Calendar.current.startOfDay(for: todo.date ?? today)
+        let left = Calendar.current.dateComponents([.day], from: today, to: day).day ?? 0
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(left == 0 ? "D-DAY" : "D-\(left)")
+                .font(.system(size: 27, weight: .heavy, design: .rounded).monospacedDigit())
+                .foregroundStyle(isNearest ? .white : MoscoPalette.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer(minLength: 6)
+            Text(todo.title)
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(isNearest ? .white : MoscoPalette.textPrimary)
+                .lineLimit(1)
+            Text(day.koreanMonthDayWeekday)
+                .font(.system(size: 11))
+                .foregroundStyle(isNearest ? .white.opacity(0.75) : MoscoPalette.textSecondary)
+                .lineLimit(1)
+        }
+        .padding(14)
+        .frame(width: 138, height: 112, alignment: .topLeading)
+        // 유리도 그림자도 쓰지 않는다 — 셀과 같은 이유로 단색 채우기만 쓴다.
+        .background(
+            isNearest ? MoscoPalette.accent : MoscoPalette.accent.opacity(0.12),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .contentShape(Rectangle())
+        // 예전 오늘 탭처럼 자세히 보기(메모)로 연다 — 수정으로 바로 가지 않는다.
+        .onTapGesture { detailTodo = todo }
+    }
+
+    /// 대개는 전부 오늘로 가져오거나, 하나를 골라 지운다. 남길 것을 고르는 일은
+    /// 셀의 메뉴가 이미 맡고 있다.
+    private var overdueSection: some View {
+        Section {
+            ForEach(overdueTodos) { todo in
+                // 지난 할 일은 날짜를 같이 보여주고, 메모는 세 줄까지.
+                row(todo, showsDate: true, memo: .compact)
+            }
+            Button {
+                // 옮기는 동안 `overdueTodos`가 계속 다시 계산되므로 먼저 떠둔다.
+                let pending = overdueTodos
+                let today = Calendar.current.startOfDay(for: .now)
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    for todo in pending { todo.pullIntoToday(today) }
+                }
+            } label: {
+                Label("모두 오늘로 가져오기", systemImage: "arrow.down.circle.fill")
+                    .font(.moscoCaption().weight(.semibold))
+                    .foregroundStyle(MoscoPalette.accent)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 10)
+                    // 이게 없으면 글자에만 터치가 잡혀서, 살짝 빗나가면 아무 일도
+                    // 안 일어난다.
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 0, leading: Metrics.spacingMD, bottom: 8, trailing: Metrics.spacingMD))
+        } header: {
+            sectionHeader("지난 할 일", trailing: "\(overdueTodos.count)")
+        }
+    }
+
+    private var overloadNotice: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(MoscoPalette.must)
+            Text("하루에 하기엔 많아 보여요")
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(MoscoPalette.textPrimary)
+            Spacer(minLength: 0)
+        }
+        .padding(Metrics.spacingMD)
+        .background(MoscoPalette.must.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
+    }
+
+    /// 하나씩 오늘로 가져오는 버튼을 옆에 둔다(예전 오늘 탭과 같다).
+    private var backlogSection: some View {
+        Section {
+            ForEach(backlogTodos) { todo in
+                HStack(spacing: 8) {
+                    TodoRow(
+                        todo: todo,
+                        onTap: { onSelect(todo) },
+                        onDelete: { onDelete([todo]) },
+                        memoDisplay: .compact
+                    )
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            todo.pullIntoToday(Calendar.current.startOfDay(for: .now))
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(MoscoPalette.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("오늘로 가져오기")
+                }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
+            }
+        } header: {
+            sectionHeader("날짜를 안 정한 할 일", trailing: "\(backlogTodos.count)")
+        }
     }
 
     private func dismissKeyboard() {

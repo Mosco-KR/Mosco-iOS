@@ -24,6 +24,14 @@ enum WidgetDeepLink {
         return components.url
     }
 
+    /// 이 위젯으로 들어오면 오늘 페이지를 바로 열어야 하는가.
+    ///
+    /// '오늘 할 일' 위젯과 라이브 액티비티는 오늘 할 일을 보여주던 것이라, 눌렀는데
+    /// 달력만 뜨면 한 번 더 눌러야 한다. 달력 위젯들은 달력(홈)으로 들어오는 게 맞다.
+    static func opensTodayPage(kind: String) -> Bool {
+        kind == "today_todo" || kind == liveActivityKind
+    }
+
     /// 앱이 받은 URL에서 위젯 종류를 꺼낸다. 우리 위젯이 보낸 게 아니면 nil.
     static func kind(from url: URL) -> String? {
         guard url.scheme == scheme, url.host == host else { return nil }

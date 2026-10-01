@@ -7,7 +7,8 @@ import Testing
 struct EventRowAssignerTests {
 
     private func event(
-        _ id: String, _ start: String, _ end: String? = nil, created: String? = nil
+        _ id: String, _ start: String, _ end: String? = nil, created: String? = nil,
+        minutes: Int = -1, done: Bool = false
     ) -> CalendarEvent {
         CalendarEvent(
             id: id,
@@ -17,9 +18,49 @@ struct EventRowAssignerTests {
             isRepeating: false,
             start: day(start),
             end: day(end ?? start),
-            isCompleted: false,
-            createdAt: day(created ?? start)
+            isCompleted: done,
+            createdAt: day(created ?? start),
+            startMinutes: minutes
         )
+    }
+
+    // MARK: 같은 날 칸 안의 순서 — 넘치면 뒤쪽부터 "+N"으로 접힌다
+
+    @Test("같은_날에는_저녁_약속이_아침_회의_위로_오지_않는다")
+    func 시각순() {
+        let assigned = rows([
+            event("저녁", "2026-10-01", created: "2026-09-01", minutes: 20 * 60),
+            event("아침", "2026-10-01", created: "2026-09-02", minutes: 10 * 60)
+        ])
+        #expect(assigned["아침"]! < assigned["저녁"]!, "만든 순서대로 놓여 저녁이 위에 왔다")
+    }
+
+    @Test("시간_있는_일이_시간_없는_일보다_위에_온다")
+    func 시간_있는_일_먼저() {
+        let assigned = rows([
+            event("장보기", "2026-10-01", created: "2026-09-01"),
+            event("치과", "2026-10-01", created: "2026-09-02", minutes: 16 * 60)
+        ])
+        #expect(assigned["치과"]! < assigned["장보기"]!, "칸이 넘치면 시간 있는 일정이 \"+N\"에 묻힌다")
+    }
+
+    @Test("끝낸_일은_맨_아래로_가서_먼저_접힌다")
+    func 끝낸_일은_뒤로() {
+        let assigned = rows([
+            event("팀 회의", "2026-10-01", created: "2026-09-01", minutes: 10 * 60, done: true),
+            event("장보기", "2026-10-01", created: "2026-09-02"),
+            event("치과", "2026-10-01", created: "2026-09-03", minutes: 16 * 60)
+        ])
+        #expect(assigned["팀 회의"] == 2, "끝낸 일이 윗줄을 차지했다")
+    }
+
+    @Test("여러_날_일정은_여전히_하루짜리보다_위에_선다")
+    func 여러_날_먼저() {
+        let assigned = rows([
+            event("치과", "2026-10-01", minutes: 9 * 60),
+            event("출장", "2026-10-01", "2026-10-03")
+        ])
+        #expect(assigned["출장"] == 0)
     }
 
     private func rows(_ events: [CalendarEvent]) -> [String: Int] {

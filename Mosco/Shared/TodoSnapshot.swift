@@ -27,6 +27,9 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
     let completedDayKeys: [String]
     let isCompleted: Bool
     let createdAt: Date
+    /// 하루 안의 시작 시각(분). 시간이 없으면 -1 — 하루 목록이 쓰는
+    /// `TodoItem.sortableMinutes`와 같은 값이다.
+    var startMinutes: Int = -1
 
     /// 값으로 직접 만든다. `@MainActor init?`을 선언한 순간 컴파일러가 만들어주던
     /// 멤버와이즈 초기화자가 사라져서, 테스트에서 스냅샷 하나를 못 만들었다.
@@ -78,6 +81,7 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
         self.completedDayKeys = todo.completedDayKeys ?? []
         self.isCompleted = todo.isCompleted
         self.createdAt = todo.createdAt
+        self.startMinutes = todo.sortableMinutes
     }
 
     /// 원본 일정이 며칠짜리인지(하루짜리면 0).

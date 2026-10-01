@@ -241,7 +241,7 @@ struct TutorialOverlay: View {
 
     /// 지시 아래에 크게 붙는 예시. 제목이 비었을 땐 시간을 뺀 이름만 보여준다.
     private func sample(for step: TutorialStep) -> String? {
-        if step == .send, !tutorial.composeHasTitle { return "러닝" }
+        if step == .send, !tutorial.composeHasTitle { return TutorialPractice.title }
         return step.sample
     }
 

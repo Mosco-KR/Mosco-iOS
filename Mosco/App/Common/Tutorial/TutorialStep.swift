@@ -1,14 +1,11 @@
 import SwiftUI
 
-/// 튜토리얼이 머무는 탭. `RootTabView`의 탭 enum은 private이라, 튜토리얼은
-/// 자기 말로 요구하고 옮기는 일은 그쪽이 한다.
-enum TutorialTab {
-    case todo
-    case calendar
-}
-
 /// 튜토리얼이 지나가는 자리들. **이 순서가 곧 이 앱을 쓰는 순서**다 —
-/// 적고(입력), 끝내고(완료), 날짜로 옮겨 다니고(달력), 정리한다(삭제).
+/// 달력 아래 입력창에 적고, 달력에서 오늘을 눌러 열고, 끝내고, 정리한다(삭제).
+///
+/// 1.4.0에서 탭이 없어지면서 순서가 바뀌었다. 예전엔 오늘 탭에서 적고 끝낸 뒤
+/// 달력 탭으로 건너가 정리했다. 이제는 달력(홈)에서 적고, 오늘 페이지 하나에서
+/// 끝내기와 정리를 다 한다 — 화면을 한 번만 옮긴다.
 ///
 /// 앞의 세 박자(`typeTitle`·`pickTime`·`send`)를 따로 두는 건 지시가 매 순간
 /// 하나여야 하기 때문이다. "적고, 시간을 고르고, 보내세요"를 한 번에 말하면
@@ -23,10 +20,10 @@ enum TutorialStep: Int, CaseIterable {
     case pickTime
     /// 보내기.
     case send
+    /// 달력에서 오늘을 눌러 오늘 페이지 열기. 방금 적은 할 일이 거기 있다.
+    case openDay
     /// 셀을 눌러 완료.
     case complete
-    /// 달력에서 오늘을 눌러 하루 페이지 열기.
-    case openDay
     /// 꾹 눌러 나오는 메뉴로 정리(삭제).
     case cleanUp
     /// 끝맺음 카드.
@@ -42,22 +39,13 @@ extension TutorialStep {
         switch self {
         case .welcome, .finish: nil
         case .typeTitle, .pickTime, .send: 1
-        case .complete: 2
-        case .openDay: 3
+        case .openDay: 2
+        case .complete: 3
         case .cleanUp: 4
         }
     }
 
     static let chapterCount = 4
-
-    /// 이 단계를 하려면 어느 탭에 있어야 하는지. nil이면 지금 자리 그대로 둔다.
-    var tab: TutorialTab? {
-        switch self {
-        case .typeTitle, .pickTime, .send, .complete: .todo
-        case .openDay, .cleanUp: .calendar
-        case .welcome, .finish: nil
-        }
-    }
 
     /// 카드로 화면 한가운데 서는 단계(스포트라이트 없음).
     var isCard: Bool {
@@ -92,9 +80,9 @@ extension TutorialStep {
     }
 
     /// 그대로 따라 적으면 되는 예시. **문장 속에 묻으면 안 읽힌다** — 지시에서
-    /// 떼어내 칩 하나로 크게 보여준다.
+    /// 떼어내 칩 하나로 크게 보여준다. 이름이 앞, 시간이 뒤인 이유는 `TutorialPractice`.
     var sample: String? {
-        self == .typeTitle ? "7시 러닝" : nil
+        self == .typeTitle ? TutorialPractice.sample : nil
     }
 
     /// 순서가 둘인 단계는 번호를 매겨 나눈다. 한 줄로 뭉치면("꾹 눌러 메뉴에서
@@ -111,7 +99,7 @@ extension TutorialStep {
         case .welcome: "직접 해보면서 익히는 게 제일 빨라요"
         case .pickTime: "시간 설정을 따로 열 필요가 없어요"
         case .complete: "다시 누르면 취소돼요"
-        case .openDay: "그날 하루가 열려요"
+        case .openDay: "방금 적은 할 일이 거기 있어요"
         case .finish: "적고, 끝내고, 정리하기. 이게 전부예요"
         case .typeTitle, .send, .cleanUp: nil
         }

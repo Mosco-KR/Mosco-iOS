@@ -23,4 +23,7 @@ nonisolated struct CalendarEvent: Equatable, Identifiable, Sendable {
     /// 같은 날 새 할 일이 끼어들 때 행 배정의 최종 타이브레이커 — 먼저 만든 할 일이
     /// 원래 자리(행)를 지키고, 나중에 추가된 쪽이 새 행으로 밀리게.
     let createdAt: Date
+    /// 하루 안의 시작 시각(분). 시간이 없으면 -1. 칸 안에서 '몇 시에 무엇'을
+    /// 먼저 보이게 하는 데 쓴다(`EventRowAssigner`).
+    var startMinutes: Int = -1
 }

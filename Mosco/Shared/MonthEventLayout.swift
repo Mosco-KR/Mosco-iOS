@@ -63,6 +63,15 @@ nonisolated enum EventRowAssigner {
             let rhsMultiDay = rhs.start != rhs.end
             if lhsMultiDay != rhsMultiDay { return lhsMultiDay }
             if lhs.end != rhs.end { return lhs.end < rhs.end }
+            // 같은 날 하루짜리끼리는 **시간 있는 일을 먼저**(이른 순), 시간 없는 일은
+            // 그 뒤, 끝낸 일은 맨 뒤. 칸이 넘치면 뒤쪽부터 "+N"으로 접히므로, 달력을
+            // 열자마자 보여야 할 '몇 시에 무엇'이 끝까지 남는다. 예전엔 만든 순서라
+            // 저녁 약속이 아침 회의 위에 오고, 끝낸 일이 윗줄을 차지했다.
+            if lhs.isCompleted != rhs.isCompleted { return !lhs.isCompleted }
+            let lhsTimed = lhs.startMinutes >= 0
+            let rhsTimed = rhs.startMinutes >= 0
+            if lhsTimed != rhsTimed { return lhsTimed }
+            if lhs.startMinutes != rhs.startMinutes { return lhs.startMinutes < rhs.startMinutes }
             // 나머지가 전부 같으면(흔히 같은 날 새 할 일이 끼어드는 경우) 먼저
             // 만든 쪽이 앞선다 — 안 그러면 어느 게 이길지 배열 순서에 우연히
             // 맡겨져서, 원래 그 행에 있던 반복 일정이 새 할 일한테 밀려나 보였다.
