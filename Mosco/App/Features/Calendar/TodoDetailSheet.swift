@@ -142,16 +142,16 @@ struct TodoDetailSheet: View {
         guard let date = todo.date else { return nil }
 
         if todo.isMultiDay, let effectiveEnd = todo.effectiveEndDate {
-            let range = "\(date.koreanMonthDay) - \(effectiveEnd.koreanMonthDay)"
+            let range = "\(date.localizedMonthDay) - \(effectiveEnd.localizedMonthDay)"
             guard let startTime = todo.startTime else { return range }
-            return "\(range) \(startTime.koreanTime)"
+            return "\(range) \(startTime.localizedTime)"
         }
 
-        guard let startTime = todo.startTime else { return date.koreanMonthDay }
+        guard let startTime = todo.startTime else { return date.localizedMonthDay }
         if let endTime = todo.endTime {
-            return "\(date.koreanMonthDay) \(startTime.koreanTime) - \(endTime.koreanTime)"
+            return "\(date.localizedMonthDay) \(startTime.localizedTime) - \(endTime.localizedTime)"
         }
-        return "\(date.koreanMonthDay) \(startTime.koreanTime)"
+        return "\(date.localizedMonthDay) \(startTime.localizedTime)"
     }
 
     private func save() {

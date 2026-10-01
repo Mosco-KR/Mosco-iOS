@@ -263,7 +263,7 @@ struct WidgetWeekdayHeader: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(KoreanCalendar.weekdaySymbols, id: \.self) { symbol in
+            ForEach(DateText.weekdaySymbols(), id: \.self) { symbol in
                 Text(symbol)
                     .font(.system(size: fontSize))
                     .foregroundStyle(.secondary)

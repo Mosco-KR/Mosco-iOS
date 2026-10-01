@@ -120,7 +120,7 @@ struct CategoryEditorSheet: View {
                     }
                 }
             }
-            .navigationTitle(existing == nil ? "새 카테고리" : "카테고리 수정")
+            .navigationTitle(existing == nil ? String(localized: "새 카테고리") : String(localized: "카테고리 수정"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -147,9 +147,9 @@ struct CategoryEditorSheet: View {
 
     private func leadLabel(_ minutes: Int) -> String {
         switch minutes {
-        case 0: "시작 시간에"
-        case ..<60: "\(minutes)분 전"
-        default: "\(minutes / 60)시간 전"
+        case 0: String(localized: "시작 시간에")
+        case ..<60: String(localized: "\(minutes)분 전")
+        default: String(localized: "\(minutes / 60)시간 전")
         }
     }
 }

@@ -18,8 +18,8 @@ nonisolated enum DayViewMode: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .list: "목록"
-        case .timeline: "시간표"
+        case .list: String(localized: "목록")
+        case .timeline: String(localized: "시간표")
         }
     }
 

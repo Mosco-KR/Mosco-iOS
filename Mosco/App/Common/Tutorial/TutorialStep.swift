@@ -70,15 +70,15 @@ extension TutorialStep {
 
     var title: String {
         switch self {
-        case .typeTitle: "아래 칸에 그대로 적어보세요"
-        case .pickTime: "위에 뜬 시간을 누르세요"
+        case .typeTitle: String(localized: "아래 칸에 그대로 적어보세요")
+        case .pickTime: String(localized: "위에 뜬 시간을 누르세요")
         // 실제로는 화살표 자리에 버튼 아이콘을 넣어 그린다(`TutorialOverlay`의
         // `instruction(for:)`). 이 문장은 그 조립이 안 될 때를 위한 예비다.
-        case .send: "오른쪽 화살표를 누르세요"
-        case .complete: "칸을 한 번 톡 누르세요"
-        case .openDay: "달력에서 오늘을 누르세요"
-        case .cleanUp: "연습한 할 일을 지워볼게요"
-        case .finish: "다 하셨어요"
+        case .send: String(localized: "오른쪽 화살표를 누르세요")
+        case .complete: String(localized: "칸을 한 번 톡 누르세요")
+        case .openDay: String(localized: "달력에서 오늘을 누르세요")
+        case .cleanUp: String(localized: "연습한 할 일을 지워볼게요")
+        case .finish: String(localized: "다 하셨어요")
         }
     }
 
@@ -92,7 +92,7 @@ extension TutorialStep {
     /// 삭제를 누르세요") 첫 동작만 하고 멈추는 사람이 생긴다.
     var checklist: [String]? {
         guard self == .cleanUp else { return nil }
-        return ["할 일을 꾹 누르세요", "메뉴에서 ‘삭제’를 누르세요"]
+        return [String(localized: "할 일을 꾹 누르세요"), String(localized: "메뉴에서 ‘삭제’를 누르세요")]
     }
 
     /// 작은 글씨 한 줄. **지시가 아니라 곁들임**이라, 없으면 없는 대로 둔다.
@@ -100,12 +100,12 @@ extension TutorialStep {
     var hint: String? {
         switch self {
         // 시작 카드가 하던 말 중 꼭 남겨야 할 하나 — 되돌릴 수 있다는 것.
-        case .typeTitle: "건너뛰어도 설정에서 다시 볼 수 있어요"
-        case .pickTime: "시간 설정을 따로 열 필요가 없어요"
-        case .complete: "다시 누르면 취소돼요"
-        case .openDay: "방금 적은 할 일이 거기 있어요"
+        case .typeTitle: String(localized: "건너뛰어도 설정에서 다시 볼 수 있어요")
+        case .pickTime: String(localized: "시간 설정을 따로 열 필요가 없어요")
+        case .complete: String(localized: "다시 누르면 취소돼요")
+        case .openDay: String(localized: "방금 적은 할 일이 거기 있어요")
         // 남는 사람은 위젯을 쓰는 사람과 겹쳤다(2026-09) — 끝맺음에서 한 번 권한다.
-        case .finish: "홈 화면에 위젯을 두면 앱을 안 열어도 오늘 할 일이 보여요"
+        case .finish: String(localized: "홈 화면에 위젯을 두면 앱을 안 열어도 오늘 할 일이 보여요")
         case .send, .cleanUp: nil
         }
     }
@@ -116,9 +116,9 @@ extension TutorialStep {
     /// 그만두기"뿐이면, 한 걸음 막힌 것 때문에 나머지 세 걸음을 통째로 잃는다.
     var assistLabel: String? {
         switch self {
-        case .typeTitle, .pickTime, .send: "대신 적어드릴까요?"
-        case .openDay: "대신 열어드릴까요?"
-        case .complete, .cleanUp: "이 단계 넘기기"
+        case .typeTitle, .pickTime, .send: String(localized: "대신 적어드릴까요?")
+        case .openDay: String(localized: "대신 열어드릴까요?")
+        case .complete, .cleanUp: String(localized: "이 단계 넘기기")
         case .finish: nil
         }
     }

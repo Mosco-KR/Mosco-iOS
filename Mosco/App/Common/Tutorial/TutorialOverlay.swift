@@ -317,9 +317,9 @@ struct TutorialOverlay: View {
 
             if showsWidgetHowTo {
                 VStack(alignment: .leading, spacing: 8) {
-                    widgetStep(1, "홈 화면의 빈 곳을 꾹 누르세요")
-                    widgetStep(2, "왼쪽 위 '편집'에서 '위젯 추가'를 누르세요")
-                    widgetStep(3, "Mosco를 찾아 '오늘 할 일'을 고르세요")
+                    widgetStep(1, String(localized: "홈 화면의 빈 곳을 꾹 누르세요"))
+                    widgetStep(2, String(localized: "왼쪽 위 '편집'에서 '위젯 추가'를 누르세요"))
+                    widgetStep(3, String(localized: "Mosco를 찾아 '오늘 할 일'을 고르세요"))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .transition(.opacity.combined(with: .move(edge: .top)))

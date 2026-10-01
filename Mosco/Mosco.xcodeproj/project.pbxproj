@@ -239,11 +239,12 @@
 				};
 			};
 			buildConfigurationList = 08208EA9301A72B900C965BF /* Build configuration list for PBXProject "Mosco" */;
-			developmentRegion = ko;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				ko,
 				en,
+				ja,
 				Base,
 			);
 			mainGroup = 08208EA5301A72B900C965BF;

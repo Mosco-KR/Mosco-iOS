@@ -33,8 +33,8 @@ struct TodayTodoProvider: TimelineProvider {
         TodayTodoEntry(
             date: .now,
             todos: [
-                WidgetTodo(id: UUID(), title: "팀 회의", isCompleted: false, categoryColorHex: nil, timeLabel: "오후 2시"),
-                WidgetTodo(id: UUID(), title: "장보기", isCompleted: false, categoryColorHex: nil, timeLabel: nil)
+                WidgetTodo(id: UUID(), title: String(localized: "팀 회의"), isCompleted: false, categoryColorHex: nil, timeLabel: DateText.time(hour24: 14, minute: 0)),
+                WidgetTodo(id: UUID(), title: String(localized: "장보기"), isCompleted: false, categoryColorHex: nil, timeLabel: nil)
             ],
             totalCount: 2,
             completedCount: 0

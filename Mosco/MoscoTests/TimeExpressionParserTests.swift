@@ -159,10 +159,10 @@ struct TimeExpressionParserTests {
 
     @Test("한국어_시각_표기가_12시간제로_나온다")
     func 표기() {
-        #expect(TimeExpressionParser.koreanTimeLabel(hour24: 19, minute: 0) == "오후 7시")
-        #expect(TimeExpressionParser.koreanTimeLabel(hour24: 19, minute: 30) == "오후 7시 30분")
-        #expect(TimeExpressionParser.koreanTimeLabel(hour24: 0, minute: 0) == "오전 12시")
-        #expect(TimeExpressionParser.koreanTimeLabel(hour24: 12, minute: 0) == "오후 12시")
-        #expect(TimeExpressionParser.koreanTimeLabel(hour24: 9, minute: 5) == "오전 9시 5분")
+        #expect(DateText.time(hour24: 19, minute: 0) == "오후 7시")
+        #expect(DateText.time(hour24: 19, minute: 30) == "오후 7시 30분")
+        #expect(DateText.time(hour24: 0, minute: 0) == "오전 12시")
+        #expect(DateText.time(hour24: 12, minute: 0) == "오후 12시")
+        #expect(DateText.time(hour24: 9, minute: 5) == "오전 9시 5분")
     }
 }

@@ -17,7 +17,7 @@ extension TodoItem {
         let calendar = Calendar.current
         func label(_ date: Date) -> String {
             let c = calendar.dateComponents([.hour, .minute], from: date)
-            return TimeExpressionParser.koreanTimeLabel(hour24: c.hour ?? 0, minute: c.minute ?? 0)
+            return DateText.time(hour24: c.hour ?? 0, minute: c.minute ?? 0)
         }
         guard let endTime, endTime > startTime else { return label(startTime) }
         return "\(label(startTime)) - \(label(endTime))"

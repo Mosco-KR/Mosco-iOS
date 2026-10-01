@@ -60,7 +60,7 @@ struct DayTodosContentView: View {
         .ignoresSafeArea(.keyboard, edges: .bottom)
         // 오늘이 아닌 날을 보고 있을 때만 '오늘'이 떠오른다. 주간 스트립을 넘기다
         // 멀리 왔어도 한 번에 돌아온다.
-        .jumpBack("오늘", isShown: !Calendar.current.isDateInToday(shownDate)) {
+        .jumpBack(String(localized: "오늘"), isShown: !Calendar.current.isDateInToday(shownDate)) {
             let today = Calendar.current.startOfDay(for: .now)
             withAnimation(.easeInOut(duration: 0.25)) {
                 shownDate = today
@@ -115,7 +115,7 @@ struct DayTodosContentView: View {
         let next: DayViewMode = current == .list ? .timeline : .list
         return HeaderGlassButton(
             systemImage: next.symbol,
-            accessibilityName: "\(next.label)으로 보기",
+            accessibilityName: String(localized: "\(next.label)으로 보기"),
             drawsBackground: false
         ) {
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -134,7 +134,7 @@ struct DayTodosContentView: View {
         HeaderGlassButton(
             // 상태가 바뀌면 아이콘도 바뀐다 — 글자를 뺐으니 모양이 유일한 단서다.
             systemImage: isEditing ? "checkmark" : "arrow.up.arrow.down",
-            accessibilityName: isEditing ? "편집 마치기" : "순서 편집",
+            accessibilityName: isEditing ? String(localized: "편집 마치기") : String(localized: "순서 편집"),
             drawsBackground: false
         ) {
             withAnimation(.easeInOut(duration: 0.2)) { isEditing.toggle() }
@@ -184,7 +184,7 @@ struct DayTodosContentView: View {
     /// 그날 날씨가 필요한 자리다.
     private var titleView: some View {
         HStack(spacing: 6) {
-            Text(shownDate.koreanMonthDayWeekday)
+            Text(shownDate.localizedMonthDayWeekday)
                 .font(.moscoBody().weight(.semibold))
                 .foregroundStyle(MoscoPalette.textPrimary)
 
@@ -407,7 +407,7 @@ private struct DayTodoList: View {
                 // 섹션이 하나뿐이면 머리가 필요 없다. 오늘처럼 여럿이 붙을 때만 '할 일'을
                 // 세우고, 남은 개수는 이 한 곳에서만 말한다.
                 if hasTodaySections {
-                    sectionHeader("할 일", trailing: "\(remainingCount)개 남음")
+                    sectionHeader(String(localized: "할 일"), trailing: String(localized: "\(remainingCount)개 남음"))
                 }
             }
             if !backlogTodos.isEmpty { backlogSection }
@@ -470,7 +470,7 @@ private struct DayTodoList: View {
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 0, trailing: 0))
         } header: {
-            sectionHeader("디데이", trailing: "")
+            sectionHeader(String(localized: "디데이"), trailing: "")
         }
     }
 
@@ -490,7 +490,7 @@ private struct DayTodoList: View {
                 .font(.moscoCaption().weight(.semibold))
                 .foregroundStyle(isNearest ? .white : MoscoPalette.textPrimary)
                 .lineLimit(1)
-            Text(day.koreanMonthDayWeekday)
+            Text(day.localizedMonthDayWeekday)
                 .font(.system(size: 11))
                 .foregroundStyle(isNearest ? .white.opacity(0.75) : MoscoPalette.textSecondary)
                 .lineLimit(1)
@@ -537,7 +537,7 @@ private struct DayTodoList: View {
             .listRowSeparator(.hidden)
             .listRowInsets(EdgeInsets(top: 0, leading: Metrics.spacingMD, bottom: 8, trailing: Metrics.spacingMD))
         } header: {
-            sectionHeader("지난 할 일", trailing: "\(overdueTodos.count)")
+            sectionHeader(String(localized: "지난 할 일"), trailing: "\(overdueTodos.count)")
         }
     }
 
@@ -585,7 +585,7 @@ private struct DayTodoList: View {
                 .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
             }
         } header: {
-            sectionHeader("날짜를 안 정한 할 일", trailing: "\(backlogTodos.count)")
+            sectionHeader(String(localized: "날짜를 안 정한 할 일"), trailing: "\(backlogTodos.count)")
         }
     }
 

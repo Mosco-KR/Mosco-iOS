@@ -111,6 +111,12 @@ struct QuickAddView: View {
             // 커서도 같이 와야 한다. 아래 `onChange`만으로는 못 잡는다 — 탭이
             // 바뀌는 순간 이 뷰는 아직 만들어지기 전이라 그 변화를 못 본다.
             if tutorial.currentStep == .typeTitle { isTitleFocused = true }
+            #if DEBUG
+            if ScreenshotDemo.scene == .compose, title.isEmpty {
+                title = ScreenshotDemo.composeText
+                isTitleFocused = true
+            }
+            #endif
         }
         .onChange(of: title) { _, newValue in
             scheduleClassification(for: newValue)
@@ -265,18 +271,18 @@ struct QuickAddView: View {
     }
 
     private var dateLabel: String {
-        guard let startDate else { return "날짜 없음" }
+        guard let startDate else { return String(localized: "날짜 없음") }
 
         // 반복이 설정돼 있으면 날짜 대신 반복 규칙이 한눈에 보이게 — 시트를 닫은
         // 뒤에도 버튼만 보고 반복 여부를 알 수 있다.
         if let repeatLabel {
             guard let startTime else { return repeatLabel }
-            return "\(repeatLabel) \(startTime.koreanTime)"
+            return "\(repeatLabel) \(startTime.localizedTime)"
         }
         if let endDate, !calendar.isDate(startDate, inSameDayAs: endDate) {
-            return "\(startDate.koreanMonthDay) - \(endDate.koreanMonthDay)"
+            return "\(startDate.localizedMonthDay) - \(endDate.localizedMonthDay)"
         }
-        return koreanScheduleLabel(date: startDate, time: startTime)
+        return localizedScheduleLabel(date: startDate, time: startTime)
     }
 
     private var repeatLabel: String? {
@@ -284,17 +290,17 @@ struct QuickAddView: View {
         case .none:
             return nil
         case .daily:
-            return "매일"
+            return String(localized: "매일")
         case .weekly:
-            guard !repeatWeekdays.isEmpty else { return "매주" }
-            let symbols = repeatWeekdays.sorted().map { KoreanCalendar.weekdaySymbols[$0 - 1] }
-            return "매주 " + symbols.joined(separator: "·")
+            guard !repeatWeekdays.isEmpty else { return String(localized: "매주") }
+            let symbols = repeatWeekdays.sorted().map { DateText.weekdaySymbols()[$0 - 1] }
+            return String(localized: "매주 \(symbols.joined(separator: "·"))")
         case .monthly:
-            return "매월"
+            return String(localized: "매월")
         case .everyNDays:
-            return "\(repeatInterval)일마다"
+            return String(localized: "\(repeatInterval)일마다")
         case .yearly:
-            return "매년"
+            return String(localized: "매년")
         }
     }
 
@@ -480,8 +486,8 @@ struct QuickAddView: View {
     /// 모호하면 두 후보(같은 기준으로 시작·종료 모두에 적용)를 보여준다.
     private func suggestionOptions(_ suggestion: TimeSuggestion) -> [SuggestionOption] {
         func label(start: Int, end: Int?) -> String {
-            guard let end else { return TimeExpressionParser.koreanTimeLabel(hour24: start, minute: suggestion.startMinute) }
-            return "\(TimeExpressionParser.koreanTimeLabel(hour24: start, minute: suggestion.startMinute)) - \(TimeExpressionParser.koreanTimeLabel(hour24: end, minute: suggestion.endMinute ?? 0))"
+            guard let end else { return DateText.time(hour24: start, minute: suggestion.startMinute) }
+            return "\(DateText.time(hour24: start, minute: suggestion.startMinute)) - \(DateText.time(hour24: end, minute: suggestion.endMinute ?? 0))"
         }
 
         // 둘 다(또는 시작만) 이미 확정인 경우 — 종료가 모호하면 시작과 같은 기준으로 채운다.

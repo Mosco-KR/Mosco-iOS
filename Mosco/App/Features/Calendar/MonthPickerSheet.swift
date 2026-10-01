@@ -18,15 +18,15 @@ struct MonthPickerSheet: View {
     var body: some View {
         VStack(spacing: Metrics.spacingLG) {
             HStack {
-                yearButton("chevron.left", label: "이전 해") { year -= 1 }
+                yearButton("chevron.left", label: String(localized: "이전 해")) { year -= 1 }
                 Spacer()
-                Text(verbatim: "\(year)년")
+                Text(verbatim: DateText.yearLabel(year))
                     .font(.moscoTitle())
                     .foregroundStyle(MoscoPalette.textPrimary)
                     .contentTransition(.numericText(value: Double(year)))
                     .animation(.easeInOut(duration: 0.2), value: year)
                 Spacer()
-                yearButton("chevron.right", label: "다음 해") { year += 1 }
+                yearButton("chevron.right", label: String(localized: "다음 해")) { year += 1 }
             }
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
@@ -62,7 +62,7 @@ struct MonthPickerSheet: View {
             dismiss()
         } label: {
             VStack(spacing: 5) {
-                Text("\(number)월")
+                Text(verbatim: DateText.monthName(number))
                     .font(.moscoBody().weight(isSelected ? .bold : .medium))
                 // 이번 달은 점 하나로 — 고른 달(채운 칸)과 겹쳐도 구분된다.
                 Circle()

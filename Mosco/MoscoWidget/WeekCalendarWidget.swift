@@ -70,7 +70,7 @@ struct WeekCalendarProvider: TimelineProvider {
 
     /// 주어진 날이 속한 주의 일~토.
     static func week(of date: Date) -> [Date] {
-        let calendar = Calendar.current
+        let calendar = Calendar.current.startingSunday
         guard let interval = calendar.dateInterval(of: .weekOfYear, for: date) else { return [] }
         return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: interval.start) }
     }
@@ -110,7 +110,7 @@ struct WeekCalendarWidgetView: View {
                     HStack(spacing: 0) {
                         ForEach(Array(entry.days.enumerated()), id: \.offset) { index, day in
                             VStack(spacing: 1) {
-                                Text(KoreanCalendar.weekdaySymbols[index])
+                                Text(DateText.weekdaySymbols()[index])
                                     .font(.system(size: fontSize - 2))
                                     .foregroundStyle(.secondary)
                                 WidgetDayNumber(
@@ -144,8 +144,6 @@ struct WeekCalendarWidgetView: View {
         let lastMonth = calendar.component(.month, from: last)
         let firstDay = calendar.component(.day, from: first)
         let lastDay = calendar.component(.day, from: last)
-        return firstMonth == lastMonth
-            ? "\(firstMonth)월 \(firstDay)–\(lastDay)일"
-            : "\(firstMonth)월 \(firstDay)일 – \(lastMonth)월 \(lastDay)일"
+        return DateText.dayRange(fromMonth: firstMonth, fromDay: firstDay, toMonth: lastMonth, toDay: lastDay)
     }
 }

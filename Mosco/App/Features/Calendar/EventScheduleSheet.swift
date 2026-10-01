@@ -77,7 +77,7 @@ struct EventScheduleSheet: View {
                 Section {
                     Toggle("날짜 설정", isOn: $hasDate.animation())
                 } footer: {
-                    Text(hasDate ? "" : "날짜를 정하지 않으면 '언젠가 할 일'에 담겨요.")
+                    Text(hasDate ? "" : String(localized: "날짜를 정하지 않으면 '언젠가 할 일'에 담겨요."))
                 }
 
                 if hasDate {
@@ -99,7 +99,7 @@ struct EventScheduleSheet: View {
                         }
                     } footer: {
                         if repeatRule != .none {
-                            Text(isAllDay ? "정한 규칙에 맞는 날마다 종일로 생겨요." : "정한 규칙에 맞는 날마다 이 시간에 생겨요.")
+                            Text(isAllDay ? String(localized: "정한 규칙에 맞는 날마다 종일로 생겨요.") : String(localized: "정한 규칙에 맞는 날마다 이 시간에 생겨요."))
                         } else {
                             Text("종료를 끄면 하루짜리가 돼요.")
                         }
@@ -129,7 +129,7 @@ struct EventScheduleSheet: View {
                         }
                     } footer: {
                         if repeatRule != .none {
-                            Text(hasRepeatEnd ? "종료일까지 반복돼요." : "종료일 없이 계속 반복돼요. 수정·완료는 모든 반복에 함께 적용돼요.")
+                            Text(hasRepeatEnd ? String(localized: "종료일까지 반복돼요.") : String(localized: "종료일 없이 계속 반복돼요. 수정·완료는 모든 반복에 함께 적용돼요."))
                         }
                     }
                 }
@@ -155,7 +155,7 @@ struct EventScheduleSheet: View {
 
     private var weekdaySelector: some View {
         HStack(spacing: 6) {
-            ForEach(Array(KoreanCalendar.weekdaySymbols.enumerated()), id: \.offset) { index, symbol in
+            ForEach(Array(DateText.weekdaySymbols().enumerated()), id: \.offset) { index, symbol in
                 let weekday = index + 1 // Calendar.component(.weekday) 규칙: 1=일요일
                 let isOn = repeatWeekdays.contains(weekday)
 

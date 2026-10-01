@@ -153,8 +153,6 @@ nonisolated enum TimelineLayout {
     static func axisLabel(hour: Int, previousHour: Int? = nil) -> String {
         // 24시는 다음 날 0시다. 축의 마지막 눈금으로만 나온다.
         let normalized = hour % 24
-        var hour12 = normalized % 12
-        if hour12 == 0 { hour12 = 12 }
 
         let isAfternoon = normalized >= 12
         let showsPeriod: Bool
@@ -164,7 +162,7 @@ nonisolated enum TimelineLayout {
             showsPeriod = true
         }
 
-        return showsPeriod ? "\(isAfternoon ? "오후" : "오전") \(hour12)시" : "\(hour12)시"
+        return DateText.hourTick(hour24: normalized, showsPeriod: showsPeriod)
     }
 
     /// 시간축을 어디부터 어디까지 그릴지.

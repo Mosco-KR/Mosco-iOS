@@ -44,17 +44,17 @@ struct TodoActions: ViewModifier {
 
         var title: String {
             switch self {
-            case .tooFar: "8시간 안에 시작하는 할 일만 띄울 수 있어요"
-            case .notUpcoming: "이미 시작한 할 일이에요"
-            case .unavailable: "라이브 액티비티가 꺼져 있어요"
+            case .tooFar: String(localized: "8시간 안에 시작하는 할 일만 띄울 수 있어요")
+            case .notUpcoming: String(localized: "이미 시작한 할 일이에요")
+            case .unavailable: String(localized: "라이브 액티비티가 꺼져 있어요")
             }
         }
 
         var message: String {
             switch self {
-            case .tooFar: "잠금화면 표시는 띄운 때부터 8시간까지만 살아 있어요."
-            case .notUpcoming: "남은 시간을 셀 수 없어요."
-            case .unavailable: "설정에서 켜면 잠금화면에 띄울 수 있어요."
+            case .tooFar: String(localized: "잠금화면 표시는 띄운 때부터 8시간까지만 살아 있어요.")
+            case .notUpcoming: String(localized: "남은 시간을 셀 수 없어요.")
+            case .unavailable: String(localized: "설정에서 켜면 잠금화면에 띄울 수 있어요.")
             }
         }
     }
@@ -115,7 +115,7 @@ struct TodoActions: ViewModifier {
         Button {
             showsMemoEditor = true
         } label: {
-            Label(hasMemo ? "메모 보기" : "메모 추가", systemImage: "note.text")
+            Label(hasMemo ? String(localized: "메모 보기") : String(localized: "메모 추가"), systemImage: "note.text")
         }
 
         Button {
@@ -123,7 +123,7 @@ struct TodoActions: ViewModifier {
             todo.isDDay.toggle()
         } label: {
             Label(
-                todo.isDDay ? "디데이 해제" : "디데이로 표시",
+                todo.isDDay ? String(localized: "디데이 해제") : String(localized: "디데이로 표시"),
                 systemImage: todo.isDDay ? "flag.slash" : "flag"
             )
         }
@@ -139,7 +139,7 @@ struct TodoActions: ViewModifier {
                 Task { await toggleLiveActivity() }
             } label: {
                 Label(
-                    isShowingLiveActivity ? "잠금화면에서 내리기" : "잠금화면에 남은 시간 표시",
+                    isShowingLiveActivity ? String(localized: "잠금화면에서 내리기") : String(localized: "잠금화면에 남은 시간 표시"),
                     systemImage: isShowingLiveActivity ? "timer.circle.fill" : "timer"
                 )
             }

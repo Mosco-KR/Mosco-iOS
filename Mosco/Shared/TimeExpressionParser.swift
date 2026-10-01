@@ -34,7 +34,11 @@ nonisolated struct TimeSuggestion: Equatable {
 nonisolated enum TimeExpressionParser {
 
     /// 지원 표현: `오후 7시`, `오전 7시 30분`, `7시`, `7시 반`, `19:30`, `7:30`,
-    /// `7pm`, `7 PM`, 그리고 이들의 범위(`4시~7시`, `4:00-19:00`, `2pm~5pm`).
+    /// `7pm`, `7 PM`, `7:30pm`, `noon`, `午後7時`, `7時半`, `19時`, 그리고 이들의
+    /// 범위(`4시~7시`, `4:00-19:00`, `2pm~5pm`, `14時〜17時`).
+    ///
+    /// **앱 언어와 무관하게 세 언어를 다 읽는다.** 한국어로 쓰는 사람도 `7pm`이라고
+    /// 치고, 일본어 사용자도 `19:30`이라고 친다. 언어별로 갈라 읽으면 그게 막힌다.
     static func suggestion(in text: String) -> TimeSuggestion? {
         let tokens = tokens(in: text)
         guard let first = tokens.first else { return nil }
@@ -43,7 +47,7 @@ nonisolated enum TimeExpressionParser {
             let second = tokens[1]
             let between = text[first.range.upperBound..<second.range.lowerBound]
                 .trimmingCharacters(in: .whitespaces)
-            if between.isEmpty || between == "~" || between == "-" {
+            if between.isEmpty || Self.rangeSeparators.contains(between) {
                 return TimeSuggestion(
                     matched: String(text[first.range.lowerBound..<second.range.upperBound]),
                     startHour24: first.hour24, startHour12: first.hour12, startMinute: first.minute,
@@ -58,6 +62,9 @@ nonisolated enum TimeExpressionParser {
             endHour24: nil, endHour12: nil, endMinute: nil
         )
     }
+
+    /// 두 시각을 범위로 잇는 기호. 일본어 물결표(`〜`, `～`)와 영어 `to`까지 받는다.
+    private static let rangeSeparators: Set<String> = ["~", "-", "–", "〜", "～", "to", "から"]
 
     /// 제목 안의 모든 시간 표현을 위치 순서대로 찾는다. 같은 자리를 여러 패턴이
     /// 동시에 매칭하면(예: `오후 7시`가 `N시` 패턴에도 걸림) 더 구체적인(긴) 쪽만 남긴다.
@@ -74,15 +81,46 @@ nonisolated enum TimeExpressionParser {
                 minute: parseMinute(match.3.map(String.init))
             ))
         }
-        for match in text.matches(of: /(\d{1,2})\s*(am|pm|AM|PM)/) {
+        // `7pm`, `7 PM`, `7:30pm`, `7 p.m.` — 뒤에 글자가 이어지면 시각이 아니다
+        // (`5 amazing things`의 `5 am`).
+        for match in text.matches(of: /(\d{1,2})(?::(\d{2}))?\s*(?:(am|pm)\b|(a\.m\.|p\.m\.))/.ignoresCase()) {
             guard let hour = Int(match.1), (1...12).contains(hour) else { continue }
-            let isPM = match.2.lowercased() == "pm"
+            let minute = match.2.flatMap { Int($0) } ?? 0
+            guard minute <= 59 else { continue }
+            let period = (match.3 ?? match.4).map { $0.lowercased() } ?? ""
             found.append(TimeToken(
                 range: match.range,
-                hour24: isPM ? (hour == 12 ? 12 : hour + 12) : (hour == 12 ? 0 : hour),
+                hour24: resolvedHour24(hour12: hour, isPM: period.hasPrefix("p")),
+                hour12: nil,
+                minute: minute
+            ))
+        }
+        for match in text.matches(of: /\b(noon|midnight)\b/.ignoresCase()) {
+            found.append(TimeToken(
+                range: match.range,
+                hour24: match.1.lowercased() == "noon" ? 12 : 0,
                 hour12: nil,
                 minute: 0
             ))
+        }
+        for match in text.matches(of: /(午前|午後)\s*(\d{1,2})\s*時(?:\s*(半|\d{1,2}\s*分))?/) {
+            guard let hour = number(match.2), (1...12).contains(hour) else { continue }
+            found.append(TimeToken(
+                range: match.range,
+                hour24: resolvedHour24(hour12: hour, isPM: match.1 == "午後"),
+                hour12: nil,
+                minute: parseMinute(match.3.map(String.init))
+            ))
+        }
+        // 일본어는 `19時`처럼 24시간제로도 흔히 쓴다. 13시부터는 오전/오후를 물을 것이 없다.
+        for match in text.matches(of: /(\d{1,2})\s*時(?:\s*(半|\d{1,2}\s*分))?/) {
+            guard let hour = number(match.1), hour <= 23 else { continue }
+            let minute = parseMinute(match.2.map(String.init))
+            if hour >= 13 || hour == 0 {
+                found.append(TimeToken(range: match.range, hour24: hour, hour12: nil, minute: minute))
+            } else {
+                found.append(TimeToken(range: match.range, hour24: nil, hour12: hour, minute: minute))
+            }
         }
         for match in text.matches(of: /(\d{1,2}):(\d{2})/) {
             guard let hour = Int(match.1), let minute = Int(match.2), hour <= 23, minute <= 59 else { continue }
@@ -114,21 +152,19 @@ nonisolated enum TimeExpressionParser {
 
     static func parseMinute(_ text: String?) -> Int {
         guard let text else { return 0 }
-        if text == "반" { return 30 }
-        return Int(text.filter(\.isNumber)) ?? 0
+        if text == "반" || text == "半" { return 30 }
+        return number(text.filter(\.isNumber)) ?? 0
+    }
+
+    /// 전각 숫자(`７`)도 읽는다. 일본어 자판은 숫자를 전각으로 내는 일이 잦고,
+    /// 정규식의 `\d`는 전각을 숫자로 잡지만 `Int()`는 못 읽는다.
+    static func number(_ text: some StringProtocol) -> Int? {
+        Int(String(text).applyingTransform(.fullwidthToHalfwidth, reverse: false) ?? String(text))
     }
 
     /// `hour12`를 주어진 오전/오후로 확정한 24시간제 값.
     /// 12시가 특이하다 — 오전 12시는 0시(자정), 오후 12시는 12시(정오)다.
     static func resolvedHour24(hour12: Int, isPM: Bool) -> Int {
         isPM ? (hour12 == 12 ? 12 : hour12 + 12) : (hour12 == 12 ? 0 : hour12)
-    }
-
-    /// 사용자에게 보여줄 한국어 시각 표기.
-    static func koreanTimeLabel(hour24: Int, minute: Int) -> String {
-        let period = hour24 >= 12 ? "오후" : "오전"
-        var hour12 = hour24 % 12
-        if hour12 == 0 { hour12 = 12 }
-        return minute == 0 ? "\(period) \(hour12)시" : "\(period) \(hour12)시 \(minute)분"
     }
 }

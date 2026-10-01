@@ -44,7 +44,7 @@ struct TodoLiveActivity: Widget {
                 // 카테고리 이름만. 색은 아래 제목 앞의 막대가 맡는다 — 앱과 같은
                 // 규칙으로, 한 화면에서 카테고리 색이 쓰이는 자리는 하나뿐이다.
                 DynamicIslandExpandedRegion(.leading) {
-                    Text(context.state.event.categoryName ?? "미분류")
+                    Text(context.state.event.categoryName ?? String(localized: "미분류"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -85,7 +85,7 @@ struct TodoLiveActivity: Widget {
     private func lockScreen(_ context: ActivityViewContext<TodoActivityAttributes>) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                Text(context.state.event.categoryName ?? "미분류")
+                Text(context.state.event.categoryName ?? String(localized: "미분류"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

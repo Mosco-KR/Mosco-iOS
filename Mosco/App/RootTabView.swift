@@ -112,14 +112,18 @@ struct RootTabView: View {
         let existingCategories = (try? modelContext.fetch(FetchDescriptor<TodoCategory>())) ?? []
         if existingCategories.isEmpty {
             modelContext.insert(
-                TodoCategory(name: "할 일", colorHex: Self.defaultCategoryColorHex, sortOrder: 0, isDefault: true)
+                TodoCategory(name: String(localized: "할 일"), colorHex: Self.defaultCategoryColorHex, sortOrder: 0, isDefault: true)
             )
         }
+
+        #if DEBUG
+        ScreenshotDemo.seedIfNeeded(in: modelContext)
+        #endif
 
         let existingCalendars = (try? modelContext.fetch(FetchDescriptor<TodoCalendar>())) ?? []
         let fallback = existingCalendars.min { $0.createdAt < $1.createdAt } ?? {
             let created = TodoCalendar(
-                name: "기본",
+                name: String(localized: "기본"),
                 colorHex: Self.defaultCategoryColorHex,
                 sortOrder: 0,
                 isDefault: true
@@ -294,6 +298,10 @@ struct RootTabView: View {
             // 지난 실행에서 안내를 도중에 떠났다면 지금 보고한다. 이탈은 그
             // 순간에 못 잡는다 — 앱이 죽을 때는 이벤트를 보낼 시간이 없다.
             tutorial.reportAbandonmentIfNeeded()
+            #if DEBUG
+            // 미리보기를 찍는 중에는 안내도 권한 창도 띄우지 않는다 — 화면을 가린다.
+            if ScreenshotDemo.isActive { return }
+            #endif
             // 처음 온 사람에게만, 그것도 **물어보고** 시작한다. 이미 할 일을 들고
             // 있는 사람(기기를 바꿔 iCloud에서 내려받은 경우)에게 "처음 오셨네요"는
             // 틀린 인사라 아예 띄우지 않는다.

@@ -211,3 +211,41 @@ codesign -d --entitlements :- <경로>/App.app
 맥에서도 iOS 형식(`group.com.Mosco.App`) 그대로 쓴다는 것(맥에서는 팀 접두사가
 필요한 경우가 있어 의심했는데 Catalyst는 아니었다. `~/Library/Group Containers/`에
 그 이름으로 실제 폴더가 있다).
+
+## 다국어: 번역은 붙었는데 엉뚱하게 보이는 자리들
+
+1.4.0 다음에 영어와 일본어를 붙이면서 걸린 것들이다. 넷 다 **빌드는 통과하고
+한국어 기기에서는 멀쩡해서**, 다른 언어로 띄워보기 전에는 알 수 없었다.
+
+**지원하지 않는 언어의 기기에서 한국어가 떴다.** 프랑스어 기기는 번들에 프랑스어가
+없으면 "개발 언어"로 물러나는데, 그게 한국어였다. `Info.plist`의
+`CFBundleDevelopmentRegion`만 `en`으로 바꿔서는 안 된다 — 빌드할 때 프로젝트의
+`developmentRegion`(`project.pbxproj`)이 그 값을 덮어쓴다. **둘을 같이 바꾼다.**
+그래서 지금 문자열 카탈로그는 키가 한국어인데 원문 언어는 영어로 적혀 있고,
+한국어도 번역 한 벌로 들어 있다. 이상해 보여도 그대로 둔다.
+
+**달력이 한 칸 밀렸다.** 요일 머리와 일요일 빨강·토요일 파랑은 일~토 순서로
+고정인데, 주의 시작은 `Calendar.current`에 물었다. 영국·프랑스처럼 월요일부터
+세는 지역에서는 "일" 아래에 월요일이 왔다. 주의 경계를 구하는 곳은
+`calendar.startingSunday`를 거친다(`Shared/AppLanguage.swift`). 새로
+`.weekOfYear`를 쓰게 되면 여기부터 본다.
+
+**`Text("...")`에 넣은 글자만 저절로 번역된다.** `String`으로 한 번 받았다가
+넘기는 문구(`case .daily: "매일"`, `title: "캘린더"`처럼 내 함수의 인자로 가는 것)는
+카탈로그를 거치지 않는다. 그런 자리는 `String(localized:)`로 감싼다. 새 문구를
+넣었는데 영어 화면에서 한국어로 남아 있으면 십중팔구 이것이다.
+
+**카탈로그는 손으로 채운다.** `xcodebuild`는 코드에서 문구를 뽑아 카탈로그에
+넣어주지 않는다(Xcode에서 빌드할 때만 한다). 새 문구를 넣으면
+`Shared/Localizable.xcstrings`에 영어와 일본어를 같이 넣는다. 빠뜨리면 그 문구만
+한국어로 나온다 — 죽지는 않아서 더 늦게 발견된다.
+
+날짜와 시각("오후 7시", "7 PM", "午後7時")은 번역이 아니라 조립이라
+`Shared/Date+Localized.swift`의 `DateText`가 만든다. 한국 공휴일은 한국어로
+쓰거나 지역이 한국일 때만 칠한다 — 다른 나라 공휴일은 아직 없다.
+
+확인은 시뮬레이터를 언어를 바꿔 띄워서 한다.
+
+```bash
+xcrun simctl launch 'iPhone 17 Pro' com.Mosco.App -AppleLanguages "(ja)" -AppleLocale ja_JP
+```

@@ -19,6 +19,7 @@ nonisolated struct MonthLayout: Sendable {
     let weeks: [WeekRow]
 
     static func make(_ month: CalendarMonth, calendar: Calendar = .current) -> MonthLayout {
+        let calendar = calendar.startingSunday
         let monthStart = month.startDate(calendar: calendar)
         let monthEnd = month.endDate(calendar: calendar)
         guard let firstWeek = calendar.dateInterval(of: .weekOfYear, for: monthStart) else {

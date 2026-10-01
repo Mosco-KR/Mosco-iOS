@@ -96,7 +96,7 @@ struct CalendarScreen: View {
                 isKeyboardShown = false
             }
             // 다른 달을 보고 있을 때만 '이번 달'이 떠오른다.
-            .jumpBack("이번 달", isShown: visibleMonth != .containing(Date())) {
+            .jumpBack(String(localized: "이번 달"), isShown: visibleMonth != .containing(Date())) {
                 goToToday()
             }
             // 입력창은 늘 아래에 있다 — 앱을 켜자마자 적을 수 있어야 한다. 예전엔
@@ -145,6 +145,12 @@ struct CalendarScreen: View {
             .navigationDestination(item: $selectedDate) { day in
                 DayTodosContentView(date: day)
             }
+            #if DEBUG
+            .task {
+                guard ScreenshotDemo.scene == .today else { return }
+                selectedDate = Calendar.current.startOfDay(for: .now)
+            }
+            #endif
             // 안내가 달력 차례로 넘어오면 오늘이 있는 달로 되돌린다 — 다른 달을
             // 보고 있었다면 "오늘을 눌러보세요"라고 말해도 오늘 칸이 화면에 없다.
             .onChange(of: tutorial.currentStep) { _, step in
@@ -245,20 +251,23 @@ struct CalendarScreen: View {
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 // 자릿수가 1→2로 바뀌어도(9월→10월) 폭이 툭 끊기지 않고 스르륵
                 // 늘어나도록 SwiftUI의 숫자 전용 콘텐츠 트랜지션을 쓴다.
-                Text("\(visibleMonth.month)")
+                // 영어는 숫자 대신 달 이름("Aug")이 온다 — "8"만으로는 달로 읽히지 않는다.
+                Text(verbatim: AppLanguage.current == .en ? DateText.monthName(visibleMonth.month) : "\(visibleMonth.month)")
                     .font(.system(size: 38, weight: .bold).monospacedDigit())
                     .contentTransition(.numericText(value: Double(visibleMonth.month)))
 
                 // '월'·연도·화살표를 한 덩어리로 세로 가운데에 맞춘다. 화살표가 위첨자처럼
                 // 붙으면 누르는 건지 장식인지 헷갈렸다. 달 고르기가 열리면 위로 뒤집힌다.
                 HStack(alignment: .center, spacing: 5) {
-                    Text("월")
-                        .font(.moscoTitle())
-                        .foregroundStyle(MoscoPalette.textSecondary)
+                    if AppLanguage.current != .en {
+                        Text(verbatim: AppLanguage.current == .ja ? "月" : "월")
+                            .font(.moscoTitle())
+                            .foregroundStyle(MoscoPalette.textSecondary)
+                    }
 
                     // 올해가 아닌 달을 보고 있을 때만 연도를 붙인다.
                     if visibleMonth.year != calendar.component(.year, from: Date()) {
-                        Text(verbatim: "\(visibleMonth.year)년")
+                        Text(verbatim: DateText.yearLabel(visibleMonth.year))
                             .font(.moscoCaption())
                             .foregroundStyle(MoscoPalette.textSecondary)
                             .transition(.opacity)
@@ -342,9 +351,9 @@ struct CalendarScreen: View {
 
     /// 하나만 켜져 있으면 그 이름을, 전부면 "전체", 그 사이면 개수를 보여준다.
     private var chipLabel: String {
-        if visibleCalendars.count == calendars.count { return "전체" }
+        if visibleCalendars.count == calendars.count { return String(localized: "전체") }
         if let only = visibleCalendars.first, visibleCalendars.count == 1 { return only.name }
-        return "\(visibleCalendars.count)개"
+        return String(localized: "\(visibleCalendars.count)개")
     }
 
     private var chipColor: Color {
@@ -435,7 +444,7 @@ struct CalendarScreen: View {
     /// 항상 상단 오른쪽에 고정 — 압축 여부/현재 달 여부와 무관하게 항상 눌러서
     private var weekdayHeader: some View {
         HStack(spacing: 0) {
-            ForEach(KoreanCalendar.weekdaySymbols, id: \.self) { symbol in
+            ForEach(DateText.weekdaySymbols(), id: \.self) { symbol in
                 Text(symbol)
                     .font(.moscoCaption())
                     .foregroundStyle(MoscoPalette.textSecondary)
