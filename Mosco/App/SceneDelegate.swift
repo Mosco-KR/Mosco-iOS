@@ -71,7 +71,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             Analytics.log(.widgetTapped(kind: kind))
             // '오늘 할 일' 위젯과 라이브 액티비티는 오늘 페이지로 바로 연다.
             if WidgetDeepLink.opensTodayPage(kind: kind) {
-                AppNavigation.shared.wantsTodayPage = true
+                AppNavigation.shared.todayPageRequest =
+                    kind == WidgetDeepLink.liveActivityKind ? "live_activity" : "widget"
             }
         }
     }

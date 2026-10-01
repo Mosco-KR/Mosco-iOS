@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import StoreKit
+import UIKit
 import WidgetKit
 
 /// 앱의 뿌리. 화면은 달력 하나이고(탭 없음), 여기서는 앱 전체가 함께 쓰는
@@ -175,10 +176,31 @@ struct RootTabView: View {
     /// 앱이 앞에 없으면 요청을 내지 않고 깃발을 세워둔 채 기다린다. 백그라운드로
     /// 부르면 시스템이 조용히 버리는데, 그러면 연 3회 중 한 번을 아무것도 안 띄운
     /// 채로 태워버리는 셈이다(돌아왔을 때 `scenePhase` 변화가 다시 부른다).
+    /// 들고 있는 규모는 사람에게 붙는 값(사용자 속성)이다. 실행 때만 정하면 iCloud에서
+    /// 내려받는 중인 새 설치가 다음 실행까지 0으로 잡힌다 — 개수가 바뀌면 다시 적는다.
+    private func updateDataScale() {
+        Analytics.set(
+            .dataScale(
+                todoCount: todos.count,
+                categoryCount: categories.count,
+                calendarCount: calendars.count
+            )
+        )
+    }
+
+    /// 오늘 할 일이 몇 개 남았나 — "오늘을 다 끝낸 순간"을 여기서 지켜본다.
+    private var todayRemaining: Int {
+        TodayPage.progress(in: todos, today: Date()).remaining
+    }
+
     private func askForReview() {
         Task {
             try? await Task.sleep(for: .seconds(1.2))
-            guard scenePhase == .active else { return }
+            // 기다리는 사이 다른 길(앞으로 나오기)로 이미 냈을 수 있다 — 두 번 내지 않는다.
+            guard reviewPrompt.isPending else { return }
+            // 뷰가 붙든 `scenePhase`는 지난 값일 수 있어서 앱의 지금 상태를 직접 본다.
+            // 뒤에 가 있는데 내면 시스템이 버리고, 기회만 쓴 것으로 적힌다.
+            guard UIApplication.shared.applicationState == .active else { return }
             // 안내를 따라가는 중에는 묻지 않는다 — 시스템 시트가 마스크 위로 덮치면
             // 지금 눌러야 할 것이 가려지고, 그 순간은 부탁하기에도 나쁜 자리다.
             guard !tutorial.isRunning else { return }
@@ -244,6 +266,17 @@ struct RootTabView: View {
             guard request > 0 else { return }
             createPracticeTodo()
         }
+        // 오늘 할 일을 **다** 끝낸 순간 — 리뷰를 부탁하기에 이 앱에서 가장 좋은 자리다.
+        // 화면이 아니라 여기서 본다: 오늘 페이지가 시간표 모드이거나, 검색·위젯에서
+        // 마지막 걸 끝내도 잡혀야 한다. 할 일이 애초에 없던 날(0 → 0)은 성취가 아니다.
+        .onChange(of: todayRemaining) { previous, current in
+            guard previous > 0, current == 0,
+                  TodayPage.progress(in: todos, today: Date()).total > 0 else { return }
+            reviewPrompt.recordDayCleared()
+        }
+        .onChange(of: todos.count) { _, _ in updateDataScale() }
+        .onChange(of: categories.count) { _, _ in updateDataScale() }
+        .onChange(of: calendars.count) { _, _ in updateDataScale() }
         // 부탁할 때가 됐다는 깃발이 서면 여기서 실제 요청을 낸다.
         .onChange(of: reviewPrompt.isPending) { _, isPending in
             guard isPending else { return }
@@ -255,13 +288,7 @@ struct RootTabView: View {
             // 실행 자체는 Firebase가 `session_start`·`first_open`으로 이미 센다.
             // 우리가 더할 수 있는 건 "무엇을 얼마나 들고 있는가"뿐이고, 그건 그 사람에게
             // 붙는 값이라 이벤트가 아니라 사용자 속성으로 둔다.
-            Analytics.set(
-                .dataScale(
-                    todoCount: todos.count,
-                    categoryCount: categories.count,
-                    calendarCount: calendars.count
-                )
-            )
+            updateDataScale()
             // 위젯은 익스텐션이라 직접 못 보낸다 — App Group에 쌓아둔 걸 여기서 비운다.
             Analytics.flushPendingFromExtensions()
             // 지난 실행에서 안내를 도중에 떠났다면 지금 보고한다. 이탈은 그
@@ -331,6 +358,9 @@ struct RootTabView: View {
             }
             // 설정 앱에서 권한을 바꾸고 돌아왔을 수 있다 — 돌아올 때마다 맞춰준다.
             guard phase == .active else { return }
+            // 위젯·라이브 액티비티에서 쌓인 이벤트는 앞으로 나올 때마다 비운다 — 처음
+            // 켤 때만 비우면 며칠치가 한날에 몰려 날짜별 추이를 못 본다.
+            Analytics.flushPendingFromExtensions()
             // 앱을 벗어나 있는 사이 부탁할 때가 됐다면 지금 묻는다.
             if reviewPrompt.isPending { askForReview() }
             Task {

@@ -109,6 +109,17 @@ enum AnalyticsEvent {
     /// 다시 조일지 풀지 정하는 데 쓴다.
     case reviewPromptRequested
 
+    // MARK: - 1.4.0 구조(탭 없음, 달력이 홈)가 맞았는지
+
+    /// 하루 페이지를 열었다 — 어디서 왔는지(`calendar_cell`·`widget`·`live_activity`·
+    /// `search`·`tutorial`)와 오늘인지. 오늘 탭을 없앤 뒤에도 사람들이 오늘 페이지에
+    /// 오는지, 무엇이 주된 입구인지에 답한다. 오늘 페이지 열기가 1.2.0의 오늘 탭 사용보다
+    /// 크게 줄면 '오늘'로 바로 가는 길을 다시 만들어야 한다.
+    case dayOpened(from: String, isToday: Bool)
+    /// 검색 시트를 닫았다 — 결과를 골라 그날로 갔는지. 검색이 오늘 탭에서 달력 머리로
+    /// 옮겨왔는데, 거의 안 쓰이면 머리 자리를 비울지 정한다.
+    case searchClosed(openedResult: Bool)
+
     var name: String {
         switch self {
         case .todoCreated: "todo_created"
@@ -130,6 +141,8 @@ enum AnalyticsEvent {
         case .storeLocalFallback: "store_local_fallback"
         case .analyticsIdentity: "analytics_identity"
         case .reviewPromptRequested: "review_prompt_requested"
+        case .dayOpened: "day_opened"
+        case .searchClosed: "search_closed"
         }
     }
 
@@ -179,6 +192,10 @@ enum AnalyticsEvent {
             [:]
         case .reviewPromptRequested:
             [:]
+        case let .dayOpened(from, isToday):
+            ["from": from, "is_today": String(isToday)]
+        case let .searchClosed(openedResult):
+            ["opened_result": String(openedResult)]
         }
     }
 

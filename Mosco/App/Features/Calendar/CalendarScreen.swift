@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 /// 캘린더 탭. 이 화면은 **조립만** 한다 — 데이터 계산은 `CalendarSnapshotStore`가
 /// 백그라운드에서, 페이징은 `MonthPagerView`가(=UIScrollView), 터치는
@@ -17,6 +18,8 @@ struct CalendarScreen: View {
     @State private var selectedDate: Date?
     @State private var showsSettings = false
     @State private var showsMonthPicker = false
+    /// 홈 입력창의 키보드가 떠 있는가. 떠 있는 동안만 달력 위에 '내리기' 판을 깐다.
+    @State private var isKeyboardShown = false
     @State private var showsSearch = false
     @State private var searchPickedDate: Date?
     @State private var navigation = AppNavigation.shared
@@ -56,7 +59,7 @@ struct CalendarScreen: View {
                         pageSize: pageSize,
                         today: calendar.startOfDay(for: Date()),
                         visibleMonth: $visibleMonth,
-                        onSelect: select
+                        onSelect: { select($0, from: "calendar_cell") }
                     )
                     .padding(.horizontal, Metrics.spacingSM)
                     .frame(height: pageSize.height)
@@ -67,6 +70,31 @@ struct CalendarScreen: View {
             // 할 일 관찰을 이 리프 하나에 가둔다 — 이 화면의 body는 할 일이 바뀌어도
             // 다시 돌지 않는다.
             .background(TodoQueryBridge(store: store))
+            // **키보드가 올라와도 달력 크기는 그대로다.** 이게 없으면 격자 높이가
+            // 키보드만큼 줄어 칸이 통째로 찌그러졌다가 펴진다. 입력창만 키보드 위로
+            // 올라간다(아래 `safeAreaInset`) — 하루 페이지와 같은 방식.
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+            // 키보드가 떠 있는 동안 달력을 누르거나 아래로 쓸면 키보드만 내린다.
+            // 그 첫 손짓은 날짜를 열지 않는다 — 키보드를 내리려고 누른 자리가 마침
+            // 날짜 칸이라 하루 페이지가 밀려 들어오면, 쓰던 것을 잃은 것처럼 보인다.
+            .overlay {
+                if isKeyboardShown {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { dismissKeyboard() }
+                        .gesture(
+                            DragGesture(minimumDistance: 12).onEnded { value in
+                                if value.translation.height > 0 { dismissKeyboard() }
+                            }
+                        )
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                isKeyboardShown = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                isKeyboardShown = false
+            }
             // 다른 달을 보고 있을 때만 '이번 달'이 떠오른다.
             .jumpBack("이번 달", isShown: visibleMonth != .containing(Date())) {
                 goToToday()
@@ -86,10 +114,10 @@ struct CalendarScreen: View {
             }
             // '오늘 할 일' 위젯·라이브 액티비티로 들어오면 오늘 페이지를 바로 연다.
             // 꺼져 있다 켜진 경우엔 URL이 먼저 와 있으므로 처음 값도 본다.
-            .onChange(of: navigation.wantsTodayPage, initial: true) { _, wants in
-                guard wants else { return }
-                navigation.wantsTodayPage = false
-                select(Date())
+            .onChange(of: navigation.todayPageRequest, initial: true) { _, source in
+                guard let source else { return }
+                navigation.todayPageRequest = nil
+                select(Date(), from: source)
             }
             .overlay(alignment: .bottom) {
                 // 다른 달을 볼 때는 그 자리를 '이번 달' 버튼이 쓰므로 비켜준다.
@@ -104,9 +132,11 @@ struct CalendarScreen: View {
             // 검색 결과를 고르면 시트가 닫힌 **뒤에** 그날 페이지를 연다 — 닫히는 중에
             // 밀어 넣으면 내비게이션이 씹힌다.
             .sheet(isPresented: $showsSearch, onDismiss: {
+                // 검색이 쓰이는지 — 결과를 골라 그날로 갔는지만 센다.
+                Analytics.log(.searchClosed(openedResult: searchPickedDate != nil))
                 if let date = searchPickedDate {
                     searchPickedDate = nil
-                    select(date)
+                    select(date, from: "search")
                 }
             }) {
                 SearchSheet { searchPickedDate = $0 }
@@ -125,7 +155,7 @@ struct CalendarScreen: View {
             // 들어가야 그 다음 단계가 똑같이 이어진다.
             .onChange(of: tutorial?.openDayRequest) { _, request in
                 guard let request, request > 0 else { return }
-                select(Date())
+                select(Date(), from: "tutorial")
             }
             // 하루치 페이지에서 뒤로 나가면 안내도 그 앞 단계로 되돌아간다 —
             // 없는 줄을 가리키고 있는 것보다 낫다.
@@ -160,14 +190,24 @@ struct CalendarScreen: View {
     /// 자리를 그대로 지키는 게 맞다. 예전엔 화면이 접히며 그 자리에서 바뀌었기 때문에
     /// 달을 따라 옮겨야 했고, 그래서 "들어온 자리"를 따로 기억해뒀다가 되돌리는
     /// 장치가 필요했다. 이제는 그 장치 자체가 필요 없다.
-    private func select(_ day: Date) {
+    private func select(_ day: Date, from source: String) {
+        // 홈 입력창에 쓰던 키보드가 하루 페이지까지 따라가지 않게 먼저 내린다.
+        dismissKeyboard()
         let start = calendar.startOfDay(for: day)
+        Analytics.log(.dayOpened(from: source, isToday: calendar.isDateInToday(start)))
         // 안내가 가리키던 일(오늘을 눌러 열기)을 했으면 안내는 할 일을 다 했다.
         if homeNotice == CalendarHomeNotice.pending, calendar.isDateInToday(start) {
             homeNotice = CalendarHomeNotice.done
         }
         selectedDate = start
         tutorial?.didOpenDay(start)
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil, from: nil, for: nil
+        )
     }
 
     private func goToToday() {

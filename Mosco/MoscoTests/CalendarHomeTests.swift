@@ -38,4 +38,20 @@ struct CalendarHomeTests {
         #expect(CalendarHomeNotice.decide(current: CalendarHomeNotice.done, answeredTutorialBefore: true) == CalendarHomeNotice.done)
         #expect(CalendarHomeNotice.decide(current: CalendarHomeNotice.pending, answeredTutorialBefore: true) == CalendarHomeNotice.pending)
     }
+
+    // MARK: 1.4.0 구조를 재는 이벤트
+
+    @Test("하루_페이지_열기_이벤트는_어디서_왔는지와_오늘인지를_싣는다")
+    func 하루_열기() {
+        let event = AnalyticsEvent.dayOpened(from: "widget", isToday: true)
+        #expect(event.name == "day_opened")
+        #expect(event.parameters == ["from": "widget", "is_today": "true"])
+    }
+
+    @Test("검색_닫기_이벤트는_결과를_골랐는지만_싣는다")
+    func 검색_닫기() {
+        let event = AnalyticsEvent.searchClosed(openedResult: false)
+        #expect(event.name == "search_closed")
+        #expect(event.parameters == ["opened_result": "false"])
+    }
 }

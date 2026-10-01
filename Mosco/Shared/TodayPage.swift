@@ -41,6 +41,13 @@ enum TodayPage {
             }
     }
 
+    /// 오늘 할 일 몇 개 중 몇 개가 남았나. 리뷰 부탁의 "오늘을 다 끝낸 순간"을 잡는 데
+    /// 쓴다 — 화면이 아니라 앱 뿌리에서 지켜봐야 보기 모드·위젯·검색 어디서 끝내도 잡힌다.
+    static func progress(in todos: [TodoItem], today: Date) -> (total: Int, remaining: Int) {
+        let todays = todos.filter { $0.date != nil && $0.occurs(on: today) }
+        return (todays.count, todays.filter { !$0.isCompleted(on: today) }.count)
+    }
+
     /// 제목과 메모를 함께 본다 — 어느 쪽에 적었는지 기억나지 않아도 찾을 수 있게.
     /// 날짜와 무관하게 **전체**를 훑는다. 날짜 있는 것은 날짜순, 날짜 없는 것은 맨 뒤.
     static func search(_ query: String, in todos: [TodoItem]) -> [TodoItem] {

@@ -640,7 +640,9 @@ struct QuickAddView: View {
             // `source`가 한다(이 입력창은 두 화면에 같이 산다).
             Analytics.log(
                 .todoCreated(
-                    source: analyticsSource,
+                    // 튜토리얼에서 따라 적은 연습용은 따로 센다 — 홈 입력창이 쓰이는지
+                    // 보려는 값에 튜토리얼을 끝낸 사람마다 한 건씩 얹히면 안 된다.
+                    source: tutorial?.isRunning == true ? "tutorial" : analyticsSource,
                     hasDate: todo.date != nil,
                     hasTime: todo.startTime != nil,
                     repeatRule: todo.repeatRule.rawValue,

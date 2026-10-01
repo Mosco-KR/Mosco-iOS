@@ -12,6 +12,7 @@ final class AppNavigation {
     static let shared = AppNavigation()
     private init() {}
 
-    /// 오늘 페이지를 열어달라는 요청. 달력이 열고 나서 내린다.
-    var wantsTodayPage = false
+    /// 오늘 페이지를 열어달라는 요청과 그 출처(`widget`·`live_activity`).
+    /// 달력이 열고 나서 nil로 내린다. 출처는 `day_opened`에 실린다.
+    var todayPageRequest: String?
 }

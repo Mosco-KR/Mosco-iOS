@@ -17,6 +17,8 @@ struct TutorialOverlay: View {
     /// 엉뚱한 곳을 눌렀을 때 말풍선을 한 번 튕겨준다 — 아무 반응이 없으면
     /// 사용자는 앱이 멈춘 줄 안다.
     @State private var nudge = false
+    /// 끝맺음 카드의 '위젯 추가하는 법'을 펼쳤는가.
+    @State private var showsWidgetHowTo = false
 
     var body: some View {
         if let step = tutorial.step {
@@ -273,10 +275,14 @@ struct TutorialOverlay: View {
         .animation(.easeInOut(duration: 0.25), value: current)
     }
 
-    /// 시작과 끝의 카드. 화면 한가운데 서고, 고를 것이 버튼으로 분명히 있다.
+    /// 끝맺음 카드. 화면 한가운데 선다. (1.4.0 전에는 시작 카드도 이 모양이었다.)
+    ///
+    /// **위젯을 한 번 권한다.** 2026년 9월 데이터에서 남는 사람은 위젯을 쓰는 사람과
+    /// 겹쳤다 — 위젯을 1인당 12번씩 눌러 앱을 다시 열었다. 앱이 위젯을 대신 놓아줄 수는
+    /// 없어서(그런 API가 없다) 어떻게 놓는지만 접어서 둔다. 펼치지 않으면 한 줄이다.
     private func card(_ step: TutorialStep) -> some View {
         VStack(spacing: 14) {
-            Image(systemName: step == .welcome ? "hand.wave.fill" : "checkmark.seal.fill")
+            Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 30))
                 .foregroundStyle(MoscoPalette.accent)
 
@@ -285,8 +291,6 @@ struct TutorialOverlay: View {
                 .foregroundStyle(MoscoPalette.textPrimary)
                 .multilineTextAlignment(.center)
 
-            // 카드에도 한 줄만 둔다. 시작하기 전에 읽을 게 많으면 그 자리에서
-            // "나중에"를 고르게 된다.
             if let hint = step.hint {
                 Text(hint)
                     .font(.moscoBody())
@@ -295,47 +299,50 @@ struct TutorialOverlay: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showsWidgetHowTo.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("위젯 추가하는 법")
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .bold))
+                        .rotationEffect(.degrees(showsWidgetHowTo ? 180 : 0))
+                }
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(MoscoPalette.accent)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if showsWidgetHowTo {
+                VStack(alignment: .leading, spacing: 8) {
+                    widgetStep(1, "홈 화면의 빈 곳을 꾹 누르세요")
+                    widgetStep(2, "왼쪽 위 '편집'에서 '위젯 추가'를 누르세요")
+                    widgetStep(3, "Mosco를 찾아 '오늘 할 일'을 고르세요")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             // **모양은 전부 라벨 안쪽에서 만든다.** 버튼 바깥에 `frame`과
             // `background`를 붙이면 캡슐은 그려지지만 눌리는 건 글자뿐이라,
             // 버튼 한가운데를 눌러도 반응이 없는 것처럼 느껴진다.
-            VStack(spacing: 8) {
-                Button {
-                    if step == .welcome { tutorial.accept() } else { tutorial.finish() }
-                } label: {
-                    Text(step == .welcome ? "좋아요, 해볼게요" : "시작하기")
-                        .font(.moscoBody().weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(
-                            MoscoPalette.accent,
-                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        )
-                        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-                .buttonStyle(.plain)
-
-                // 시작 카드에만 둔다. 끝맺음에는 고를 것이 하나뿐이다.
-                if step == .welcome {
-                    Button {
-                        tutorial.skip()
-                    } label: {
-                        Text("혼자 둘러볼게요")
-                            .font(.moscoBody())
-                            .foregroundStyle(MoscoPalette.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 48)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    // 고르기 전에 "되돌릴 수 있다"를 알아야 편하게 고른다.
-                    Text("도중에 그만둬도 설정에서 다시 볼 수 있어요")
-                        .font(.moscoCaption())
-                        .foregroundStyle(MoscoPalette.textSecondary.opacity(0.7))
-                        .multilineTextAlignment(.center)
-                }
+            Button {
+                tutorial.finish()
+            } label: {
+                Text("시작하기")
+                    .font(.moscoBody().weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        MoscoPalette.accent,
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
+            .buttonStyle(.plain)
             .padding(.top, 4)
         }
         .padding(Metrics.spacingLG)
@@ -347,6 +354,21 @@ struct TutorialOverlay: View {
         .shadow(color: .black.opacity(0.25), radius: 30, y: 12)
         .padding(.horizontal, Metrics.spacingLG)
         .transition(.scale(scale: 0.94).combined(with: .opacity))
+    }
+
+    /// 위젯 놓는 법 한 줄. 끝맺음 카드는 밝은 바탕이라 말풍선의 번호 줄과 색이 다르다.
+    private func widgetStep(_ number: Int, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            Text("\(number)")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 18, height: 18)
+                .background(MoscoPalette.accent, in: Circle())
+            Text(text)
+                .font(.moscoCaption())
+                .foregroundStyle(MoscoPalette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func bounce() {

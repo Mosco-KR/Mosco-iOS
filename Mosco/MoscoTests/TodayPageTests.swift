@@ -78,6 +78,27 @@ struct TodayPageTests {
         #expect(TodayPage.backlog(in: all).map(\.title) == ["첫째", "둘째"])
     }
 
+    // MARK: 오늘을 다 끝냈나 — 리뷰 부탁의 가장 좋은 자리
+
+    @Test("오늘_할_일_중_남은_개수를_센다_날짜_없는_것과_다른_날은_빼고")
+    func 남은_개수() {
+        let all = [
+            make("끝낸 것", date: today, done: true),
+            make("남은 것", date: today),
+            make("내일 것", date: d("2026-10-02")),
+            make("날짜 없는 것")
+        ]
+        let progress = TodayPage.progress(in: all, today: today)
+        #expect(progress.total == 2)
+        #expect(progress.remaining == 1)
+    }
+
+    @Test("어제_시작해_오늘까지인_일도_오늘_할_일로_센다")
+    func 기간_일정() {
+        let all = [make("출장", date: d("2026-09-30"), endDate: d("2026-10-01"))]
+        #expect(TodayPage.progress(in: all, today: today).total == 1)
+    }
+
     // MARK: 검색
 
     @Test("검색은_제목과_메모를_함께_본다")

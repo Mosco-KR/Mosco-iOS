@@ -73,7 +73,12 @@ struct DayTodosContentView: View {
         // 커지면 히트 영역이 따라오지 않는다. 먼저 붙인 쪽이 안쪽(위)에 온다.
         .safeAreaInset(edge: .bottom, spacing: Metrics.spacingSM) { pasteBar }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            QuickAddView(date: shownDate, editingTodo: $editingTodo, analyticsSource: "calendar_day")
+            // 오늘 페이지에서 적은 것은 따로 센다 — 예전 오늘 탭 자리가 쓰이는지 보려고.
+            QuickAddView(
+                date: shownDate,
+                editingTodo: $editingTodo,
+                analyticsSource: Calendar.current.isDateInToday(shownDate) ? "today_page" : "calendar_day"
+            )
         }
         .safeAreaInset(edge: .top, spacing: 0) { weekStrip }
         .background(MoscoPalette.canvas.ignoresSafeArea())
@@ -318,7 +323,6 @@ private struct DayTodoList: View {
 
     // MARK: 오늘 페이지 — 예전 오늘 탭이 하던 일
 
-    @Environment(ReviewPrompt.self) private var reviewPrompt
     /// 디데이 카드를 눌러 여는 자세히 보기.
     @State private var detailTodo: TodoItem?
 
@@ -407,12 +411,6 @@ private struct DayTodoList: View {
                 }
             }
             if !backlogTodos.isEmpty { backlogSection }
-        }
-        // 오늘 할 일을 **다** 끝낸 순간 — 리뷰를 부탁하기에 이 앱에서 가장 좋은 자리다.
-        // 예전엔 오늘 탭이 알렸다. 할 일이 애초에 없던 날(0 → 0)은 성취가 아니다.
-        .onChange(of: remainingCount) { previous, current in
-            guard isToday, previous > 0, current == 0, !todosForDay.isEmpty else { return }
-            reviewPrompt.recordDayCleared()
         }
         .sheet(item: $detailTodo) { todo in
             TodoDetailSheet(todo: todo)
