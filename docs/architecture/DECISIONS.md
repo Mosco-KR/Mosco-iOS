@@ -214,6 +214,4 @@ AI의 행동이 달라지는 것이라 따로 본다.
 - [CURRENT.md](CURRENT.md) — 조사 결과 전체
 - [PATTERNS.md](PATTERNS.md) — 설계 13가지 비교
 - [REFACTOR-PLAN.md](REFACTOR-PLAN.md) — 단계별 계획
-- [../verification.md](../verification.md) — 검증 체계
-- [../review-criteria.md](../review-criteria.md) — 사람이 봐야 하는 코드
-- [../harness/reports/v1.3.0.md](../harness/reports/v1.3.0.md) — 이번 버전 보고서
+- [../TRAPS.md](../TRAPS.md) — 플랫폼 함정
