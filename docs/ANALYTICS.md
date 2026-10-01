@@ -169,7 +169,7 @@ iPhone 18 Pro다.
 | 검색이 쓰이나 | `search_closed` 사용자 수, `opened_result = true` 비율 | 없음 | 거의 없으면 달력 머리에서 뺀다 |
 | 위젯을 두는가 | `widget_rendered` 사용자 ÷ 활성 사용자 | 16명(약 25%) | 오르면 끝맺음 카드의 권유가 먹혔다 |
 | 분류기가 돕나 | `category_overridden` ÷ `category_suggested(matched = true)` | 계산 불가(소음) | 높으면 임계값(0.35)부터 의심한다 |
-| 리뷰 조건이 차나 | `review_prompt_requested` 수 | 거의 없음 | 계속 0이면 조건을 푼다 |
+| 리뷰 조건이 차나 | `review_prompt_requested` 수 | 0건 | 조건은 이미 풀었다 — 둘째 날에 다시 열고 완료 3개(오늘을 다 끝냈으면 1개). 그래도 0이면 요청이 나가는 길 자체를 의심한다 |
 
 ## 7. GA4에서 해둘 것
 

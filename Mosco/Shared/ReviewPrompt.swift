@@ -22,6 +22,13 @@ import Observation
 /// 세우는 순간 적었는데, 깃발은 메모리에만 있어서 요청이 나가기 전에 앱이 종료되면
 /// 창은 한 번도 안 떴는데 그 버전의 기회와 90일이 같이 날아갔다.
 ///
+/// **1.4.0 다음에 문턱을 한 번 더 낮췄다.** 2026년 9월 한 달 동안 `review_prompt_requested`가
+/// 한 건도 없었다. 설치 후 2일 · 쓴 날 2일 · 완료 5개를 다 채우는 사람이 없었던 것이다 —
+/// 다섯 중 넷이 첫날로 끝나는 앱에서 그 조건은 사실상 "묻지 않는다"였다. 같은 달 숫자를
+/// 보면 **다음 날 다시 연 사람은 대체로 남았다.** 그래서 지금은 "둘째 날에 다시 열었다"를
+/// 좋게 쓰고 있다는 증거로 삼고, 그날 완료 3개(오늘을 다 끝냈으면 1개)면 묻는다.
+/// 첫날에는 여전히 묻지 않는다.
+///
 /// `Shared/`에 두는 건 조건들을 테스트로 덮기 위해서다(`ReviewPromptTests`) —
 /// 저장소·버전·시각을 밖에서 넣을 수 있다.
 @Observable
@@ -40,21 +47,19 @@ final class ReviewPrompt {
         string: "https://apps.apple.com/app/id6796924940?action=write-review"
     )!
 
-    /// 처음 쓴 날로부터 이만큼은 지나야 묻는다. 막 깔아본 사람에게 묻는 건
-    /// 답을 받는 게 아니라 기회를 버리는 것이다.
-    private static let minimumDaysSinceFirstLaunch = 2
-    /// 앱을 연 날이 이만큼은 돼야 한다. "설치 후 며칠"만 보면 깔아두고 안 쓴
-    /// 사람도 시간만 흐르면 통과하는데, 그런 사람의 평가는 받아봐야 낮다.
+    /// 앱을 연 날이 이만큼은 돼야 한다. 막 깔아본 사람에게 묻는 건 답을 받는 게
+    /// 아니라 기회를 버리는 것이라 첫날은 뺀다. "설치 후 며칠"로 세지 않는 건, 그러면
+    /// 깔아두고 안 쓴 사람도 시간만 흐르면 통과하기 때문이다.
     private static let minimumActiveDays = 2
     /// 완료한 할 일이 이만큼 쌓여야 한다 — 앱을 실제로 쓰고 있다는 최소한의 증거.
-    private static let minimumCompletions = 5
+    /// 안내에서 연습으로 끝낸 하나도 여기 들어간다.
+    private static let minimumCompletions = 3
     /// 오늘 할 일을 다 끝낸 순간은 더 좋은 자리라 문턱을 낮춘다.
-    private static let minimumCompletionsWhenDayCleared = 3
+    private static let minimumCompletionsWhenDayCleared = 1
     /// 한 번 물어본 뒤 다시 묻기까지. 시스템 한도(연 3회)보다 넉넉하게 잡는다.
     private static let minimumDaysBetweenPrompts = 90
 
     private enum Key {
-        static let firstLaunch = "reviewPromptFirstLaunchDate"
         static let completions = "reviewPromptCompletionCount"
         static let lastVersion = "reviewPromptLastVersion"
         static let lastDate = "reviewPromptLastDate"
@@ -78,13 +83,8 @@ final class ReviewPrompt {
         self.now = now
     }
 
-    /// 실행할 때 한 번 부른다. 앱을 처음 연 날을 기록하고(이미 있으면 그대로),
-    /// 오늘이 처음이면 "쓴 날" 수를 하나 올린다.
+    /// 실행할 때 한 번 부른다. 오늘 처음 연 것이면 "쓴 날" 수를 하나 올린다.
     func registerLaunch() {
-        if defaults.object(forKey: Key.firstLaunch) == nil {
-            defaults.set(now(), forKey: Key.firstLaunch)
-        }
-
         let today = Calendar.current.startOfDay(for: now())
         let lastActive = defaults.object(forKey: Key.lastActiveDay) as? Date
         guard lastActive.map({ Calendar.current.startOfDay(for: $0) }) != today else { return }
@@ -127,13 +127,6 @@ final class ReviewPrompt {
     private func isEligible(completionCount: Int, threshold: Int) -> Bool {
         guard completionCount >= threshold else { return false }
         guard defaults.integer(forKey: Key.activeDays) >= Self.minimumActiveDays else { return false }
-
-        guard let firstLaunch = defaults.object(forKey: Key.firstLaunch) as? Date,
-              let daysSinceFirstLaunch = Calendar.current.dateComponents(
-                  [.day], from: firstLaunch, to: now()
-              ).day,
-              daysSinceFirstLaunch >= Self.minimumDaysSinceFirstLaunch
-        else { return false }
 
         // 같은 버전에서 두 번 묻지 않는다. 새 버전이 나오면 다시 물어볼 만하다 —
         // 그 사이 앱이 나아졌을 수 있으니 평가도 달라질 수 있다.

@@ -27,10 +27,10 @@ struct ReviewPromptTests {
         Calendar.current.date(byAdding: .day, value: n, to: date)!
     }
 
-    /// 첫날 실행 → n일 뒤 다시 실행. 날짜 조건(설치 후 2일 · 쓴 날 2일)을 채운 상태.
+    /// 첫날 실행 → 다음 날 다시 실행. 날짜 조건(쓴 날 2일)을 채운 상태.
     private func usedForTwoDays(version: String = "1.3.1") -> ReviewPrompt {
         prompt(version: version, at: clock).registerLaunch()
-        let later = prompt(version: version, at: days(3, from: clock))
+        let later = prompt(version: version, at: days(1, from: clock))
         later.registerLaunch()
         return later
     }
@@ -41,21 +41,20 @@ struct ReviewPromptTests {
 
     // MARK: 문턱
 
-    @Test("완료_5개째에_묻는다")
-    func 완료_다섯_개() {
+    @Test("다음_날_다시_열고_완료_3개째에_묻는다")
+    func 완료_세_개() {
         let p = usedForTwoDays()
-        complete(4, on: p)
+        complete(2, on: p)
         #expect(!p.isPending)
         complete(1, on: p)
         #expect(p.isPending)
     }
 
-    @Test("오늘_할_일을_다_끝낸_순간은_완료_3개면_묻는다")
+    @Test("오늘_할_일을_다_끝낸_순간은_완료_1개면_묻는다")
     func 하루_다_끝냄() {
         let p = usedForTwoDays()
-        complete(2, on: p)
         p.recordDayCleared()
-        #expect(!p.isPending)
+        #expect(!p.isPending, "아무것도 끝낸 적이 없으면 묻지 않는다")
         complete(1, on: p)
         p.recordDayCleared()
         #expect(p.isPending)
@@ -82,11 +81,11 @@ struct ReviewPromptTests {
     @Test("깃발만_서고_요청이_안_나갔으면_기회를_쓴_것으로_치지_않는다")
     func 요청_전엔_안_쓴다() {
         let p = usedForTwoDays()
-        complete(5, on: p)
+        complete(3, on: p)
         #expect(p.isPending)
 
         // 요청이 나가기 전에 앱이 종료됐다 — 깃발은 메모리에만 있으니 사라진다.
-        let relaunched = prompt(at: days(3, from: clock))
+        let relaunched = prompt(at: days(1, from: clock))
         relaunched.recordCompletion()
         #expect(relaunched.isPending, "창은 한 번도 안 떴는데 이 버전에서 다시 못 묻는다")
     }
@@ -94,7 +93,7 @@ struct ReviewPromptTests {
     @Test("요청을_내보낸_뒤에는_같은_버전에서_다시_묻지_않는다")
     func 요청_뒤엔_안_묻는다() {
         let p = usedForTwoDays()
-        complete(5, on: p)
+        complete(3, on: p)
         p.didRequest()
         #expect(!p.isPending)
 
@@ -106,7 +105,7 @@ struct ReviewPromptTests {
     @Test("새_버전이어도_마지막_요청에서_90일이_안_지났으면_묻지_않는다")
     func 구십일() {
         let p = usedForTwoDays(version: "1.3.1")
-        complete(5, on: p)
+        complete(3, on: p)
         p.didRequest()
 
         let soon = prompt(version: "1.4.0", at: days(60, from: clock))
