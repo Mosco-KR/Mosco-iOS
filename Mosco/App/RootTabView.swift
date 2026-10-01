@@ -247,6 +247,55 @@ struct RootTabView: View {
         return lhs.1.uuidString < rhs.1.uuidString
     }
 
+    /// 앱이 뜬 직후 한 번 하는 일들.
+    ///
+    /// **`body`의 `.task { }` 안에 그대로 두면 안 된다.** 거기 있을 때 CI가
+    /// "unable to type-check this expression in reasonable time"으로 터졌다 —
+    /// 긴 수식어 사슬 끝에 붙은 긴 비동기 클로저라 타입 검사가 폭발하는데,
+    /// 맥북에서는 통과하고 더 느린 CI 머신에서만 걸려서 로컬 빌드로는 안 잡힌다.
+    /// 메서드로 빼면 `body`가 보는 것은 `await runStartup()` 한 줄뿐이다.
+    private func runStartup() async {
+        // 처음 쓴 날과 오늘 쓴 것을 기록해둔다 — 리뷰는 며칠 써본 뒤에만 부탁한다.
+        reviewPrompt.registerLaunch()
+        // 실행 자체는 Firebase가 `session_start`·`first_open`으로 이미 센다.
+        // 우리가 더할 수 있는 건 "무엇을 얼마나 들고 있는가"뿐이고, 그건 그 사람에게
+        // 붙는 값이라 이벤트가 아니라 사용자 속성으로 둔다.
+        updateDataScale()
+        // 위젯은 익스텐션이라 직접 못 보낸다 — App Group에 쌓아둔 걸 여기서 비운다.
+        Analytics.flushPendingFromExtensions()
+        // 지난 실행에서 안내를 도중에 떠났다면 지금 보고한다. 이탈은 그
+        // 순간에 못 잡는다 — 앱이 죽을 때는 이벤트를 보낼 시간이 없다.
+        tutorial.reportAbandonmentIfNeeded()
+        #if DEBUG
+        // 미리보기를 찍는 중에는 안내도 권한 창도 띄우지 않는다 — 화면을 가린다.
+        if ScreenshotDemo.isActive { return }
+        #endif
+        // 처음 온 사람에게만, 그것도 **물어보고** 시작한다. 이미 할 일을 들고
+        // 있는 사람(기기를 바꿔 iCloud에서 내려받은 경우)에게 "처음 오셨네요"는
+        // 틀린 인사라 아예 띄우지 않는다.
+        // 오늘 탭이 사라졌다는 안내를 띄울지 **튜토리얼보다 먼저** 정한다 — 그 뒤엔
+        // 처음 온 사람도 안내에 답한 상태가 돼서 예전 사용자와 구분이 안 된다.
+        let defaults = UserDefaults.standard
+        defaults.set(
+            CalendarHomeNotice.decide(
+                current: defaults.string(forKey: CalendarHomeNotice.key) ?? "",
+                answeredTutorialBefore: tutorial.hasAnswered
+            ),
+            forKey: CalendarHomeNotice.key
+        )
+        let willGuide = tutorial.startIfFirstLaunch(hasExistingData: !todos.isEmpty)
+
+        // **권한은 안내가 끝난 뒤에 모아서 묻는다** (`StartupPermissionRequest`).
+        // 안내가 안 뜨는 사람은 지금이 그 시점이다.
+        if !willGuide {
+            await StartupPermissionRequest.run(
+                notifications: notificationScheduler,
+                weather: weatherStore
+            )
+        }
+        await cloudSyncStore.refresh()
+    }
+
     var body: some View {
         // **탭이 없다. 달력이 홈이다** (1.4.0). 예전엔 '할 일'·'달력' 두 탭이었는데,
         // 앱은 늘 달력으로 열렸고 입력창은 달력 화면에 없었다 — 처음 온 사람이
@@ -286,47 +335,7 @@ struct RootTabView: View {
             guard isPending else { return }
             askForReview()
         }
-        .task {
-            // 처음 쓴 날과 오늘 쓴 것을 기록해둔다 — 리뷰는 며칠 써본 뒤에만 부탁한다.
-            reviewPrompt.registerLaunch()
-            // 실행 자체는 Firebase가 `session_start`·`first_open`으로 이미 센다.
-            // 우리가 더할 수 있는 건 "무엇을 얼마나 들고 있는가"뿐이고, 그건 그 사람에게
-            // 붙는 값이라 이벤트가 아니라 사용자 속성으로 둔다.
-            updateDataScale()
-            // 위젯은 익스텐션이라 직접 못 보낸다 — App Group에 쌓아둔 걸 여기서 비운다.
-            Analytics.flushPendingFromExtensions()
-            // 지난 실행에서 안내를 도중에 떠났다면 지금 보고한다. 이탈은 그
-            // 순간에 못 잡는다 — 앱이 죽을 때는 이벤트를 보낼 시간이 없다.
-            tutorial.reportAbandonmentIfNeeded()
-            #if DEBUG
-            // 미리보기를 찍는 중에는 안내도 권한 창도 띄우지 않는다 — 화면을 가린다.
-            if ScreenshotDemo.isActive { return }
-            #endif
-            // 처음 온 사람에게만, 그것도 **물어보고** 시작한다. 이미 할 일을 들고
-            // 있는 사람(기기를 바꿔 iCloud에서 내려받은 경우)에게 "처음 오셨네요"는
-            // 틀린 인사라 아예 띄우지 않는다.
-            // 오늘 탭이 사라졌다는 안내를 띄울지 **튜토리얼보다 먼저** 정한다 — 그 뒤엔
-            // 처음 온 사람도 안내에 답한 상태가 돼서 예전 사용자와 구분이 안 된다.
-            let defaults = UserDefaults.standard
-            defaults.set(
-                CalendarHomeNotice.decide(
-                    current: defaults.string(forKey: CalendarHomeNotice.key) ?? "",
-                    answeredTutorialBefore: tutorial.hasAnswered
-                ),
-                forKey: CalendarHomeNotice.key
-            )
-            let willGuide = tutorial.startIfFirstLaunch(hasExistingData: !todos.isEmpty)
-
-            // **권한은 안내가 끝난 뒤에 모아서 묻는다** (`StartupPermissionRequest`).
-            // 안내가 안 뜨는 사람은 지금이 그 시점이다.
-            if !willGuide {
-                await StartupPermissionRequest.run(
-                    notifications: notificationScheduler,
-                    weather: weatherStore
-                )
-            }
-            await cloudSyncStore.refresh()
-        }
+        .task { await runStartup() }
         // **안내가 끝난(또는 건너뛴) 바로 다음이 권한을 묻는 자리다.**
         // 앱을 한 번 보여준 뒤에 물어야 무엇에 쓰는 권한인지 알고 고를 수 있다.
         // 한 번 거부되면 앱에서 다시 물을 수 없으므로 이 한 번이 전부다.
