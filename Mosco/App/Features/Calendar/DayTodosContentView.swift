@@ -17,12 +17,9 @@ struct DayTodosContentView: View {
     /// 달력은 들어온 자리를 그대로 지키므로(`CalendarScreen.select`) 여기서
     /// 옮겨 다닌 결과를 밖으로 올리지 않는다.
     @State private var shownDate: Date
-    /// 스트립이 보여주는 주의 시작일. 날짜를 고르면 그 날이 든 주로 따라간다.
-    @State private var visibleWeekStart: Date
 
     init(date: Date) {
         _shownDate = State(initialValue: date)
-        _visibleWeekStart = State(initialValue: WeekWindow.normalized(date))
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -64,7 +61,6 @@ struct DayTodosContentView: View {
             let today = Calendar.current.startOfDay(for: .now)
             withAnimation(.easeInOut(duration: 0.25)) {
                 shownDate = today
-                visibleWeekStart = WeekWindow.normalized(today)
             }
         }
         // 붙여넣기 줄과 컴포즈 바를 **각각 따로** 붙인다. 둘을 VStack 하나로
@@ -153,11 +149,10 @@ struct DayTodosContentView: View {
                 today: calendar.startOfDay(for: Date()),
                 selectedDate: shownDate,
                 weatherSymbol: { weatherStore.weather(for: $0)?.symbolName },
-                visibleWeekStart: $visibleWeekStart,
                 onSelect: select
             )
         }
-        .frame(height: WeekStripView.height)
+        .frame(height: WeekPagerView.height)
         .background(MoscoPalette.canvas)
         .overlay(alignment: .bottom) {
             Rectangle()
@@ -173,10 +168,8 @@ struct DayTodosContentView: View {
         // 고치던 항목은 그 날의 것이다 — 날짜가 바뀌면 입력창을 새로 만들기로
         // 되돌린다. 안 그러면 다른 날 화면에서 어제 항목을 고치고 있게 된다.
         editingTodo = nil
+        // 스트립은 이 값을 보고 고른 날을 가운데로 데려온다(`WeekPagerView`).
         shownDate = start
-        // 달 경계를 걸친 주에서 옆 달 날짜를 눌렀을 때, 스트립이 그대로 있어야
-        // 방금 누른 칸이 눈앞에 남는다. 같은 주면 아무 일도 안 일어난다.
-        visibleWeekStart = WeekWindow.normalized(start)
     }
 
     /// 날짜와 그날 날씨를 한 줄로. 날씨는 예전에 주간 스트립의 날짜 칸에 붙어
