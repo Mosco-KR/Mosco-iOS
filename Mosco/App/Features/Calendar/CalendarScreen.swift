@@ -142,6 +142,7 @@ struct CalendarScreen: View {
                 SearchSheet { searchPickedDate = $0 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .background { BackButtonMenuRemover() }
             .navigationDestination(item: $selectedDate) { day in
                 DayTodosContentView(date: day)
             }
@@ -453,4 +454,49 @@ struct CalendarScreen: View {
         }
     }
 
+}
+
+/// 하루치 페이지의 뒤로 가기 버튼을 길게 눌렀을 때 뜨는 기록 메뉴를 끈다.
+///
+/// 그 메뉴는 앞 화면들의 제목을 늘어놓는데, 달력 화면은 내비게이션 바를 숨겨 제목이
+/// 없으니 빈 줄 하나만 떴다. 쌓이는 화면도 하나뿐이라 메뉴로 고를 것이 없다.
+///
+/// SwiftUI에는 이걸 끄는 API가 없다. 대신 UIKit 규칙을 빌린다 — 뒤로 가기 버튼은
+/// **앞 화면**의 `backBarButtonItem`으로 그려지므로, 메뉴를 받지 않는 버튼을 달력
+/// 화면 쪽에 꽂아둔다. 시스템 뒤로 가기 버튼과 가장자리 스와이프는 그대로 남는다
+/// (직접 만든 버튼으로 바꾸면 스와이프가 꺼진다).
+private struct BackButtonMenuRemover: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+    func updateUIViewController(_ controller: Controller, context: Context) {}
+
+    final class Controller: UIViewController {
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            install()
+        }
+
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+            install()
+        }
+
+        /// 내비게이션 컨트롤러 바로 아래 있는 화면이 다음 화면 뒤로 가기 버튼의 주인이다.
+        private func install() {
+            var owner: UIViewController? = self
+            while let current = owner, !(current.parent is UINavigationController) {
+                owner = current.parent
+            }
+            guard let item = owner?.navigationItem,
+                  !(item.backBarButtonItem is MenulessBackItem) else { return }
+            item.backBarButtonItem = MenulessBackItem(title: "", style: .plain, target: nil, action: nil)
+        }
+    }
+
+    /// 시스템이 기록 메뉴를 꽂으려 해도 받지 않는다.
+    final class MenulessBackItem: UIBarButtonItem {
+        override var menu: UIMenu? {
+            get { super.menu }
+            set {}
+        }
+    }
 }
