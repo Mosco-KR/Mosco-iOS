@@ -242,8 +242,8 @@ final class TodoLiveActivityController {
             isRepeating: todo.repeatRule != .none,
             isDDay: todo.isDDay,
             startDate: start,
-            startLabel: start.koreanTime,
-            endLabel: endDate(of: todo, on: day, start: start)?.koreanTime,
+            startLabel: start.localizedTime,
+            endLabel: endDate(of: todo, on: day, start: start)?.localizedTime,
             memo: todo.memo
         )
 

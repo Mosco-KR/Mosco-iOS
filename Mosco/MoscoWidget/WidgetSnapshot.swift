@@ -55,7 +55,7 @@ enum WidgetStore {
                     title: todo.title,
                     isCompleted: todo.isCompleted(on: day),
                     categoryColorHex: todo.category?.colorHex,
-                    timeLabel: todo.startTime?.koreanTime
+                    timeLabel: todo.startTime?.localizedTime
                 )
             }
     }

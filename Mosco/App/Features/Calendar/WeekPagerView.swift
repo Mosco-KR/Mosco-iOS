@@ -97,6 +97,6 @@ enum WeekWindow {
 
     /// 그 날짜가 속한 주의 시작일(일요일 00:00).
     static func normalized(_ date: Date, calendar: Calendar = .current) -> Date {
-        calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? calendar.startOfDay(for: date)
+        calendar.startingSunday.dateInterval(of: .weekOfYear, for: date)?.start ?? calendar.startOfDay(for: date)
     }
 }

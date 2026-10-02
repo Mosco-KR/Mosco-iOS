@@ -43,11 +43,13 @@ enum AnalyticsEvent {
     // 여기 있는 것들은 전부 "코드가 비싼데 정말 쓰이는가"에 답하려고 남긴다.
     // 안 쓰이면 걷어낼 후보라는 뜻이다.
 
-    /// 제목을 보고 카테고리를 자동으로 골라줬고, 결과가 있었는지.
-    /// 임베딩 분류기가 실제로 맞히는지를 재는 값이 이것뿐이다(docs/CATEGORIZATION.md).
+    /// 새 할 일을 저장할 때 한 번 — 분류기가 카테고리를 골라 넣었는지.
+    /// 임베딩 분류기가 실제로 맞히는지를 재는 값이 이것뿐이다. 1.3.1 전에는
+    /// 분류가 돌 때마다(타이핑이 멈출 때마다) 남겨서 숫자가 소음이었다.
     case categorySuggested(matched: Bool)
-    /// 자동으로 고른 카테고리를 사람이 바꿨다. 위 이벤트와 **짝이어야** 의미가
-    /// 있다 — 이 비율이 높으면 분류기가 돕는 게 아니라 방해하고 있다는 뜻이다.
+    /// 자동으로 고른 카테고리를 사람이 바꾼 채로 저장했다. 위 이벤트(`matched=true`)와
+    /// **짝이어야** 의미가 있다 — 이 비율이 높으면 분류기가 돕는 게 아니라 방해하고
+    /// 있다는 뜻이다.
     case categoryOverridden
     /// 제목에서 찾아낸 시간을 실제로 적용했다("7시 러닝" → 오후 7시).
     case timeSuggestionApplied
@@ -95,20 +97,28 @@ enum AnalyticsEvent {
 
     // MARK: - 건강 상태
 
-    /// 앱을 열 때 한 번. 사람들이 실제로 몇 건을 들고 쓰는지 모르면 성능 작업의
-    /// 목표를 정할 수 없다. 카테고리·캘린더 개수도 여기 함께 담는다 —
-    /// 만들 때마다 따로 세던 이벤트를 걷어내고 이 스냅샷 하나로 합쳤다.
-    case dataScale(todoCount: Int, categoryCount: Int, calendarCount: Int)
     /// iCloud 저장소를 못 열어 로컬 전용으로 물러났다. 드물지만 사용자가
     /// 데이터를 잃는 경로라, 조용히 넘어가면 안 된다.
     case storeLocalFallback
     /// 익명 식별자가 어디서 왔는가 — 새로 만들었는지, iCloud에서 되찾았는지.
-    /// 재설치를 건너온 비율이 이 값으로 보인다.
+    /// 재설치를 건너온 비율이 이 값으로 보인다. **설치마다 한 번만** 남긴다 —
+    /// 1.3.1 전에는 실행마다 남겨서 세션 수와 같은 숫자가 됐다.
     case analyticsIdentity(origin: String)
     /// 앱스토어 리뷰창을 띄워달라고 시스템에 요청했다. **실제로 떴는지는 알 수
     /// 없다** — 이건 "부탁할 조건이 얼마나 자주 차는가"를 재는 값이고, 조건을
     /// 다시 조일지 풀지 정하는 데 쓴다.
     case reviewPromptRequested
+
+    // MARK: - 1.4.0 구조(탭 없음, 달력이 홈)가 맞았는지
+
+    /// 하루 페이지를 열었다 — 어디서 왔는지(`calendar_cell`·`widget`·`live_activity`·
+    /// `search`·`tutorial`)와 오늘인지. 오늘 탭을 없앤 뒤에도 사람들이 오늘 페이지에
+    /// 오는지, 무엇이 주된 입구인지에 답한다. 오늘 페이지 열기가 1.2.0의 오늘 탭 사용보다
+    /// 크게 줄면 '오늘'로 바로 가는 길을 다시 만들어야 한다.
+    case dayOpened(from: String, isToday: Bool)
+    /// 검색 시트를 닫았다 — 결과를 골라 그날로 갔는지. 검색이 오늘 탭에서 달력 머리로
+    /// 옮겨왔는데, 거의 안 쓰이면 머리 자리를 비울지 정한다.
+    case searchClosed(openedResult: Bool)
 
     var name: String {
         switch self {
@@ -128,10 +138,11 @@ enum AnalyticsEvent {
         case .tutorialStarted: "tutorial_started"
         case .tutorialStep: "tutorial_step"
         case .tutorialEnded: "tutorial_ended"
-        case .dataScale: "data_scale"
         case .storeLocalFallback: "store_local_fallback"
         case .analyticsIdentity: "analytics_identity"
         case .reviewPromptRequested: "review_prompt_requested"
+        case .dayOpened: "day_opened"
+        case .searchClosed: "search_closed"
         }
     }
 
@@ -177,17 +188,41 @@ enum AnalyticsEvent {
             ["step": step, "reason": reason]
         case let .analyticsIdentity(origin):
             ["origin": origin]
-        case let .dataScale(todoCount, categoryCount, calendarCount):
-            [
-                // 정확한 개수는 필요 없고 규모만 알면 된다.
-                "todo_count_bucket": Self.countBucket(todoCount),
-                "category_count": String(categoryCount),
-                "calendar_count": String(calendarCount)
-            ]
         case .storeLocalFallback:
             [:]
         case .reviewPromptRequested:
             [:]
+        case let .dayOpened(from, isToday):
+            ["from": from, "is_today": String(isToday)]
+        case let .searchClosed(openedResult):
+            ["opened_result": String(openedResult)]
+        }
+    }
+
+}
+
+/// 사람마다 하나씩 붙는 값. 이벤트와 달리 "그 사람이 어떤 사람인가"라서, 그 사람의
+/// 모든 이벤트에 같이 붙는다 — "할 일을 많이 든 사람이 더 남나" 같은 비교가 이걸로 된다.
+///
+/// 예전엔 보유 규모를 `data_scale` **이벤트**로 실행마다 남겼다. 그러면 세션 수와 같은
+/// 숫자가 하나 더 생길 뿐이고, 다른 이벤트와 엮어 볼 수가 없었다.
+enum AnalyticsUserProperty {
+    /// 개발자·테스트 기기. 보고서에서 이 값이 `true`인 사람을 빼야 실제 사용자 숫자다.
+    case internalUser(Bool)
+    /// 앱을 열 때 들고 있는 규모. 정확한 개수는 필요 없고 몇 건대인지만 안다.
+    case dataScale(todoCount: Int, categoryCount: Int, calendarCount: Int)
+
+    /// Firebase 제한: 이름 24자, 값 36자 이하.
+    var values: [(name: String, value: String)] {
+        switch self {
+        case let .internalUser(isInternal):
+            [("internal_user", String(isInternal))]
+        case let .dataScale(todoCount, categoryCount, calendarCount):
+            [
+                ("todo_count_bucket", Self.countBucket(todoCount)),
+                ("category_count", String(categoryCount)),
+                ("calendar_count", String(calendarCount))
+            ]
         }
     }
 
@@ -212,10 +247,13 @@ protocol AnalyticsSink: Sendable {
     /// 같은 사람의 이벤트를 하나로 묶기 위한 익명 식별자.
     /// 기본 구현이 아무것도 안 하므로, 지원하지 않는 sink는 그냥 무시한다.
     func setUserID(_ id: String)
+    /// 그 사람에게 붙는 값(`AnalyticsUserProperty`). 기본 구현은 무시한다.
+    func setUserProperty(_ value: String, forName name: String)
 }
 
 extension AnalyticsSink {
     func setUserID(_ id: String) {}
+    func setUserProperty(_ value: String, forName name: String) {}
 }
 
 /// 개발 중 확인용. 콘솔에만 남기고 아무 데도 보내지 않는다.
@@ -247,9 +285,19 @@ enum Analytics {
         sinks.append(sink)
         // 늦게 붙은 sink(Firebase는 앱 시작 뒤에 붙는다)도 식별자를 알아야 한다.
         if let userID { sink.setUserID(userID) }
+        for (name, value) in userProperties { sink.setUserProperty(value, forName: name) }
     }
 
     private static var userID: String?
+    private static var userProperties: [String: String] = [:]
+
+    static func set(_ property: AnalyticsUserProperty) {
+        for (name, value) in property.values {
+            userProperties[name] = value
+            guard isEnabled else { continue }
+            for sink in sinks { sink.setUserProperty(value, forName: name) }
+        }
+    }
 
     /// 앱 시작 때 한 번. 같은 사람을 같은 사람으로 세기 위한 익명 식별자를 정하고
     /// 모든 sink에 알린다 — 이게 없으면 앱을 지웠다 깔 때마다 새 사람이 된다.
@@ -257,15 +305,17 @@ enum Analytics {
     /// 값을 정하는 규칙은 `AnalyticsIdentity`에 있고 테스트로 덮여 있다.
     /// 여기서는 실제 저장소를 붙이는 일만 한다.
     static func identify() {
-        let (id, origin) = AnalyticsIdentity.resolve(
-            cloud: CloudIdentityStore(),
-            local: UserDefaults.standard
-        )
+        let cloud = CloudIdentityStore()
+        let local = UserDefaults.standard
+        let (id, origin) = AnalyticsIdentity.resolve(cloud: cloud, local: local)
         userID = id
         for sink in sinks { sink.setUserID(id) }
-        // 어디서 온 값인지 한 번 남긴다 — "재설치했는데 다른 사람으로 잡힌다"를
-        // 나중에 추적하려면 이 분포가 필요하다.
-        log(.analyticsIdentity(origin: String(describing: origin)))
+        // 어디서 온 값인지 **이 설치에서 한 번** 남긴다 — "재설치했는데 다른 사람으로
+        // 잡힌다"를 나중에 추적하려면 이 분포가 필요하다. 실행마다 남기면 세션 수가 된다.
+        if AnalyticsIdentity.markReported(in: local) {
+            log(.analyticsIdentity(origin: String(describing: origin)))
+        }
+        set(.internalUser(InternalUser.isOn(cloud: cloud, local: local)))
     }
 
     static func log(_ event: AnalyticsEvent) {

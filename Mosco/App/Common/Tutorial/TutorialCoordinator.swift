@@ -51,6 +51,10 @@ final class TutorialCoordinator {
 
     var isRunning: Bool { step != nil }
 
+    /// 튜토리얼을 본 적이 있는가(끝냈든 건너뛰었든). 업데이트 안내가 예전 사용자를
+    /// 가려내는 데 쓴다(`CalendarHomeNotice`).
+    var hasAnswered: Bool { defaults.bool(forKey: Key.answered) }
+
     /// 튜토리얼이 도는 동안에는 셀을 꾹 눌러도 메뉴가 안 뜬다 — 시스템 메뉴는
     /// 마스크 위로 떠서 화면을 통째로 덮기 때문에, 지금 따라가야 할 지시가 가려진다.
     /// 정리(`cleanUp`) 단계에서만 연다. 그 단계는 그 메뉴를 여는 것이 곧 과제다.
@@ -63,12 +67,15 @@ final class TutorialCoordinator {
     /// 나가버리면, 사용자는 어두운 화면만 보고 무엇을 눌러야 할지 알 수 없게 된다.
     var locksScroll: Bool { isRunning }
 
+    /// 이번 판에서 이미 '해냈다'로 센 단계들.
+    private var completedSteps: Set<TutorialStep> = []
     private var stuckTask: Task<Void, Never>?
     private var pendingTask: Task<Void, Never>?
     private var defaults: UserDefaults { .standard }
 
     private enum Key {
-        /// 시작 카드에 답을 한 적이 있는지(했다 / 나중에 볼래요 둘 다 포함).
+        /// 튜토리얼이 한 번이라도 떴는지. 1.4.0 전에는 '시작 카드에 답했는지'였다 —
+        /// 키 이름은 예전 사용자와 이어지도록 그대로 둔다.
         static let answered = "tutorialAnswered"
         /// 끝까지 본 적이 있는지.
         static let completed = "tutorialCompleted"
@@ -80,7 +87,7 @@ final class TutorialCoordinator {
 
     // MARK: - 시작과 끝
 
-    /// 앱을 처음 켠 사람에게만 시작 카드를 띄운다.
+    /// 앱을 처음 켠 사람에게만 첫 지시를 띄운다.
     ///
     /// **이미 할 일이 있는 사람에게는 띄우지 않는다.** 기기를 바꿔 iCloud에서
     /// 데이터가 내려온 경우가 그렇다 — 쓰던 사람에게 "처음 오셨네요"는 틀린 인사다.
@@ -97,11 +104,14 @@ final class TutorialCoordinator {
         }
         pendingTask?.cancel()
         pendingTask = Task { [weak self] in
-            // 첫 화면이 다 그려진 뒤에 얹는다 — 뜨자마자 덮치면 앱을 아직 보지도
-            // 못한 채로 결정을 요구하는 셈이 된다.
-            try? await Task.sleep(for: .seconds(0.7))
-            guard !Task.isCancelled else { return }
-            self?.present(.welcome, source: "first_launch")
+            // 달력이 먼저 보이고 나서 얹는다 — 뜨자마자 어둡게 덮으면 이게 무슨 앱인지
+            // 보지도 못한 채 지시부터 받는다.
+            try? await Task.sleep(for: .seconds(1.0))
+            guard !Task.isCancelled, let self else { return }
+            // 시작 카드가 없으니 **띄우는 순간을 '답했다'로 친다** — 도중에 앱을 꺼도
+            // 다음 실행에서 처음부터 다시 덮치지 않는다(떠난 것은 이탈로 잡힌다).
+            self.defaults.set(true, forKey: Key.answered)
+            self.present(.typeTitle, source: "first_launch")
         }
         return true
     }
@@ -122,33 +132,27 @@ final class TutorialCoordinator {
         TutorialFunnel.clear(in: defaults)
     }
 
-    /// 설정에서 직접 불렀을 때. 이미 하겠다고 고른 셈이라 시작 카드는 건너뛴다.
+    /// 설정에서 직접 불렀을 때.
     func startFromSettings() {
         present(.typeTitle, source: "settings")
     }
 
     private func present(_ step: TutorialStep, source: String) {
         guard self.step == nil else { return }
+        completedSteps = []
         practiceTodoID = nil
         frames = [:]
         Analytics.log(.tutorialStarted(source: source))
         move(to: step)
     }
 
-    /// 시작 카드에서 "해볼게요".
-    func accept() {
-        guard step == .welcome else { return }
-        defaults.set(true, forKey: Key.answered)
-        move(to: .typeTitle)
-    }
-
-    /// 시작 카드에서 "혼자 둘러볼게요", 또는 진행 중 "건너뛰기".
+    /// 말풍선의 "건너뛰기".
     ///
     /// **확인을 한 번 더 묻지 않는다.** 그만두겠다는 사람을 붙잡는 창은 다음 화면을
     /// 하나 더 만드는 것이지 마음을 돌리는 것이 아니다.
     func skip() {
         defaults.set(true, forKey: Key.answered)
-        Analytics.log(.tutorialEnded(step: String(describing: step ?? .welcome), reason: TutorialOutcome.skipped.rawValue))
+        Analytics.log(.tutorialEnded(step: String(describing: step ?? .typeTitle), reason: TutorialOutcome.skipped.rawValue))
         close()
     }
 
@@ -184,7 +188,9 @@ final class TutorialCoordinator {
         // **앞으로 갈 때만 "해냈다"로 센다.** 되돌아가는 이동(적었던 시간을 지웠거나,
         // 하루 페이지에서 뒤로 나갔거나)까지 세면 완료율이 실제보다 부풀어서,
         // 어느 단계에서 막히는지를 보려던 지표가 그 답을 못 하게 된다.
-        if let step, step != .welcome, next.rawValue > step.rawValue {
+        // **한 번 해낸 단계는 한 번만 센다.** 오늘 페이지에서 뒤로 나갔다 다시 들어오면
+        // '오늘 열기'를 또 지나는데, 그걸 다시 세면 깔때기가 부풀어 오른다.
+        if let step, next.rawValue > step.rawValue, completedSteps.insert(step).inserted {
             Analytics.log(.tutorialStep(step: String(describing: step), outcome: "completed"))
         }
         withAnimation(.easeInOut(duration: 0.28)) {
@@ -227,13 +233,13 @@ final class TutorialCoordinator {
         case .typeTitle, .pickTime, .send:
             // 대신 만들어준다. 만들어진 결과는 `didCreateTodo`로 다시 들어온다.
             practiceTodoRequest += 1
-        case .complete:
-            move(to: .openDay)
         case .openDay:
             openDayRequest += 1
+        case .complete:
+            move(to: .cleanUp)
         case .cleanUp:
             move(to: .finish)
-        case .welcome, .finish:
+        case .finish:
             break
         }
     }
@@ -275,16 +281,26 @@ final class TutorialCoordinator {
         switch step {
         case .typeTitle, .pickTime, .send:
             practiceTodoID = todo.id
-            move(to: .complete)
+            // 방금 적은 것은 달력의 오늘 칸에 막대로 올라간다 — 이제 그 칸을 열 차례.
+            move(to: .openDay)
         default:
             break
         }
     }
 
     /// 할 일의 완료 상태가 바뀌었다.
+    ///
+    /// **체크가 들어가는 걸 본 다음에 넘어간다.** 누르자마자 다음 지시로 바꾸면
+    /// 방금 누른 칸에 체크가 그려지기도 전에 말이 바뀌어 무엇을 해냈는지 못 본다.
+    /// 체크 스프링(0.35초)이 자리를 잡을 만큼 기다린다.
     func didToggleCompletion(id: UUID, completed: Bool) {
-        guard step == .complete, id == practiceTodoID, completed else { return }
-        move(to: .openDay)
+        guard step == .complete, id == practiceTodoID else { return }
+        guard completed else {
+            // 기다리는 사이 다시 눌러 풀었다 — 넘어가지 않고 이 단계에 남는다.
+            pendingTask?.cancel()
+            return
+        }
+        move(to: .cleanUp, after: 0.7)
     }
 
     /// 달력에서 하루 페이지를 열었다.
@@ -292,13 +308,13 @@ final class TutorialCoordinator {
         guard step == .openDay else { return }
         guard Calendar.current.isDateInToday(date) else { return }
         // 페이지가 밀려 들어오는 동안 말을 걸면 글자가 화면과 함께 미끄러진다.
-        move(to: .cleanUp, after: 0.5)
+        move(to: .complete, after: 0.5)
     }
 
-    /// 하루 페이지에서 뒤로 나갔다. 정리 단계는 그 페이지 위에서만 성립하므로
+    /// 오늘 페이지에서 뒤로 나갔다. 끝내기·정리 단계는 그 페이지 위에서만 성립하므로
     /// 달력 단계로 되돌린다 — 없는 줄을 가리키고 있는 것보다 낫다.
     func didCloseDay() {
-        guard step == .cleanUp else { return }
+        guard step == .complete || step == .cleanUp else { return }
         pendingTask?.cancel()
         move(to: .openDay)
     }
@@ -317,7 +333,7 @@ final class TutorialCoordinator {
     var spotlightTargets: [TutorialTargetID] {
         guard let step else { return [] }
         switch step {
-        case .welcome, .finish:
+        case .finish:
             return []
         // 시간 칩은 입력창에 얹힌 오버레이라 따로 재지 않는다 — 입력창 위쪽을
         // 넉넉히 열어두면(`holeInsets`) 칩이 그 안에 들어온다. 입력창 자체도 계속
@@ -325,7 +341,7 @@ final class TutorialCoordinator {
         case .typeTitle, .pickTime, .send:
             return [.composeBar]
         case .complete:
-            return practiceTodoID.map { [.todayRow($0)] } ?? []
+            return practiceTodoID.map { [.dayRow($0)] } ?? []
         case .openDay:
             return [.todayCell]
         case .cleanUp:

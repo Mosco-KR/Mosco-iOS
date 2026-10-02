@@ -24,12 +24,24 @@ enum KoreanHoliday {
 
     private static var cache: [Int: [String: String]] = [:]
 
+    /// 한국 공휴일을 달력에 칠할 것인가. **한국어로 쓰거나 지역이 한국일 때만.**
+    /// 영어·일본어로 쓰는 사람의 달력에 삼일절이 빨갛게 찍히면 틀린 달력이 된다.
+    /// 다른 나라 공휴일은 아직 없다 — 그때는 칠하지 않는 쪽이 틀리게 칠하는 것보다 낫다.
+    static let isShown = shows(language: .current, region: Locale.current.region?.identifier)
+
+    static func shows(language: AppLanguage, region: String?) -> Bool {
+        language == .ko || region == "KR"
+    }
+
     static func name(for date: Date) -> String? {
+        guard isShown else { return nil }
         let year = calendar.component(.year, from: date)
         let key = date.dayKey
         for candidateYear in [year, year - 1, year + 1] {
             if let name = holidays(forYear: candidateYear)[key] {
-                return name
+                // 이름은 한국어로 계산해 두고 보여줄 때 옮긴다. 한국에 사는 영어
+                // 사용자에게는 "Chuseok"으로 나온다.
+                return String(localized: String.LocalizationValue(name))
             }
         }
         return nil

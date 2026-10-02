@@ -1,11 +1,11 @@
 import SwiftUI
 import SwiftData
 import StoreKit
+import UIKit
 import WidgetKit
 
-/// 네이티브 TabView 그대로 — iOS 26+에서는 탭 바가 시스템이 알아서 리퀴드
-/// 글래스로 그려준다. "오늘" 버튼은 이제 CalendarScreen의 헤더 오른쪽에
-/// 고정된 글래스 버튼으로 있어서, 여기서는 따로 얹을 게 없다.
+/// 앱의 뿌리. 화면은 달력 하나이고(탭 없음), 여기서는 앱 전체가 함께 쓰는
+/// 저장소들을 환경에 얹고 실행·백그라운드 전환 때 할 일을 맡는다.
 struct RootTabView: View {
     @State private var weatherStore = WeatherStore()
     @State private var notificationScheduler = TodoNotificationScheduler()
@@ -32,14 +32,6 @@ struct RootTabView: View {
     @Query private var calendars: [TodoCalendar]
     /// 시드는 앱 실행당 한 번만. `onAppear`은 여러 번 불릴 수 있다.
     @State private var didSeed = false
-    /// 앱을 켜면 달력부터 — 할 일과 메모는 거기서 한 번씩 옆으로 가면 된다.
-    @State private var selectedTab: Tab = .calendar
-
-    /// 탭은 둘이다. '다가오는'(앞으로 2주)은 달력 탭과 같은 질문에 답하고 있어서
-    /// 걷어냈다 — 앞날은 달력이, 지금 할 일은 목록이 맡는다.
-    private enum Tab: Hashable {
-        case todo, calendar
-    }
     /// 알림 재예약의 입력 — 할 일이나 카테고리 설정이 바뀌면 이 배열도 바뀌므로,
     /// 이걸 지켜보다가 통째로 다시 계산한다.
     @Query private var todos: [TodoItem]
@@ -120,14 +112,18 @@ struct RootTabView: View {
         let existingCategories = (try? modelContext.fetch(FetchDescriptor<TodoCategory>())) ?? []
         if existingCategories.isEmpty {
             modelContext.insert(
-                TodoCategory(name: "할 일", colorHex: Self.defaultCategoryColorHex, sortOrder: 0, isDefault: true)
+                TodoCategory(name: String(localized: "할 일"), colorHex: Self.defaultCategoryColorHex, sortOrder: 0, isDefault: true)
             )
         }
+
+        #if DEBUG
+        ScreenshotDemo.seedIfNeeded(in: modelContext)
+        #endif
 
         let existingCalendars = (try? modelContext.fetch(FetchDescriptor<TodoCalendar>())) ?? []
         let fallback = existingCalendars.min { $0.createdAt < $1.createdAt } ?? {
             let created = TodoCalendar(
-                name: "기본",
+                name: String(localized: "기본"),
                 colorHex: Self.defaultCategoryColorHex,
                 sortOrder: 0,
                 isDefault: true
@@ -184,15 +180,36 @@ struct RootTabView: View {
     /// 앱이 앞에 없으면 요청을 내지 않고 깃발을 세워둔 채 기다린다. 백그라운드로
     /// 부르면 시스템이 조용히 버리는데, 그러면 연 3회 중 한 번을 아무것도 안 띄운
     /// 채로 태워버리는 셈이다(돌아왔을 때 `scenePhase` 변화가 다시 부른다).
+    /// 들고 있는 규모는 사람에게 붙는 값(사용자 속성)이다. 실행 때만 정하면 iCloud에서
+    /// 내려받는 중인 새 설치가 다음 실행까지 0으로 잡힌다 — 개수가 바뀌면 다시 적는다.
+    private func updateDataScale() {
+        Analytics.set(
+            .dataScale(
+                todoCount: todos.count,
+                categoryCount: categories.count,
+                calendarCount: calendars.count
+            )
+        )
+    }
+
+    /// 오늘 할 일이 몇 개 남았나 — "오늘을 다 끝낸 순간"을 여기서 지켜본다.
+    private var todayRemaining: Int {
+        TodayPage.progress(in: todos, today: Date()).remaining
+    }
+
     private func askForReview() {
         Task {
             try? await Task.sleep(for: .seconds(1.2))
-            guard scenePhase == .active else { return }
+            // 기다리는 사이 다른 길(앞으로 나오기)로 이미 냈을 수 있다 — 두 번 내지 않는다.
+            guard reviewPrompt.isPending else { return }
+            // 뷰가 붙든 `scenePhase`는 지난 값일 수 있어서 앱의 지금 상태를 직접 본다.
+            // 뒤에 가 있는데 내면 시스템이 버리고, 기회만 쓴 것으로 적힌다.
+            guard UIApplication.shared.applicationState == .active else { return }
             // 안내를 따라가는 중에는 묻지 않는다 — 시스템 시트가 마스크 위로 덮치면
             // 지금 눌러야 할 것이 가려지고, 그 순간은 부탁하기에도 나쁜 자리다.
             guard !tutorial.isRunning else { return }
             requestReview()
-            reviewPrompt.consumePending()
+            reviewPrompt.didRequest()
             Analytics.log(.reviewPromptRequested)
         }
     }
@@ -204,9 +221,11 @@ struct RootTabView: View {
     private func createPracticeTodo() {
         let today = Calendar.current.startOfDay(for: .now)
         let todo = TodoItem(
-            title: "러닝",
+            title: TutorialPractice.title,
             date: today,
-            startTime: Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: today),
+            startTime: Calendar.current.date(
+                bySettingHour: TutorialPractice.hour24, minute: 0, second: 0, of: today
+            ),
             category: categories.first(where: \.isDefault) ?? categories.first
         )
         todo.calendar = calendars.first(where: \.isDefault) ?? calendars.first
@@ -228,169 +247,204 @@ struct RootTabView: View {
         return lhs.1.uuidString < rhs.1.uuidString
     }
 
+    /// 앱이 뜬 직후 한 번 하는 일들.
+    ///
+    /// **`body`의 `.task { }` 안에 그대로 두면 안 된다.** 거기 있을 때 CI가
+    /// "unable to type-check this expression in reasonable time"으로 터졌다 —
+    /// 긴 수식어 사슬 끝에 붙은 긴 비동기 클로저라 타입 검사가 폭발하는데,
+    /// 맥북에서는 통과하고 더 느린 CI 머신에서만 걸려서 로컬 빌드로는 안 잡힌다.
+    /// 메서드로 빼면 `body`가 보는 것은 `await runStartup()` 한 줄뿐이다.
+    private func runStartup() async {
+        // 처음 쓴 날과 오늘 쓴 것을 기록해둔다 — 리뷰는 며칠 써본 뒤에만 부탁한다.
+        reviewPrompt.registerLaunch()
+        // 실행 자체는 Firebase가 `session_start`·`first_open`으로 이미 센다.
+        // 우리가 더할 수 있는 건 "무엇을 얼마나 들고 있는가"뿐이고, 그건 그 사람에게
+        // 붙는 값이라 이벤트가 아니라 사용자 속성으로 둔다.
+        updateDataScale()
+        // 위젯은 익스텐션이라 직접 못 보낸다 — App Group에 쌓아둔 걸 여기서 비운다.
+        Analytics.flushPendingFromExtensions()
+        // 지난 실행에서 안내를 도중에 떠났다면 지금 보고한다. 이탈은 그
+        // 순간에 못 잡는다 — 앱이 죽을 때는 이벤트를 보낼 시간이 없다.
+        tutorial.reportAbandonmentIfNeeded()
+        #if DEBUG
+        // 미리보기를 찍는 중에는 안내도 권한 창도 띄우지 않는다 — 화면을 가린다.
+        if ScreenshotDemo.isActive { return }
+        #endif
+        // 처음 온 사람에게만, 그것도 **물어보고** 시작한다. 이미 할 일을 들고
+        // 있는 사람(기기를 바꿔 iCloud에서 내려받은 경우)에게 "처음 오셨네요"는
+        // 틀린 인사라 아예 띄우지 않는다.
+        // 오늘 탭이 사라졌다는 안내를 띄울지 **튜토리얼보다 먼저** 정한다 — 그 뒤엔
+        // 처음 온 사람도 안내에 답한 상태가 돼서 예전 사용자와 구분이 안 된다.
+        let defaults = UserDefaults.standard
+        defaults.set(
+            CalendarHomeNotice.decide(
+                current: defaults.string(forKey: CalendarHomeNotice.key) ?? "",
+                answeredTutorialBefore: tutorial.hasAnswered
+            ),
+            forKey: CalendarHomeNotice.key
+        )
+        let willGuide = tutorial.startIfFirstLaunch(hasExistingData: !todos.isEmpty)
+
+        // **권한은 안내가 끝난 뒤에 모아서 묻는다** (`StartupPermissionRequest`).
+        // 안내가 안 뜨는 사람은 지금이 그 시점이다.
+        if !willGuide {
+            await requestStartupPermissions()
+        }
+        await cloudSyncStore.refresh()
+    }
+
+    // MARK: - 화면
+    //
+    // **`body`를 한 덩어리로 두면 CI에서 터진다.** 수식어가 스무 개 넘게 이어지고
+    // 그 안에 긴 클로저가 들어 있어서, 타입 검사가 지수적으로 불어난다. 맥북에서는
+    // 통과하고 더 느린 CI 머신에서만 "unable to type-check this expression in
+    // reasonable time"이 나는데, 어느 줄에서 터질지는 그때그때 다르다 — 한 군데를
+    // 빼면 다음으로 긴 곳이 대신 터진다. 그래서 단계마다 이름을 붙여 나눠 둔다.
+    // 각 프로퍼티가 독립된 타입 검사 단위가 되므로 폭발하지 않는다.
+    //
+    // 새 수식어를 붙일 때는 이 셋 중 성격에 맞는 쪽에 넣는다. 한 덩어리로 되돌리지 않는다.
+
     var body: some View {
-        ZStack {
-            // 라벨 텍스트 없이 아이콘만 — `Label` 대신 `Image`를 주면 시스템이
-            // 아이콘 전용 탭으로 그린다. 접근성 이름은 `accessibilityLabel`로 남긴다
-            // (텍스트를 지운다고 VoiceOver 사용자까지 못 읽게 하면 안 된다).
-            TabView(selection: $selectedTab) {
-                TodayTodoScreen()
-                    .tabItem { Image(systemName: "list.bullet") }
-                    .accessibilityLabel("할 일")
-                    .tag(Tab.todo)
+        homeWithLifecycle
+    }
 
-                CalendarScreen()
-                    .tabItem { Image(systemName: "calendar") }
-                    .accessibilityLabel("달력")
-                    .tag(Tab.calendar)
-            }
-            // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다 — 앱 테마(바이올렛)가
-            // 선택된 탭 색상에도 이어지도록 지정.
+    /// 1단계 — 화면과 앱 전체가 함께 쓰는 저장소들.
+    private var home: some View {
+        // **탭이 없다. 달력이 홈이다** (1.4.0). 예전엔 '할 일'·'달력' 두 탭이었는데,
+        // 앱은 늘 달력으로 열렸고 입력창은 달력 화면에 없었다 — 처음 온 사람이
+        // 할 일 하나 적어보기까지 길을 찾아야 했다. 오늘 탭이 하던 일은 달력에서
+        // 오늘을 누르면 열리는 오늘 페이지가 맡는다(`DayTodosContentView`).
+        // 첫 화면에 달력이 보이는 것은 바꾸지 않는다 — 열자마자 일정을 확인하는
+        // 게 이 앱을 여는 이유다.
+        CalendarScreen()
+            // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다.
             .tint(MoscoPalette.accent)
-        }
-        .environment(weatherStore)
-        .environment(notificationScheduler)
-        .environment(cloudSyncStore)
-        .environment(todoClipboard)
-        .environment(reviewPrompt)
-        .environment(liveActivityController)
-        .environment(tutorial)
-        // 안내가 요구하는 탭으로 옮긴다. 탭을 옮기는 일은 여기서만 한다 —
-        // 튜토리얼은 "어느 탭이 필요하다"까지만 말하고 실제 이동은 관여하지 않는다.
-        .onChange(of: tutorial.step) { _, step in
-            switch step?.tab {
-            case .todo: selectedTab = .todo
-            case .calendar: selectedTab = .calendar
-            case nil: break
-            }
-        }
-        // 마지막 '정리' 단계는 마스크를 걷고 돌아서(시스템 메뉴를 열어야 하므로)
-        // 탭 바가 열려 있다. 거기서 탭을 옮기면 안내가 가리키던 줄이 사라지므로
-        // 제자리로 되돌린다.
-        .onChange(of: selectedTab) { _, tab in
-            guard let wanted = tutorial.step?.tab else { return }
-            switch (wanted, tab) {
-            case (.todo, .calendar): selectedTab = .todo
-            case (.calendar, .todo): selectedTab = .calendar
-            default: break
-            }
-        }
-        // "제가 대신 적어드릴까요?"를 눌렀을 때. 안내가 직접 모델을 건드리지 않고
-        // 요청만 올리는 건, 저장소에 무엇을 넣을지는 화면 쪽 사정이기 때문이다.
-        .onChange(of: tutorial.practiceTodoRequest) { _, request in
-            guard request > 0 else { return }
-            createPracticeTodo()
-        }
-        // 부탁할 때가 됐다는 깃발이 서면 여기서 실제 요청을 낸다.
-        .onChange(of: reviewPrompt.isPending) { _, isPending in
-            guard isPending else { return }
-            askForReview()
-        }
-        .task {
-            // 처음 쓴 날과 오늘 쓴 것을 기록해둔다 — 리뷰는 며칠 써본 뒤에만 부탁한다.
-            reviewPrompt.registerLaunch()
-            // 실행 자체는 Firebase가 `session_start`·`first_open`으로 이미 센다.
-            // 우리가 더할 수 있는 건 "무엇을 얼마나 들고 있는가"뿐이다.
-            Analytics.log(
-                .dataScale(
-                    todoCount: todos.count,
-                    categoryCount: categories.count,
-                    calendarCount: calendars.count
-                )
-            )
-            // 위젯은 익스텐션이라 직접 못 보낸다 — App Group에 쌓아둔 걸 여기서 비운다.
-            Analytics.flushPendingFromExtensions()
-            // 지난 실행에서 안내를 도중에 떠났다면 지금 보고한다. 이탈은 그
-            // 순간에 못 잡는다 — 앱이 죽을 때는 이벤트를 보낼 시간이 없다.
-            tutorial.reportAbandonmentIfNeeded()
-            // 처음 온 사람에게만, 그것도 **물어보고** 시작한다. 이미 할 일을 들고
-            // 있는 사람(기기를 바꿔 iCloud에서 내려받은 경우)에게 "처음 오셨네요"는
-            // 틀린 인사라 아예 띄우지 않는다.
-            let willGuide = tutorial.startIfFirstLaunch(hasExistingData: !todos.isEmpty)
+            .environment(weatherStore)
+            .environment(notificationScheduler)
+            .environment(cloudSyncStore)
+            .environment(todoClipboard)
+            .environment(reviewPrompt)
+            .environment(liveActivityController)
+            .environment(tutorial)
+    }
 
-            // **권한은 안내가 끝난 뒤에 모아서 묻는다** (`StartupPermissionRequest`).
-            // 안내가 안 뜨는 사람은 지금이 그 시점이다.
-            if !willGuide {
-                await StartupPermissionRequest.run(
-                    notifications: notificationScheduler,
-                    weather: weatherStore
-                )
+    /// 2단계 — 저장소의 값이 바뀌면 반응하는 것들.
+    private var homeWatchingData: some View {
+        home
+            // "제가 대신 적어드릴까요?"를 눌렀을 때. 안내가 직접 모델을 건드리지 않고
+            // 요청만 올리는 건, 저장소에 무엇을 넣을지는 화면 쪽 사정이기 때문이다.
+            .onChange(of: tutorial.practiceTodoRequest) { _, request in
+                guard request > 0 else { return }
+                createPracticeTodo()
             }
-            await cloudSyncStore.refresh()
-        }
-        // **안내가 끝난(또는 건너뛴) 바로 다음이 권한을 묻는 자리다.**
-        // 앱을 한 번 보여준 뒤에 물어야 무엇에 쓰는 권한인지 알고 고를 수 있다.
-        // 한 번 거부되면 앱에서 다시 물을 수 없으므로 이 한 번이 전부다.
-        .onChange(of: tutorial.isRunning) { _, isRunning in
-            guard !isRunning else { return }
-            Task {
-                await StartupPermissionRequest.run(
-                    notifications: notificationScheduler,
-                    weather: weatherStore
-                )
+            // 오늘 할 일을 **다** 끝낸 순간 — 리뷰를 부탁하기에 이 앱에서 가장 좋은 자리다.
+            // 화면이 아니라 여기서 본다: 오늘 페이지가 시간표 모드이거나, 검색·위젯에서
+            // 마지막 걸 끝내도 잡혀야 한다. 할 일이 애초에 없던 날(0 → 0)은 성취가 아니다.
+            .onChange(of: todayRemaining) { previous, current in
+                guard previous > 0, current == 0,
+                      TodayPage.progress(in: todos, today: Date()).total > 0 else { return }
+                reviewPrompt.recordDayCleared()
             }
-        }
-        // 탭 이동은 더 이상 세지 않는다. 탭이 둘뿐이고 앱이 달력으로 열리니
-        // 그 수는 "기본값이 무엇인가"를 되풀이해 말할 뿐이었다. 어느 화면을
-        // 실제로 쓰는지는 만들기·완료 이벤트의 `source`가 답한다.
-        // 위젯 탭(URL)은 여기서 받지 않는다. 이 앱은 SwiftUI 생명주기가 아니라
-        // UIKit(AppDelegate + SceneDelegate) 위에 올라가 있어서 `.onOpenURL`이
-        // 아무 일도 하지 않는다 — 콘솔에 "Cannot use Scene methods for URL ...
-        // without using SwiftUI Lifecycle" 경고만 매 body마다 찍혔다.
-        // 실제 처리는 `SceneDelegate`가 한다.
-        // 할 일이 추가·수정·삭제되거나 카테고리 알림 설정이 바뀌면 통째로 다시 예약한다.
-        .task(id: rescheduleKey) {
-            await notificationScheduler.reschedule(todos: todos)
-        }
-        // 할 일이 바뀌면 잠금화면에 떠 있는 것도 다시 계산한다 — 시간을 옮겼거나
-        // 체크했는데 잠금화면만 옛날 것을 들고 있으면 안 된다.
-        .task(id: liveActivityKey) {
-            await liveActivityController.sync()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            // 위젯은 자정에만 스스로 다시 그린다 — 그 사이 앱에서 할 일을 고쳐도
-            // 홈 화면은 옛날 것을 계속 보여준다. 편집이 끝나고 앱을 벗어나는
-            // 시점이 다시 그리기 가장 좋은 자리다(편집 중에 매번 깨우면 시스템이
-            // 갱신 예산을 금세 소진한다).
-            if phase == .background {
-                WidgetCenter.shared.reloadAllTimelines()
+            .onChange(of: todos.count) { _, _ in updateDataScale() }
+            .onChange(of: categories.count) { _, _ in updateDataScale() }
+            .onChange(of: calendars.count) { _, _ in updateDataScale() }
+            // 부탁할 때가 됐다는 깃발이 서면 여기서 실제 요청을 낸다.
+            .onChange(of: reviewPrompt.isPending) { _, isPending in
+                guard isPending else { return }
+                askForReview()
             }
-            // 설정 앱에서 권한을 바꾸고 돌아왔을 수 있다 — 돌아올 때마다 맞춰준다.
-            guard phase == .active else { return }
-            // 앱을 벗어나 있는 사이 부탁할 때가 됐다면 지금 묻는다.
-            if reviewPrompt.isPending { askForReview() }
-            Task {
+            // 중복 정리는 **켤 때 한 번이 아니라 목록이 바뀔 때마다** 돌아야 한다.
+            // iCloud를 켠 뒤로는 이런 순서가 실제로 벌어진다: 앱을 새로 깔면 로컬이
+            // 비어 있으니 기본 캘린더·카테고리를 즉시 만드는데, 그 **뒤에** 클라우드에서
+            // 예전 기본값이 내려온다 — 그래서 "기본"이 둘, "할 일"이 둘이 된다.
+            // 실행 시점에 한 번만 보면 그 도착을 못 본다.
+            .onChange(of: calendars, initial: true) { _, _ in mergeDuplicateDefaults() }
+            .onChange(of: categories, initial: true) { _, _ in mergeDuplicateDefaults() }
+    }
+
+    /// 3단계 — 앱이 뜨고, 앞뒤로 오가고, 예약을 다시 거는 생애주기.
+    ///
+    /// 위젯 탭(URL)은 여기서 받지 않는다. 이 앱은 SwiftUI 생명주기가 아니라
+    /// UIKit(AppDelegate + SceneDelegate) 위에 올라가 있어서 `.onOpenURL`이
+    /// 아무 일도 하지 않는다 — 콘솔에 "Cannot use Scene methods for URL ...
+    /// without using SwiftUI Lifecycle" 경고만 매 body마다 찍혔다.
+    /// 실제 처리는 `SceneDelegate`가 한다.
+    private var homeWithLifecycle: some View {
+        homeWatchingData
+            .onAppear(perform: seedIfNeeded)
+            .task { await runStartup() }
+            // **안내가 끝난(또는 건너뛴) 바로 다음이 권한을 묻는 자리다.**
+            // 앱을 한 번 보여준 뒤에 물어야 무엇에 쓰는 권한인지 알고 고를 수 있다.
+            // 한 번 거부되면 앱에서 다시 물을 수 없으므로 이 한 번이 전부다.
+            .onChange(of: tutorial.isRunning) { _, isRunning in
+                guard !isRunning else { return }
+                Task { await requestStartupPermissions() }
+            }
+            // 할 일이 추가·수정·삭제되거나 카테고리 알림 설정이 바뀌면 통째로 다시 예약한다.
+            .task(id: rescheduleKey) {
                 await notificationScheduler.reschedule(todos: todos)
-                // **여기가 '시작 전 → 진행 중' 전환이 실제로 일어나는 자리다.**
-                // 푸시 서버가 없어서 앱이 자는 동안에는 문구를 바꿀 수 없다 —
-                // 남은 시간은 시스템이 알아서 세지만, 그 밖의 것은 앱이 앞으로
-                // 나올 때마다 맞춰준다. 시간만 지나도 띄울 것이 달라지므로
-                // 데이터가 그대로여도 매번 다시 계산한다.
-                await liveActivityController.sync()
-                // 안내 중에는 날씨를 다시 시도하지 않는다 — 위치 권한창이 안내
-                // 위로 덮친다.
-                if !tutorial.isRunning { weatherStore.retry() }
-                // 설정 앱에서 iCloud에 로그인하고 돌아왔을 수 있다.
-                await cloudSyncStore.refresh()
             }
+            // 할 일이 바뀌면 잠금화면에 떠 있는 것도 다시 계산한다 — 시간을 옮겼거나
+            // 체크했는데 잠금화면만 옛날 것을 들고 있으면 안 된다.
+            .task(id: liveActivityKey) {
+                await liveActivityController.sync()
+            }
+            // **첫 날씨는 여기서 받는다.** 예전엔 scenePhase가 .active로 *바뀔 때*와
+            // 첫 실행 권한 흐름, 둘로만 열렸다. 맥은 창이 이미 활성인 채로 떠서 그
+            // 변화가 안 오고, 권한을 이미 정해둔 사람은 첫 흐름도 안 지나간다 —
+            // 그래서 맥에서 날씨가 통째로 안 떴다(2026-08-22).
+            //
+            // **아직 안 물어본 상태에서는 부르지 않는다.** 그러면 위치 권한창이
+            // 안내(튜토리얼) 위로 덮친다 — 묻는 순서는 StartupPermissionRequest 몫이다.
+            .task { loadWeatherIfAllowed() }
+            .onChange(of: scenePhase) { _, phase in
+                handleScenePhase(phase)
+            }
+    }
+
+    /// 권한을 모아서 묻는다. `body`에서 두 번 부르므로 한 곳에 둔다.
+    private func requestStartupPermissions() async {
+        await StartupPermissionRequest.run(
+            notifications: notificationScheduler,
+            weather: weatherStore
+        )
+    }
+
+    private func loadWeatherIfAllowed() {
+        guard weatherStore.permission == .granted else { return }
+        weatherStore.loadIfNeeded()
+    }
+
+    /// 앱이 앞으로 나오거나 뒤로 갈 때.
+    private func handleScenePhase(_ phase: ScenePhase) {
+        // 위젯은 자정에만 스스로 다시 그린다 — 그 사이 앱에서 할 일을 고쳐도
+        // 홈 화면은 옛날 것을 계속 보여준다. 편집이 끝나고 앱을 벗어나는
+        // 시점이 다시 그리기 가장 좋은 자리다(편집 중에 매번 깨우면 시스템이
+        // 갱신 예산을 금세 소진한다).
+        if phase == .background {
+            WidgetCenter.shared.reloadAllTimelines()
         }
-        .onAppear(perform: seedIfNeeded)
-        // **첫 날씨는 여기서 받는다.** 예전엔 scenePhase가 .active로 *바뀔 때*와
-        // 첫 실행 권한 흐름, 둘로만 열렸다. 맥은 창이 이미 활성인 채로 떠서 그
-        // 변화가 안 오고, 권한을 이미 정해둔 사람은 첫 흐름도 안 지나간다 —
-        // 그래서 맥에서 날씨가 통째로 안 떴다(2026-08-22).
-        //
-        // **아직 안 물어본 상태에서는 부르지 않는다.** 그러면 위치 권한창이
-        // 안내(튜토리얼) 위로 덮친다 — 묻는 순서는 StartupPermissionRequest 몫이다.
-        .task {
-            if weatherStore.permission == .granted { weatherStore.loadIfNeeded() }
-        }
-        // 중복 정리는 **켤 때 한 번이 아니라 목록이 바뀔 때마다** 돌아야 한다.
-        // iCloud를 켠 뒤로는 이런 순서가 실제로 벌어진다: 앱을 새로 깔면 로컬이
-        // 비어 있으니 기본 캘린더·카테고리를 즉시 만드는데, 그 **뒤에** 클라우드에서
-        // 예전 기본값이 내려온다 — 그래서 "기본"이 둘, "할 일"이 둘이 된다.
-        // 실행 시점에 한 번만 보면 그 도착을 못 본다.
-        .onChange(of: calendars, initial: true) { _, _ in mergeDuplicateDefaults() }
-        .onChange(of: categories, initial: true) { _, _ in mergeDuplicateDefaults() }
+        // 설정 앱에서 권한을 바꾸고 돌아왔을 수 있다 — 돌아올 때마다 맞춰준다.
+        guard phase == .active else { return }
+        // 위젯·라이브 액티비티에서 쌓인 이벤트는 앞으로 나올 때마다 비운다 — 처음
+        // 켤 때만 비우면 며칠치가 한날에 몰려 날짜별 추이를 못 본다.
+        Analytics.flushPendingFromExtensions()
+        // 앱을 벗어나 있는 사이 부탁할 때가 됐다면 지금 묻는다.
+        if reviewPrompt.isPending { askForReview() }
+        Task { await refreshAfterForeground() }
+    }
+
+    private func refreshAfterForeground() async {
+        await notificationScheduler.reschedule(todos: todos)
+        // **여기가 '시작 전 → 진행 중' 전환이 실제로 일어나는 자리다.**
+        // 푸시 서버가 없어서 앱이 자는 동안에는 문구를 바꿀 수 없다 —
+        // 남은 시간은 시스템이 알아서 세지만, 그 밖의 것은 앱이 앞으로
+        // 나올 때마다 맞춰준다. 시간만 지나도 띄울 것이 달라지므로
+        // 데이터가 그대로여도 매번 다시 계산한다.
+        await liveActivityController.sync()
+        // 안내 중에는 날씨를 다시 시도하지 않는다 — 위치 권한창이 안내 위로 덮친다.
+        if !tutorial.isRunning { weatherStore.retry() }
+        // 설정 앱에서 iCloud에 로그인하고 돌아왔을 수 있다.
+        await cloudSyncStore.refresh()
     }
 }

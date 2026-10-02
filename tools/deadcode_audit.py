@@ -62,6 +62,8 @@ ALLOWLIST = {
     "placeholder": "TimelineProvider 프로토콜 요구사항",
     "getSnapshot": "TimelineProvider 프로토콜 요구사항",
     "getTimeline": "TimelineProvider 프로토콜 요구사항",
+    "inMemory": "MoscoTests가 쓴다 — 이 검사는 테스트 폴더를 참조로 안 센다",
+    "analyticsIdentity": "Analytics.identify() 안에서 직접 발생시킨다",
 }
 
 DECL_TYPE = re.compile(r"^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:public |internal |private |fileprivate |nonisolated |final |@MainActor )*\b(struct|class|enum|protocol|actor)\s+([A-Za-z_]\w*)", re.M)
@@ -167,8 +169,14 @@ def audit_analytics(texts):
     decl = re.findall(r"^\s*case\s+([a-z]\w*)", path.read_text(), re.M)
     # `case let x`, `case where` 같은 패턴 매칭 구문은 이벤트가 아니다.
     decl = [c for c in decl if c not in {"let", "var", "where", "some", "none"}]
+    # Analytics.swift 자신은 참조로 세지 않는다 — 거기서만 쓰이는 이벤트는
+    # 기능 코드가 안 보내는 것이다. 예외는 ALLOWLIST에 이유와 함께 적는다.
     blobs = [t for p, t in texts.items() if p != path]
-    return [c for c in dict.fromkeys(decl) if not re.search(rf"\.{re.escape(c)}\b", "".join(blobs))]
+    blob = "".join(blobs)
+    return [
+        c for c in dict.fromkeys(decl)
+        if c not in ALLOWLIST and not re.search(rf"\.{re.escape(c)}\b", blob)
+    ]
 
 
 def audit_assets(texts):

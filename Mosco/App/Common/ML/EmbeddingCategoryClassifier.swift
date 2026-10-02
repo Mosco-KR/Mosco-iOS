@@ -19,21 +19,28 @@ struct EmbeddingCategoryClassifier: CategoryClassifying {
     /// 임베딩 경로가 통째로 못 쓰이는데, 그걸로 "기능이 아예 동작 안 한다"가
     /// 되면 안 되니 아래 classify()에서 항상 어휘 겹침 기반 대체 로직으로
     /// 한 번 더 시도한다.
-    private static let embedding = NLEmbedding.wordEmbedding(for: .korean)
+    ///
+    /// 언어마다 벡터 공간이 달라서 **섞어 비교할 수 없다.** 그래서 쓸 수 있는 임베딩을
+    /// 하나씩 따로 돌려보고 유사도가 가장 높게 나온 쪽을 고른다. 한국어 화면에서
+    /// "gym"이라고 적어도, 영어 화면에서 "운동"이라고 적어도 맞는 사전이 받아준다.
+    private static let embeddings: [NLEmbedding] = [NLLanguage.korean, .english, .japanese]
+        .compactMap { NLEmbedding.wordEmbedding(for: $0) }
 
     func classify(_ text: String, categories: [TodoCategory], existingTodos: [TodoItem]) async -> TodoCategory? {
         guard !categories.isEmpty else { return nil }
 
-        if let embedding = Self.embedding,
-           let inputVector = sentenceVector(for: text, embedding: embedding),
-           let result = classifyByEmbedding(
-               inputVector: inputVector,
-               categories: categories,
-               existingTodos: existingTodos,
-               embedding: embedding
-           ) {
-            return result
-        }
+        let best = Self.embeddings
+            .compactMap { embedding -> (category: TodoCategory, similarity: Double)? in
+                guard let inputVector = sentenceVector(for: text, embedding: embedding) else { return nil }
+                return classifyByEmbedding(
+                    inputVector: inputVector,
+                    categories: categories,
+                    existingTodos: existingTodos,
+                    embedding: embedding
+                )
+            }
+            .max { $0.similarity < $1.similarity }
+        if let best { return best.category }
 
         // 임베딩을 못 쓰거나(단어 임베딩이 이 기기에 없음) 유사도가 다 낮아서
         // 못 골랐을 때 — 글자 겹침만으로도 어느 정도는 맞힐 수 있다. 특히 카테고리
@@ -49,7 +56,7 @@ struct EmbeddingCategoryClassifier: CategoryClassifying {
         categories: [TodoCategory],
         existingTodos: [TodoItem],
         embedding: NLEmbedding
-    ) -> TodoCategory? {
+    ) -> (category: TodoCategory, similarity: Double)? {
         var best: (category: TodoCategory, similarity: Double)?
         for category in categories {
             let vectors = referenceTexts(for: category, existingTodos: existingTodos)
@@ -63,7 +70,7 @@ struct EmbeddingCategoryClassifier: CategoryClassifying {
             }
         }
         guard let best, best.similarity >= Self.similarityThreshold else { return nil }
-        return best.category
+        return best
     }
 
     /// 단어 벡터들의 평균으로 문장(제목) 벡터를 근사한다 — 문맥까지 보는 문장
@@ -136,9 +143,11 @@ struct EmbeddingCategoryClassifier: CategoryClassifying {
             .components(separatedBy: .whitespacesAndNewlines)
             .map { $0.trimmingCharacters(in: .punctuationCharacters) }
             .filter { !$0.isEmpty }
+            // 영어 사전은 소문자로만 찾는다 — "Gym"은 없고 "gym"은 있다.
+            .map { $0.lowercased() }
     }
 
     private func normalize(_ text: String) -> String {
-        text.replacingOccurrences(of: " ", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        text.replacingOccurrences(of: " ", with: "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }

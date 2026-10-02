@@ -12,12 +12,12 @@ enum RepeatRule: String, Codable, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .none: "안 함"
-        case .daily: "매일"
-        case .weekly: "매주"
-        case .monthly: "매월"
-        case .yearly: "매년"
-        case .everyNDays: "며칠마다"
+        case .none: String(localized: "안 함")
+        case .daily: String(localized: "매일")
+        case .weekly: String(localized: "매주")
+        case .monthly: String(localized: "매월")
+        case .yearly: String(localized: "매년")
+        case .everyNDays: String(localized: "며칠마다")
         }
     }
 }

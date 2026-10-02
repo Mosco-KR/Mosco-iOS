@@ -163,8 +163,8 @@ final class TodoNotificationScheduler {
 
     private func bodyText(for todo: TodoItem, category: TodoCategory?) -> String {
         let minutes = category?.notificationLeadMinutes ?? 0
-        guard let startTime = todo.startTime else { return "곧 시작해요" }
-        return "\(minutes)분 뒤 \(startTime.koreanTime)에 시작해요"
+        guard let startTime = todo.startTime else { return String(localized: "곧 시작해요") }
+        return String(localized: "\(minutes)분 뒤 \(startTime.localizedTime)에 시작해요")
     }
 
     /// 알림이 울릴 시각 = 그 인스턴스의 시작 날짜 + 시작 시각 - 리드타임.

@@ -1,0 +1,29 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSLocationWhenInUseUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your location is used to show the local weather on your calendar."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在地の天気をカレンダーに表示するために位置情報を使用します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지금 계신 곳의 날씨를 캘린더에 함께 보여드리기 위해 위치를 사용합니다."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

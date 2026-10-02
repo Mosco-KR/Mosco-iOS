@@ -8,8 +8,12 @@
 	<!-- 홈 화면과 설정 앱에 보이는 이름. 타깃 이름("App")이 그대로 나오고 있었다. -->
 	<key>CFBundleDisplayName</key>
 	<string>Mosco</string>
+	<!-- 지원하지 않는 언어의 기기에서 무엇으로 보일지를 정한다. 문구의 키는
+	     한국어지만 여기는 영어다 — 프랑스어 기기에서 한국어가 뜨는 것보다 영어가
+	     뜨는 편이 읽을 수 있다. 빌드할 때 프로젝트의 developmentRegion이 이 값을
+	     덮어쓰므로 **둘을 같이 바꿔야 한다.** -->
 	<key>CFBundleDevelopmentRegion</key>
-	<string>ko</string>
+	<string>en</string>
 	<!-- 수출 규정 준수 문서. 이게 없으면 빌드를 올릴 때마다 App Store Connect가
 	     "암호화를 쓰는가"를 손으로 답하게 하고, 답하기 전까지 심사에 넣지 못한다.
 	     이 앱이 쓰는 암호화는 HTTPS(WeatherKit·Firebase·CloudKit)뿐이라 면제
@@ -21,6 +25,8 @@
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>ko</string>
+		<string>en</string>
+		<string>ja</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

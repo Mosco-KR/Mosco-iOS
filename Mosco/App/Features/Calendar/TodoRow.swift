@@ -292,24 +292,24 @@ struct TodoRow: View {
         }
 
         if todo.isMultiDay, let effectiveEnd = todo.effectiveEndDate {
-            let range = "\(date.koreanMonthDay) - \(effectiveEnd.koreanMonthDay)"
+            let range = "\(date.localizedMonthDay) - \(effectiveEnd.localizedMonthDay)"
             guard let startTime = todo.startTime else { return range }
-            return "\(range) \(startTime.koreanTime)"
+            return "\(range) \(startTime.localizedTime)"
         }
 
         if showsDate {
-            let dayPart = date.koreanRelativeDay
+            let dayPart = date.localizedRelativeDay
             guard let startTime = todo.startTime else { return dayPart }
             if let endTime = todo.endTime {
-                return "\(dayPart) \(startTime.koreanTime) - \(endTime.koreanTime)"
+                return "\(dayPart) \(startTime.localizedTime) - \(endTime.localizedTime)"
             }
-            return "\(dayPart) \(startTime.koreanTime)"
+            return "\(dayPart) \(startTime.localizedTime)"
         }
 
         guard let startTime = todo.startTime else { return nil }
         if let endTime = todo.endTime {
-            return "\(startTime.koreanTime) - \(endTime.koreanTime)"
+            return "\(startTime.localizedTime) - \(endTime.localizedTime)"
         }
-        return startTime.koreanTime
+        return startTime.localizedTime
     }
 }

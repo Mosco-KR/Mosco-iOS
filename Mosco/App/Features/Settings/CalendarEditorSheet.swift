@@ -74,7 +74,7 @@ struct CalendarEditorSheet: View {
                     }
                 }
             }
-            .navigationTitle(existing == nil ? "새 캘린더" : "캘린더 수정")
+            .navigationTitle(existing == nil ? String(localized: "새 캘린더") : String(localized: "캘린더 수정"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

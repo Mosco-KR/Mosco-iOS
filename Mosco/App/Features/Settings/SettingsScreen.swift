@@ -37,8 +37,8 @@ struct SettingsScreen: View {
                     } label: {
                         SettingsEntryRow(
                             systemImage: "square.stack.3d.up",
-                            title: "캘린더",
-                            detail: "\(calendars.count)개"
+                            title: String(localized: "캘린더"),
+                            detail: String(localized: "\(calendars.count)개")
                         )
                     }
 
@@ -47,8 +47,8 @@ struct SettingsScreen: View {
                     } label: {
                         SettingsEntryRow(
                             systemImage: "tag",
-                            title: "카테고리",
-                            detail: "\(categories.count)개"
+                            title: String(localized: "카테고리"),
+                            detail: String(localized: "\(categories.count)개")
                         )
                     }
                 } header: {
@@ -385,11 +385,11 @@ struct SettingsScreen: View {
 
     private var syncLabel: String {
         switch cloudSyncStore.state {
-        case .active: "켜짐"
-        case .noAccount: "iCloud 로그인 필요"
-        case .restricted: "사용할 수 없음"
-        case .localOnly: "이 기기에만 저장 중"
-        case .unknown: "확인 중"
+        case .active: String(localized: "켜짐")
+        case .noAccount: String(localized: "iCloud 로그인 필요")
+        case .restricted: String(localized: "사용할 수 없음")
+        case .localOnly: String(localized: "이 기기에만 저장 중")
+        case .unknown: String(localized: "확인 중")
         }
     }
 
@@ -491,8 +491,8 @@ struct SettingsScreen: View {
             modelContext.delete(calendar)
         }
 
-        modelContext.insert(TodoCategory(name: "할 일", colorHex: Self.seedColorHex, sortOrder: 0, isDefault: true))
-        modelContext.insert(TodoCalendar(name: "기본", colorHex: Self.seedColorHex, sortOrder: 0, isDefault: true))
+        modelContext.insert(TodoCategory(name: String(localized: "할 일"), colorHex: Self.seedColorHex, sortOrder: 0, isDefault: true))
+        modelContext.insert(TodoCalendar(name: String(localized: "기본"), colorHex: Self.seedColorHex, sortOrder: 0, isDefault: true))
 
         // 숨김 목록에는 이제 없는 id만 남으므로 함께 비운다.
         hiddenCalendarIDs = ""

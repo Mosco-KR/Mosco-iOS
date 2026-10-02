@@ -154,5 +154,5 @@ struct MonthCalendarWidgetView: View {
         .frame(height: rowHeight, alignment: .top)
     }
 
-    private var monthLabel: String { "\(entry.month.year)년 \(entry.month.month)월" }
+    private var monthLabel: String { DateText.yearMonth(year: entry.month.year, month: entry.month.month) }
 }

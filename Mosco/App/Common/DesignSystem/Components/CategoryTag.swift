@@ -13,7 +13,7 @@ struct CategoryTag: View {
     }
 
     private var label: String {
-        category?.name ?? "미분류"
+        category?.name ?? String(localized: "미분류")
     }
 
     var body: some View {

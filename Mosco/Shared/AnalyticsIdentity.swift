@@ -68,6 +68,57 @@ nonisolated enum AnalyticsIdentity {
         cloud?.set(created, forKey: key)
         return (created, .created)
     }
+
+    static let reportedKey = "analyticsIdentityReported"
+
+    /// 식별자가 어디서 왔는지(`analytics_identity`)를 이 설치에서 아직 안 남겼으면
+    /// true를 돌려주고 남긴 것으로 적는다.
+    ///
+    /// **기기 저장소에만 적는다.** 앱을 지우면 같이 지워져서, 재설치하면 한 번 더
+    /// 남는다 — 그게 이 이벤트가 재려는 것("재설치를 건너온 비율")이다. 예전엔
+    /// 실행마다 남겨서 세션 수와 같은 숫자가 됐다.
+    static func markReported(in local: any IdentityStore) -> Bool {
+        guard local.string(forKey: reportedKey) != "1" else { return false }
+        local.set("1", forKey: reportedKey)
+        return true
+    }
+}
+
+/// 개발자·테스트 기기 표시. 분석에서 이 사람들을 빼고 봐야 실제 사용자 숫자가 나온다.
+///
+/// 개발자 기기 두 대가 9월 데이터에서 사용자 7~9명, 참여 세션의 15~30%로 잡혔다.
+/// 지웠다 깔 때마다 새 사람이 됐고, 사용법 안내를 반복해서 본 기록이 실제 사용자의
+/// 이탈 지점 숫자에 섞였다.
+///
+/// **켜는 법:** 그 기기에서 `mosco://internal`을 한 번 연다(메모 앱이나 사파리에서).
+/// 끄려면 `mosco://internal/off`. 값은 iCloud에도 적어서, 같은 Apple 계정의 다른
+/// 기기와 재설치 뒤에도 따라온다.
+enum InternalUser {
+    static let key = "analyticsInternalUser"
+    static let host = "internal"
+
+    /// 이 기기가 내부 사용자인가. iCloud 값이 있으면 그게 정본이다.
+    static func isOn(cloud: (any IdentityStore)?, local: any IdentityStore) -> Bool {
+        let value = cloud?.string(forKey: key) ?? local.string(forKey: key)
+        return value == "1"
+    }
+
+    static func set(_ on: Bool, cloud: (any IdentityStore)?, local: any IdentityStore) {
+        let value = on ? "1" : "0"
+        local.set(value, forKey: key)
+        cloud?.set(value, forKey: key)
+    }
+
+    /// 받은 URL이 이 표시를 켜거나 끄라는 것이면 그 값, 아니면 nil.
+    static func command(from url: URL) -> Bool? {
+        guard url.scheme == WidgetDeepLink.scheme, url.host == host else { return nil }
+        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        switch path {
+        case "", "on": return true
+        case "off": return false
+        default: return nil
+        }
+    }
 }
 
 extension UserDefaults: IdentityStore {

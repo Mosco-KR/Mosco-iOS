@@ -13,14 +13,6 @@
 읽는 순서는 `CURRENT.md` → `PATTERNS.md`다. 지금 무엇이 문제인지 모른 채 패턴을
 고르면 유행을 고르게 된다.
 
-## 같이 보는 문서
-
-- [`../verification.md`](../verification.md) — 무엇을 어떻게 검증하나. 테스트 코드만으로
-  안 되는 이유와 그 대안
-- [`../review-criteria.md`](../review-criteria.md) — 사람이 봐야 하는 코드와 안 봐도
-  되는 코드
-- [`../workflow.md`](../workflow.md) — 프롬프트 하나가 어떤 순서로 도는지
-
 ## 기준선을 다시 재려면
 
 ```bash

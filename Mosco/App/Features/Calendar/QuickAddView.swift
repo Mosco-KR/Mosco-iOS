@@ -49,9 +49,9 @@ struct QuickAddView: View {
     /// 점이 로딩 표시를 보여주고, 전송은 막는다(판별 결과가 반영되기 전에
     /// 보내버리는 걸 막기 위해).
     @State private var isClassifying = false
-    /// 지금 카테고리가 분류기가 골라준 것인지. 사람이 이걸 뒤집는 비율이
-    /// 분류기가 값을 하는지에 대한 유일한 근거다.
-    @State private var categoryWasSuggested = false
+    /// 이 할 일에서 분류기가 골라 넣었는지, 사람이 그걸 바꿨는지. 사람이 뒤집는
+    /// 비율이 분류기가 값을 하는지에 대한 유일한 근거라, 저장할 때 한 번 남긴다.
+    @State private var suggestionLog = CategorySuggestionLog()
     @State private var classifyTask: Task<Void, Never>?
     private let classifier: CategoryClassifying = EmbeddingCategoryClassifier()
     /// 입력창(글래스 캡슐) 자체의 실측 크기 — 시간 추천 팝업의 높이와 최대 너비를
@@ -111,6 +111,12 @@ struct QuickAddView: View {
             // 커서도 같이 와야 한다. 아래 `onChange`만으로는 못 잡는다 — 탭이
             // 바뀌는 순간 이 뷰는 아직 만들어지기 전이라 그 변화를 못 본다.
             if tutorial.currentStep == .typeTitle { isTitleFocused = true }
+            #if DEBUG
+            if ScreenshotDemo.scene == .compose, title.isEmpty {
+                title = ScreenshotDemo.composeText
+                isTitleFocused = true
+            }
+            #endif
         }
         .onChange(of: title) { _, newValue in
             scheduleClassification(for: newValue)
@@ -130,9 +136,9 @@ struct QuickAddView: View {
             switch step {
             case .typeTitle:
                 isTitleFocused = true
-            // 다음 안내는 화면 아래쪽에 설 수 있다 — 키보드가 떠 있으면 그 글자가
-            // 키보드 뒤로 숨는다.
-            case .complete:
+            // 다음 안내는 달력의 오늘 칸을 가리킨다 — 키보드가 떠 있으면 그 칸과
+            // 안내 글자가 키보드 뒤로 숨는다.
+            case .openDay:
                 isTitleFocused = false
             default:
                 break
@@ -227,6 +233,7 @@ struct QuickAddView: View {
                     newCategory.notifiesBeforeStart = draft.notifiesBeforeStart
                     newCategory.notificationLeadMinutes = draft.notificationLeadMinutes
                     modelContext.insert(newCategory)
+                    suggestionLog.didPickManually(changed: true)
                     category = newCategory
                 }
             )
@@ -264,18 +271,18 @@ struct QuickAddView: View {
     }
 
     private var dateLabel: String {
-        guard let startDate else { return "날짜 없음" }
+        guard let startDate else { return String(localized: "날짜 없음") }
 
         // 반복이 설정돼 있으면 날짜 대신 반복 규칙이 한눈에 보이게 — 시트를 닫은
         // 뒤에도 버튼만 보고 반복 여부를 알 수 있다.
         if let repeatLabel {
             guard let startTime else { return repeatLabel }
-            return "\(repeatLabel) \(startTime.koreanTime)"
+            return "\(repeatLabel) \(startTime.localizedTime)"
         }
         if let endDate, !calendar.isDate(startDate, inSameDayAs: endDate) {
-            return "\(startDate.koreanMonthDay) - \(endDate.koreanMonthDay)"
+            return "\(startDate.localizedMonthDay) - \(endDate.localizedMonthDay)"
         }
-        return koreanScheduleLabel(date: startDate, time: startTime)
+        return localizedScheduleLabel(date: startDate, time: startTime)
     }
 
     private var repeatLabel: String? {
@@ -283,17 +290,17 @@ struct QuickAddView: View {
         case .none:
             return nil
         case .daily:
-            return "매일"
+            return String(localized: "매일")
         case .weekly:
-            guard !repeatWeekdays.isEmpty else { return "매주" }
-            let symbols = repeatWeekdays.sorted().map { KoreanCalendar.weekdaySymbols[$0 - 1] }
-            return "매주 " + symbols.joined(separator: "·")
+            guard !repeatWeekdays.isEmpty else { return String(localized: "매주") }
+            let symbols = repeatWeekdays.sorted().map { DateText.weekdaySymbols()[$0 - 1] }
+            return String(localized: "매주 \(symbols.joined(separator: "·"))")
         case .monthly:
-            return "매월"
+            return String(localized: "매월")
         case .everyNDays:
-            return "\(repeatInterval)일마다"
+            return String(localized: "\(repeatInterval)일마다")
         case .yearly:
-            return "매년"
+            return String(localized: "매년")
         }
     }
 
@@ -371,12 +378,8 @@ struct QuickAddView: View {
         )
         .contentShape(Capsule())
         .onTapGesture {
-            // 분류기가 골라준 걸 사람이 다른 걸로 바꿨을 때만 센다. 같은 걸 다시
-            // 누른 건 뒤집은 게 아니다.
-            if categoryWasSuggested, candidate.id != category?.id {
-                Analytics.log(.categoryOverridden)
-                categoryWasSuggested = false
-            }
+            // 직접 고른 뒤로는 분류기가 덮어쓰지 않는다. 뒤집었는지는 저장할 때 센다.
+            suggestionLog.didPickManually(changed: candidate.id != category?.id)
             category = candidate
             withAnimation(.easeInOut(duration: 0.15)) {
                 showCategoryOptions = false
@@ -409,9 +412,15 @@ struct QuickAddView: View {
 
     /// 타이핑이 잠시 멈추면(0.2초) 그때 제목으로 분류를 시작한다 — 글자마다
     /// 요청하면 낭비니까 디바운스.
+    ///
+    /// **수정 중이거나 사람이 카테고리를 직접 골랐으면 돌리지 않는다.** 수정하려고
+    /// 열면 제목이 다시 채워지는데, 그때 분류가 돌면 사람이 골라둔 카테고리를
+    /// 갈아치우고 그대로 저장됐다.
     private func scheduleClassification(for text: String) {
         classifyTask?.cancel()
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              suggestionLog.allowsAutoAssign(isEditing: isEditing)
+        else {
             isClassifying = false
             return
         }
@@ -421,14 +430,11 @@ struct QuickAddView: View {
             isClassifying = true
             let result = await classifier.classify(text, categories: categories, existingTodos: allTodos)
             guard !Task.isCancelled else { return }
-            if let result {
-                category = result
-                // 사람이 나중에 이 배정을 뒤집는지 보려고 표시해둔다 —
-                // `categoryOverridden`과 짝이 되어야 분류기의 값을 잴 수 있다.
-                categoryWasSuggested = true
-            }
-            Analytics.log(.categorySuggested(matched: result != nil))
             isClassifying = false
+            // 분류하는 사이 사람이 직접 골랐을 수 있다.
+            guard suggestionLog.allowsAutoAssign(isEditing: isEditing) else { return }
+            if let result { category = result }
+            suggestionLog.didClassify(matched: result != nil)
         }
     }
 
@@ -480,8 +486,8 @@ struct QuickAddView: View {
     /// 모호하면 두 후보(같은 기준으로 시작·종료 모두에 적용)를 보여준다.
     private func suggestionOptions(_ suggestion: TimeSuggestion) -> [SuggestionOption] {
         func label(start: Int, end: Int?) -> String {
-            guard let end else { return TimeExpressionParser.koreanTimeLabel(hour24: start, minute: suggestion.startMinute) }
-            return "\(TimeExpressionParser.koreanTimeLabel(hour24: start, minute: suggestion.startMinute)) - \(TimeExpressionParser.koreanTimeLabel(hour24: end, minute: suggestion.endMinute ?? 0))"
+            guard let end else { return DateText.time(hour24: start, minute: suggestion.startMinute) }
+            return "\(DateText.time(hour24: start, minute: suggestion.startMinute)) - \(DateText.time(hour24: end, minute: suggestion.endMinute ?? 0))"
         }
 
         // 둘 다(또는 시작만) 이미 확정인 경우 — 종료가 모호하면 시작과 같은 기준으로 채운다.
@@ -640,13 +646,18 @@ struct QuickAddView: View {
             // `source`가 한다(이 입력창은 두 화면에 같이 산다).
             Analytics.log(
                 .todoCreated(
-                    source: analyticsSource,
+                    // 튜토리얼에서 따라 적은 연습용은 따로 센다 — 홈 입력창이 쓰이는지
+                    // 보려는 값에 튜토리얼을 끝낸 사람마다 한 건씩 얹히면 안 된다.
+                    source: tutorial?.isRunning == true ? "tutorial" : analyticsSource,
                     hasDate: todo.date != nil,
                     hasTime: todo.startTime != nil,
                     repeatRule: todo.repeatRule.rawValue,
                     isMultiDay: todo.isMultiDay
                 )
             )
+            // 분류기가 이 할 일에 무엇을 했는지는 여기서 한 번만 남긴다 — 분류가
+            // 돌 때마다 남기면 타이핑 횟수를 세는 셈이 된다.
+            for event in suggestionLog.eventsOnSave { Analytics.log(event) }
             // 튜토리얼 중이라면 방금 이것이 연습 대상이 된다 — 목록에 다른 할 일이
             // 아무리 많아도 스포트라이트가 겨눌 줄이 하나로 정해진다.
             tutorial?.didCreateTodo(todo)
@@ -665,6 +676,7 @@ struct QuickAddView: View {
     /// 다음 항목은 다시 원래 상태(날짜 있으면 그 날짜, 없으면 날짜 없음)로
     /// 초기화한다(수정 모드였다면 해제).
     private func resetFields() {
+        suggestionLog.reset()
         title = ""
         editingTodo = nil
         startDate = initialDate
