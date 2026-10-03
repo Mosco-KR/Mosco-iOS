@@ -250,7 +250,7 @@ struct TutorialOverlay: View {
     /// 순서가 있는 지시 한 줄. 번호를 붙여야 "둘 다 해야 한다"가 눈에 들어온다.
     private func numberedRow(_ number: Int, _ text: String) -> some View {
         HStack(alignment: .center, spacing: 9) {
-            Text("\(number)")
+            Text(verbatim: "\(number)")
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 20, height: 20)
@@ -359,7 +359,7 @@ struct TutorialOverlay: View {
     /// 위젯 놓는 법 한 줄. 끝맺음 카드는 밝은 바탕이라 말풍선의 번호 줄과 색이 다르다.
     private func widgetStep(_ number: Int, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 9) {
-            Text("\(number)")
+            Text(verbatim: "\(number)")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 18, height: 18)

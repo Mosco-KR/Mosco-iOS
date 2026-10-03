@@ -89,7 +89,7 @@ struct TodayTodoWidgetView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 if entry.totalCount > 0 {
-                    Text("\(entry.completedCount)/\(entry.totalCount)")
+                    Text(verbatim: "\(entry.completedCount)/\(entry.totalCount)")
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(.secondary)
                 }

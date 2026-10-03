@@ -185,7 +185,7 @@ struct DayTodosContentView: View {
                 Image(systemName: weather.symbolName)
                     .font(.system(size: 12))
                     .foregroundStyle(MoscoPalette.textSecondary)
-                Text("\(weather.highCelsius)°/\(weather.lowCelsius)°")
+                Text(verbatim: "\(weather.highCelsius)°/\(weather.lowCelsius)°")
                     .font(.moscoCaption())
                     .foregroundStyle(MoscoPalette.textSecondary)
             }
@@ -473,7 +473,7 @@ private struct DayTodoList: View {
         let day = Calendar.current.startOfDay(for: todo.date ?? today)
         let left = Calendar.current.dateComponents([.day], from: today, to: day).day ?? 0
         return VStack(alignment: .leading, spacing: 0) {
-            Text(left == 0 ? "D-DAY" : "D-\(left)")
+            Text(verbatim: left == 0 ? "D-DAY" : "D-\(left)")
                 .font(.system(size: 27, weight: .heavy, design: .rounded).monospacedDigit())
                 .foregroundStyle(isNearest ? .white : MoscoPalette.accent)
                 .lineLimit(1)
