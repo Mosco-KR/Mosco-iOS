@@ -64,7 +64,7 @@ struct WeekBarsView: View, Equatable {
     }
 
     private func overflowLabel(count: Int, column: Int, row: Int) -> some View {
-        Text("+\(count)")
+        Text(verbatim: "+\(count)")
             .font(.system(size: 9, weight: .semibold))
             .foregroundStyle(MoscoPalette.textSecondary)
             .frame(width: metrics.columnWidth, height: MonthPageMetrics.barHeight, alignment: .leading)

@@ -105,7 +105,7 @@ struct WidgetWeekBarsView: View {
     private func overflowLabel(count: Int, column: Int, row: Int) -> some View {
         // 얇은 막대 모드에서는 "+N"을 쓸 높이가 없다 — 그 줄도 막대로 채우는 게 낫다.
         if metrics.showsTitle {
-            Text("+\(count)")
+            Text(verbatim: "+\(count)")
                 .font(.system(size: 8, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .frame(width: metrics.columnWidth, height: metrics.barHeight, alignment: .leading)
@@ -185,7 +185,7 @@ struct WidgetDayNumber: View {
 
     var body: some View {
         let diameter = Self.height(fontSize: fontSize)
-        Text("\(Self.calendar.component(.day, from: day))")
+        Text(verbatim: "\(Self.calendar.component(.day, from: day))")
             .font(.system(size: fontSize, weight: isToday ? .bold : .regular))
             .foregroundStyle(todayForeground)
             .frame(width: diameter, height: diameter)
