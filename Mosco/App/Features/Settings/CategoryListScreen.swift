@@ -80,6 +80,7 @@ struct CategoryListScreen: View {
                 }
             )
         }
+        .logScreen(.categoryList)
     }
 
 }

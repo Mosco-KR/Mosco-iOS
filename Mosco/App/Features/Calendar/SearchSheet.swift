@@ -39,6 +39,7 @@ struct SearchSheet: View {
                     }
                 }
         }
+        .logScreen(.search)
     }
 
     @ViewBuilder

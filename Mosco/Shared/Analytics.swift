@@ -120,6 +120,15 @@ enum AnalyticsEvent {
     /// 옮겨왔는데, 거의 안 쓰이면 머리 자리를 비울지 정한다.
     case searchClosed(openedResult: Bool)
 
+    // MARK: - 화면
+
+    /// 화면을 열었다. 어떤 화면을 세는지는 `AnalyticsScreen`에 적혀 있다.
+    ///
+    /// **이름이 `screen_view`인 것은 우연이 아니다.** Firebase가 예약해 둔 이름이라,
+    /// 이 이름과 `firebase_screen` 파라미터로 보내야 GA4의 "페이지 및 화면" 보고서에
+    /// 들어간다. 다른 이름으로 보내면 맞춤 이벤트가 되어 그 보고서는 계속 비어 있다.
+    case screenViewed(AnalyticsScreen)
+
     var name: String {
         switch self {
         case .todoCreated: "todo_created"
@@ -143,6 +152,7 @@ enum AnalyticsEvent {
         case .reviewPromptRequested: "review_prompt_requested"
         case .dayOpened: "day_opened"
         case .searchClosed: "search_closed"
+        case .screenViewed: "screen_view"
         }
     }
 
@@ -196,6 +206,10 @@ enum AnalyticsEvent {
             ["from": from, "is_today": String(isToday)]
         case let .searchClosed(openedResult):
             ["opened_result": String(openedResult)]
+        case let .screenViewed(screen):
+            // 두 이름을 같이 보낸다. 보고서의 행 제목은 `firebase_screen_class`가
+            // 되는데, 그것만 보내면 "클래스는 있는데 이름이 없는 화면"으로 잡힌다.
+            ["firebase_screen": screen.rawValue, "firebase_screen_class": screen.rawValue]
         }
     }
 

@@ -39,6 +39,7 @@ struct MonthPickerSheet: View {
         .padding(.top, Metrics.spacingLG)
         .presentationDetents([.height(330)])
         .presentationDragIndicator(.visible)
+        .logScreen(.monthPicker)
     }
 
     private func yearButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {

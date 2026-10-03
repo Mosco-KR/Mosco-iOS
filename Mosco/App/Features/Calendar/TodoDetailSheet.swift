@@ -114,6 +114,7 @@ struct TodoDetailSheet: View {
                 }
             }
         }
+        .logScreen(.memo)
     }
 
     /// 어떤 할 일의 메모를 쓰고 있는지 잊지 않도록 제목과 일정을 위에 둔다.

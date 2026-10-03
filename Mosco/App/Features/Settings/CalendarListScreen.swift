@@ -79,6 +79,7 @@ struct CalendarListScreen: View {
                 }
             )
         }
+        .logScreen(.calendarList)
     }
 
 }

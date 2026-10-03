@@ -76,6 +76,7 @@ struct SettingsScreen: View {
                 }
             }
         }
+        .logScreen(.settings)
     }
 
 

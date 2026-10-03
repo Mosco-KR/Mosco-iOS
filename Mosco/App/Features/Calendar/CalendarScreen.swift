@@ -187,6 +187,7 @@ struct CalendarScreen: View {
                 SettingsScreen()
             }
         }
+        .logScreen(.calendar)
     }
 
     // MARK: - 동작

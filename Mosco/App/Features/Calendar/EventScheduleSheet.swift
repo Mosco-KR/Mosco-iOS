@@ -151,6 +151,7 @@ struct EventScheduleSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .logScreen(.eventSchedule)
     }
 
     private var weekdaySelector: some View {
