@@ -94,6 +94,7 @@ struct CalendarEditorSheet: View {
                 }
             }
         }
+        .logScreen(.calendarEditor)
     }
 
     private func colorSwatch(_ hex: String) -> some View {

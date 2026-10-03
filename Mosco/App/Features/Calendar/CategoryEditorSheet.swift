@@ -143,6 +143,7 @@ struct CategoryEditorSheet: View {
             }
             .task { await notificationScheduler.refreshAuthorizationStatus() }
         }
+        .logScreen(.categoryEditor)
     }
 
     private func leadLabel(_ minutes: Int) -> String {

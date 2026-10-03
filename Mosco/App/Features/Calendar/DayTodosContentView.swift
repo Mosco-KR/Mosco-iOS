@@ -83,6 +83,7 @@ struct DayTodosContentView: View {
         // 다시 만들어야 하고, 스와이프는 흉내 내기도 어렵다.
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
+        .logScreen(.day)
     }
 
     /// 할 일 화면의 편집 버튼과 같은 이름·같은 모양이다. 하는 일도 같다 —
