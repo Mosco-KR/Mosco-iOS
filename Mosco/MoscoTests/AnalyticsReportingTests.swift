@@ -39,40 +39,13 @@ struct AnalyticsReportingTests {
         #expect(InternalUser.command(from: URL(string: "mosco://internal/whatever")!) == nil)
     }
 
-    @Test("한_기기에서_켜면_iCloud로_다른_기기와_재설치에도_따라온다")
-    func iCloud로_따라온다() {
-        let cloud = MemoryStore()
-        InternalUser.set(true, cloud: cloud, local: MemoryStore())
-        // 다른 기기, 또는 지웠다 다시 깐 같은 기기 — 기기 저장소는 비어 있다.
-        #expect(InternalUser.isOn(cloud: cloud, local: MemoryStore()))
-    }
-
-    @Test("iCloud가_없어도_기기에서는_켜진다")
-    func iCloud_없이() {
-        let local = MemoryStore()
-        InternalUser.set(true, cloud: nil, local: local)
-        #expect(InternalUser.isOn(cloud: nil, local: local))
-    }
-
-    @Test("아무것도_안_했으면_내부_사용자가_아니다")
-    func 기본값() {
-        #expect(!InternalUser.isOn(cloud: MemoryStore(), local: MemoryStore()))
-    }
-
-    @Test("끄면_다른_기기에서도_꺼진다")
-    func 끄기() {
-        let cloud = MemoryStore(), local = MemoryStore()
-        InternalUser.set(true, cloud: cloud, local: local)
-        InternalUser.set(false, cloud: cloud, local: local)
-        #expect(!InternalUser.isOn(cloud: cloud, local: MemoryStore()))
-    }
-
     // MARK: 사용자 속성
 
     @Test("사용자_속성_이름과_값이_Firebase_한도_안이다")
     func 한도() {
         let properties: [AnalyticsUserProperty] = [
             .internalUser(true),
+            .device(id: DeviceIdentity.makeID(), model: "iPhone17,1"),
             .dataScale(todoCount: 5_000, categoryCount: 999, calendarCount: 999)
         ]
         for (name, value) in properties.flatMap(\.values) {

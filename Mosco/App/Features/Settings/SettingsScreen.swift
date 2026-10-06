@@ -23,6 +23,11 @@ struct SettingsScreen: View {
     /// 시트가 안 뜨던 원인). 캘린더 섹션을 추가할 때 그 시트를 `Section`에 따로
     /// 붙여봤다가 같은 문제를 다시 만났다 — 시트는 하나만 두고 대상으로 가른다.
     /// 데이터 초기화는 두 단계로 확인받는다.
+    /// 이 기기의 등록부 줄. 화면이 뜰 때 한 번 읽는다 — 실행 중에 바뀌는 값은
+    /// 내부 표시뿐이고, 그건 링크(`mosco://internal`)로만 바뀌어서 앱이 다시
+    /// 앞으로 나올 때 반영된다.
+    @State private var device = Analytics.currentDevice()
+    @State private var didCopyDeviceID = false
     @State private var showsResetFirstConfirm = false
     @State private var showsResetSecondConfirm = false
     @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
@@ -65,6 +70,9 @@ struct SettingsScreen: View {
                 syncSection
                 reviewSection
                 resetSection
+                // 내부 사용자로 표시한 기기에만 보인다 — 일반 사용자에게 기기 id는
+                // 아무 뜻도 없는 글자다.
+                if device.isInternal { internalDeviceSection }
             }
             // 설정 앱에서 권한을 바꾸고 돌아왔을 수 있다 — 이 화면이 뜰 때마다 맞춘다.
             .task { await notificationScheduler.refreshAuthorizationStatus() }
@@ -476,6 +484,39 @@ struct SettingsScreen: View {
             Button("취소", role: .cancel) {}
         } message: {
             Text("되돌릴 수 없어요. 동기화 중이라면 다른 기기에서도 사라져요.")
+        }
+    }
+
+    /// 개발자·테스트 기기에만 보이는 줄.
+    ///
+    /// **보고서의 한 줄과 손에 든 기기를 맞추는 데 쓴다.** GA4에서 `device_id`로
+    /// 걸러 보려면 그 값을 알아야 하는데, 기기에서 그걸 읽을 방법이 없었다 —
+    /// 그래서 기종 이름(`iPhone 14 Pro` 행)으로 눈대중해야 했고, 같은 기종이
+    /// 두 대면 가를 수 없었다. 누르면 복사된다.
+    private var internalDeviceSection: some View {
+        Section {
+            Button {
+                UIPasteboard.general.string = device.id
+                didCopyDeviceID = true
+            } label: {
+                HStack(spacing: 6) {
+                    Text("기기 ID")
+                        .foregroundStyle(MoscoPalette.textPrimary)
+                    Spacer(minLength: 0)
+                    Text(device.id)
+                        .font(.footnote.monospaced())
+                        .foregroundStyle(MoscoPalette.textSecondary)
+                    Image(systemName: didCopyDeviceID ? "checkmark" : "doc.on.doc")
+                        .font(.footnote)
+                        .foregroundStyle(MoscoPalette.accent)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "기기 ID \(device.id) 복사하기"))
+        } header: {
+            Text("내부 사용자")
+        } footer: {
+            Text("이 기기(\(device.model))는 분석에서 빠져요. 끄려면 mosco://internal/off를 열어요.")
         }
     }
 
