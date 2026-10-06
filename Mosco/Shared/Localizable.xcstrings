@@ -47,6 +47,29 @@
         }
       }
     },
+    "%@에 시작해요": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts at %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@に始まります"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에 시작해요"
+          }
+        }
+      }
+    },
     "%@으로 보기": {
       "extractionState": "manual",
       "localizations": {
@@ -526,29 +549,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "고른 색이 밝아서 글자가 안 보일까 봐 조금 어둡게 했어요."
-          }
-        }
-      }
-    },
-    "곧 시작해요": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Starting soon"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まもなく始まります"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "곧 시작해요"
           }
         }
       }

@@ -49,22 +49,46 @@ struct RootTabView: View {
     private static let defaultCategoryColorHex = "8B5CF6"
 
     /// 알림에 영향을 주는 값들만 추린 키 — 이게 바뀔 때만 재예약한다.
-    /// 제목/시간/카테고리 알림 설정이 들어가고, 색이나 메모처럼 알림과 무관한
+    /// 제목/시간/카테고리 알림 설정·완료 여부가 들어가고, 색처럼 알림과 무관한
     /// 변경으로는 다시 예약하지 않는다.
+    ///
+    /// **권한 상태가 키에 들어가는 게 중요하다.** 예전엔 없었다. 실행 직후 한 번
+    /// 재예약이 도는데 그때는 아직 권한을 안 물어본 상태라 "권한 없음"으로 그냥
+    /// 돌아나가고, 그 뒤에 사용자가 허용해도 키가 그대로라 다시 돌지 않았다 —
+    /// 앱을 뒤로 보냈다 돌아오기 전까지 알림이 하나도 안 걸려 있었다.
+    /// 거부했을 때는 전체 스위치가 함께 내려가서(`isEnabled`) 키가 바뀌었기
+    /// 때문에, 허용한 쪽만 조용히 비어 있었다.
     private var rescheduleKey: String {
         // 전체 스위치도 키에 넣어야 껐을 때 예약이 즉시 걷힌다.
-        "\(notificationScheduler.isEnabled)|" + todos.map { todo in
-            let category = todo.category
-            return [
-                todo.id.uuidString,
-                todo.title,
-                todo.startTime.map { "\($0.timeIntervalSince1970)" } ?? "-",
-                todo.date.map { "\($0.timeIntervalSince1970)" } ?? "-",
-                todo.repeatRule.rawValue,
-                category.map { "\($0.notifiesBeforeStart)-\($0.notificationLeadMinutes)" } ?? "-"
-            ].joined(separator: "|")
+        "\(notificationScheduler.isEnabled)|\(notificationScheduler.authorizationStatus.rawValue)|"
+            + todos.map(Self.reminderFingerprint(of:)).joined(separator: ";")
+    }
+
+    /// 할 일 하나가 알림에 미치는 것들만 문자열 하나로 압축한다.
+    ///
+    /// `liveActivityFingerprint`와 같은 이유로 한 줄짜리 배열 리터럴을 쓰지 않는다 —
+    /// 항목이 늘어나면 컴파일러가 타입 추론을 포기한다("unable to type-check this
+    /// expression in reasonable time").
+    private static func reminderFingerprint(of todo: TodoItem) -> String {
+        var parts: [String] = []
+        parts.append(todo.id.uuidString)
+        parts.append(todo.title)
+        parts.append(timeKey(todo.startTime))
+        parts.append(timeKey(todo.date))
+        parts.append(todo.repeatRule.rawValue)
+        parts.append(timeKey(todo.repeatEndDate))
+        // **완료 여부가 들어가야 끝낸 일의 알림이 즉시 걷힌다.** 예전엔 빠져 있어서,
+        // 10시 일정을 9시 30분에 끝내도 9시 50분에 알림이 울렸다 — 걷히는 시점이
+        // 앱을 뒤로 보냈다 돌아올 때였다. 라이브 액티비티 키에는 처음부터 있었고
+        // (`liveActivityFingerprint`) 이쪽만 빠져 있었다.
+        parts.append(String(todo.isCompleted))
+        parts.append(todo.completedDayKeys?.joined(separator: ",") ?? "-")
+        if let category = todo.category {
+            parts.append("\(category.notifiesBeforeStart)-\(category.notificationLeadMinutes)")
+        } else {
+            parts.append("-")
         }
-        .joined(separator: ";")
+        return parts.joined(separator: "|")
     }
 
     /// 라이브 액티비티를 다시 계산해야 하는 값들.
