@@ -34,7 +34,7 @@ iPhone 18 Pro다.
 
 | 이벤트 | 값 | 무엇을 정하려는가 |
 |---|---|---|
-| `todo_created` | `source`(`calendar_home`·`today_page`·`calendar_day`·`tutorial`·`tutorial_assist`), `has_date`, `has_time`, `repeat_rule`, `is_multi_day` | 어디서 적는가. 1.4.0에서 홈 입력창을 만든 게 쓰이는지, 오늘 페이지가 예전 오늘 탭 자리를 잇는지. 튜토리얼에서 따라 적은 것은 `tutorial`로 따로 센다 |
+| `todo_created` | `source`(`calendar_home`·`today_tab`·`today_page`·`calendar_day`·`tutorial`·`tutorial_assist`), `has_date`, `has_time`, `repeat_rule`, `is_multi_day` | 어디서 적는가. 홈 입력창이 쓰이는지, 되살린 오늘 탭(`today_tab`)과 달력에서 눌러 들어온 오늘 페이지(`today_page`)가 각각 얼마나 쓰이는지. 튜토리얼에서 따라 적은 것은 `tutorial`로 따로 센다 |
 | `todo_completed` | `source`(`app`·`widget`·`live_activity`), `completed`, `is_repeating` | 어디서 끝내는가. **체크 해제도 같은 이벤트다** — 끝낸 수를 볼 때는 `completed = true`만 센다 |
 
 ### 분류기 — 자동 카테고리가 값을 하나
@@ -80,7 +80,7 @@ iPhone 18 Pro다.
 
 | 이벤트 | 값 | 무엇을 정하려는가 |
 |---|---|---|
-| `day_opened` | `from`(`calendar_cell`·`widget`·`live_activity`·`search`·`tutorial`), `is_today` | 오늘 탭을 없앤 뒤에도 사람들이 오늘 페이지에 오는가, 무엇이 주된 입구인가. 오늘 열기가 크게 줄면 '오늘'로 바로 가는 길을 다시 만든다 |
+| `day_opened` | `from`(`calendar_cell`·`widget`·`live_activity`·`search`·`tutorial`), `is_today` | 어느 문으로 하루 페이지에 들어오는가. **탭을 직접 누른 것은 여기 안 들어온다** — 그건 `screen_view(today)`가 센다. 1.4.3에서 탭이 돌아온 뒤 `calendar_cell`로 오늘을 여는 비율이 떨어지는지 보면, 탭이 그 길을 대신하고 있는지 알 수 있다 |
 | `search_closed` | `opened_result` | 검색이 오늘 탭에서 달력 머리로 옮겨왔는데 쓰이는가. 거의 안 쓰이면 머리 자리를 비운다 |
 
 달 고르기, 돌아가기 버튼, 업데이트 안내는 일부러 안 센다 — 결과가 어느 쪽으로 나와도 다음에
@@ -100,7 +100,7 @@ iPhone 18 Pro다.
 
 | 이벤트 | 값 | 무엇을 정하려는가 |
 |---|---|---|
-| `screen_view` | `firebase_screen` | 어느 화면을 얼마나 여나. 설정 안쪽(캘린더·카테고리 목록)처럼 들어가는 사람이 적을 것 같은 곳이 정말 그런지 |
+| `screen_view` | `firebase_screen` | 어느 화면을 얼마나 여나. 설정 안쪽(캘린더·카테고리 목록)처럼 들어가는 사람이 적을 것 같은 곳이 정말 그런지. `calendar`와 `today`로 **되살린 탭이 쓰이는지**도 이걸로 본다 |
 
 **이름을 우리가 지은 게 아니다.** `screen_view`와 `firebase_screen`은 Firebase가 예약해 둔
 것이라, 이 이름으로 보내야 GA4의 "페이지 및 화면" 보고서에 들어간다. 다른 이름으로 보내면
@@ -111,10 +111,21 @@ iPhone 18 Pro다.
 느끼는 자리뿐이다 — 전체를 덮는 시트와 밀려 들어오는 페이지. 확인창과 길게 누르기 메뉴,
 안내 오버레이, 달력 아래 입력창은 세지 않는다.
 
+**탭은 화면이 스스로 세지 않는다.** 탭 바에 서는 둘(`calendar`·`today`)은 `RootTabView`가
+선택이 바뀔 때 센다. 뷰에 붙인 `logScreen`으로는 셀 수 없다 — 탭은 한 번 세워지면 앱이 떠
+있는 동안 살아 있어서 그 `task`가 실행당 한 번만 돌고, "얼마나 자주 보나"에 답하지 못한다.
+그래서 오늘 탭과 **달력에서 날짜를 눌러 밀려 들어온** 하루 페이지는 이름이 다르다
+(`today` / `day`). 같은 화면(`DayTodosContentView`)이지만 묻는 것이 다르다.
+
 **`day_opened`와 겹쳐 보일 수 있는데 하는 일이 다르다.** `screen_view(day)`는 "하루 페이지를
 얼마나 자주 보나", `day_opened`는 "어느 문으로 들어왔나(`from`)"에 답한다. 앞의 것은 다른
 화면과 나란히 비교할 수 있고, 뒤의 것은 입구를 고칠 때 쓴다. 둘 중 하나를 지우려면 질문이
 먼저 없어져야 한다.
+
+**기기에서 바로 읽을 수도 있다.** 화면 이름은 콘솔에도 남는다 — Xcode나 Console.app에서
+`com.Mosco.App`의 `screens` 분류를 보면 `화면 → today`처럼 찍힌다. 릴리스 빌드에서도 남는다.
+GA4는 하루쯤 지나서야 보이고 DebugView는 따로 켜야 하는데, "지금 어느 화면으로 세어졌나"는
+기기를 들고 눌러보며 확인하는 질문이라서 그 통로를 따로 뒀다.
 
 **1.3.x까지의 "페이지 및 화면" 보고서는 읽지 마라.** 그때는 이 이벤트가 없어서, 시스템이
 UIKit으로 띄워주는 것(`UIColorPickerViewController` = 설정의 색 선택기,
@@ -191,6 +202,7 @@ UIKit으로 띄워주는 것(`UIColorPickerViewController` = 설정의 색 선�
 | 첫날 할 일을 적는가 | 첫날 `todo_created`(source ≠ `tutorial`)가 있는 신규 사용자 비율 | 미측정(전체 기간 약 65%) | 낮으면 홈 입력창이 안 보이거나 안 쓰인다 |
 | 튜토리얼 입구 | `tutorial_step(step = typeTitle)` 사용자 ÷ `tutorial_started` 사용자 | 약 30% | 오르면 시작 카드를 없앤 게 맞았다 |
 | 오늘 페이지에 오는가 | `day_opened(is_today = true)` 사용자 비율, `from`별 | 없음(새 이벤트) | 활성 사용자 대비 낮으면 '오늘'로 바로 가는 길을 다시 둔다 |
+| 되살린 오늘 탭이 쓰이나 | `screen_view(today)` 사용자 수와 1인당 횟수, `todo_created(source = today_tab)` | 없음(1.4.3부터) | 거의 안 쓰이면 탭을 되살린 값어치가 없다. 반대로 `calendar_cell`로 오늘을 여는 것이 줄고 이쪽이 늘면 탭이 그 길을 대신하고 있다 |
 | 검색이 쓰이나 | `search_closed` 사용자 수, `opened_result = true` 비율 | 없음 | 거의 없으면 달력 머리에서 뺀다 |
 | 위젯을 두는가 | `widget_rendered` 사용자 ÷ 활성 사용자 | 16명(약 25%) | 오르면 끝맺음 카드의 권유가 먹혔다 |
 | 분류기가 돕나 | `category_overridden` ÷ `category_suggested(matched = true)` | 계산 불가(소음) | 높으면 임계값(0.35)부터 의심한다 |

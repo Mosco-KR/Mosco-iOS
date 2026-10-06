@@ -332,7 +332,18 @@ enum Analytics {
         set(.internalUser(InternalUser.isOn(cloud: cloud, local: local)))
     }
 
+    /// 화면 이동을 기기에서 바로 읽기 위한 통로. 아무 데도 보내지 않고 콘솔에만
+    /// 남는다(Xcode나 Console.app의 `com.Mosco.App` / `screens`).
+    private static let screenLogger = Logger(subsystem: "com.Mosco.App", category: "screens")
+
     static func log(_ event: AnalyticsEvent) {
+        // **화면 이름은 콘솔에도 남긴다.** GA4는 하루쯤 지나서야 보이고 DebugView는
+        // 따로 켜야 하는데, "지금 어느 화면으로 세어졌나"는 기기를 들고 눌러보며
+        // 확인하는 질문이다. 릴리스 빌드에서도 남으므로 실기기에서 바로 읽을 수 있다.
+        // 남는 것은 화면 이름 하나뿐이다 — 사람에 관한 것은 들어가지 않는다.
+        if case let .screenViewed(screen) = event, isEnabled {
+            screenLogger.info("화면 → \(screen.rawValue, privacy: .public)")
+        }
         send(name: event.name, parameters: event.parameters)
     }
 
