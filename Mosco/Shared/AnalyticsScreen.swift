@@ -25,11 +25,22 @@ import Foundation
 /// - 확인창·메뉴(`confirmationDialog`, 길게 누르기 메뉴) — 머물지 않고 바로 답한다
 /// - 안내 오버레이(`TutorialOverlay`) — 그 흐름은 `tutorial_step`이 이미 더 자세히 센다
 /// - 입력창(`QuickAddView`) — 달력 화면의 일부지 따로 간 곳이 아니다
+///
+/// ## 탭은 화면이 스스로 세지 않는다
+///
+/// 탭 바에 서는 둘(`calendar`·`today`)은 `RootTabView`가 선택이 바뀔 때 센다.
+/// 탭은 한 번 세워지면 앱이 떠 있는 동안 계속 살아 있어서, 뷰에 붙인 `task`는
+/// 실행당 한 번만 돌고 "얼마나 자주 보나"에 답하지 못한다.
 nonisolated enum AnalyticsScreen: String, CaseIterable, Sendable {
-    /// 달력 홈. 앱이 열리면 여기다.
+    /// 달력 탭. 앱이 열리면 여기다.
     case calendar
-    /// 하루 페이지(오늘 포함). **어디서 왔는지는 `day_opened`가 따로 센다** —
-    /// 이쪽은 "얼마나 자주 보나", 저쪽은 "어느 문으로 들어오나"에 답한다.
+    /// 오늘 할 일 탭. 보이는 것은 `day`와 같은 화면이지만(`DayTodosContentView`)
+    /// 묻는 것이 다르다 — 이쪽은 "되살린 탭이 쓰이는가"에 답한다. 둘을 한 이름으로
+    /// 묶으면 탭을 둘로 나눈 판단을 채점할 수 없다.
+    case today
+    /// 달력에서 날짜를 눌러 **밀려 들어온** 하루 페이지. **어디서 왔는지는
+    /// `day_opened`가 따로 센다** — 이쪽은 "얼마나 자주 보나", 저쪽은 "어느 문으로
+    /// 들어오나"에 답한다.
     case day
     /// 설정.
     case settings

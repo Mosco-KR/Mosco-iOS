@@ -22,9 +22,6 @@ struct CalendarScreen: View {
     @State private var isKeyboardShown = false
     @State private var showsSearch = false
     @State private var searchPickedDate: Date?
-    @State private var navigation = AppNavigation.shared
-    /// 오늘 탭이 사라진 걸 예전 사용자에게 한 번 알린다(`CalendarHomeNotice`).
-    @AppStorage(CalendarHomeNotice.key) private var homeNotice = ""
     /// 홈 입력창이 고치고 있는 할 일. 홈에는 목록이 없어 대개 비어 있다.
     @State private var homeEditingTodo: TodoItem?
     @Query(sort: \TodoCalendar.sortOrder) private var calendars: [TodoCalendar]
@@ -112,23 +109,6 @@ struct CalendarScreen: View {
             .sheet(isPresented: $showsMonthPicker) {
                 MonthPickerSheet(month: $visibleMonth)
             }
-            // '오늘 할 일' 위젯·라이브 액티비티로 들어오면 오늘 페이지를 바로 연다.
-            // 꺼져 있다 켜진 경우엔 URL이 먼저 와 있으므로 처음 값도 본다.
-            .onChange(of: navigation.todayPageRequest, initial: true) { _, source in
-                guard let source else { return }
-                navigation.todayPageRequest = nil
-                select(Date(), from: source)
-            }
-            .overlay(alignment: .bottom) {
-                // 다른 달을 볼 때는 그 자리를 '이번 달' 버튼이 쓰므로 비켜준다.
-                if homeNotice == CalendarHomeNotice.pending, visibleMonth == .containing(Date()) {
-                    homeMoveNotice
-                        .padding(.horizontal, Metrics.spacingMD)
-                        .padding(.bottom, Metrics.spacingSM)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: homeNotice)
             // 검색 결과를 고르면 시트가 닫힌 **뒤에** 그날 페이지를 연다 — 닫히는 중에
             // 밀어 넣으면 내비게이션이 씹힌다.
             .sheet(isPresented: $showsSearch, onDismiss: {
@@ -187,7 +167,6 @@ struct CalendarScreen: View {
                 SettingsScreen()
             }
         }
-        .logScreen(.calendar)
     }
 
     // MARK: - 동작
@@ -203,10 +182,6 @@ struct CalendarScreen: View {
         dismissKeyboard()
         let start = calendar.startOfDay(for: day)
         Analytics.log(.dayOpened(from: source, isToday: calendar.isDateInToday(start)))
-        // 안내가 가리키던 일(오늘을 눌러 열기)을 했으면 안내는 할 일을 다 했다.
-        if homeNotice == CalendarHomeNotice.pending, calendar.isDateInToday(start) {
-            homeNotice = CalendarHomeNotice.done
-        }
         selectedDate = start
         tutorial?.didOpenDay(start)
     }
@@ -384,40 +359,6 @@ struct CalendarScreen: View {
 
     /// 업데이트 뒤 처음 한 번. 탭 바를 눌러 오늘 할 일을 보던 사람에게 그 자리가
     /// 어디로 갔는지 알린다. 오늘을 눌러보거나 닫으면 다시 안 뜬다.
-    private var homeMoveNotice: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "hand.point.up.left.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(MoscoPalette.accent)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("오늘 할 일은 여기로 옮겼어요")
-                    .font(.moscoCaption().weight(.semibold))
-                    .foregroundStyle(MoscoPalette.textPrimary)
-                Text("달력에서 오늘을 누르면 열려요")
-                    .font(.moscoCaption())
-                    .foregroundStyle(MoscoPalette.textSecondary)
-            }
-            Spacer(minLength: 0)
-            Button {
-                homeNotice = CalendarHomeNotice.done
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(MoscoPalette.textSecondary)
-                    .frame(width: 32, height: 32)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("안내 닫기")
-        }
-        .padding(.leading, 14)
-        .padding(.vertical, 10)
-        .padding(.trailing, 4)
-        // 떠 있는 요소라 글라스를 쓴다(규범: 글라스는 떠 있는 것에만).
-        .moscoGlass(in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.1), radius: 12, y: 4)
-    }
-
     private var searchButton: some View {
         Button {
             showsSearch = true

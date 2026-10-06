@@ -990,6 +990,29 @@
         }
       }
     },
+    "달력": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カレンダー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "달력"
+          }
+        }
+      }
+    },
     "달력에서 오늘을 누르면 열려요": {
       "extractionState": "manual",
       "localizations": {
