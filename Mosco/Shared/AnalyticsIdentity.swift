@@ -84,30 +84,20 @@ nonisolated enum AnalyticsIdentity {
     }
 }
 
-/// 개발자·테스트 기기 표시. 분석에서 이 사람들을 빼고 봐야 실제 사용자 숫자가 나온다.
+/// 개발자·테스트 기기 표시를 켜고 끄는 **링크**.
 ///
 /// 개발자 기기 두 대가 9월 데이터에서 사용자 7~9명, 참여 세션의 15~30%로 잡혔다.
 /// 지웠다 깔 때마다 새 사람이 됐고, 사용법 안내를 반복해서 본 기록이 실제 사용자의
 /// 이탈 지점 숫자에 섞였다.
 ///
 /// **켜는 법:** 그 기기에서 `mosco://internal`을 한 번 연다(메모 앱이나 사파리에서).
-/// 끄려면 `mosco://internal/off`. 값은 iCloud에도 적어서, 같은 Apple 계정의 다른
-/// 기기와 재설치 뒤에도 따라온다.
+/// 끄려면 `mosco://internal/off`.
+///
+/// **표시는 기기 한 대에만 붙는다** — 어디에 적히고 어떻게 재설치를 건너오는지는
+/// `DeviceIdentity`에 있다. 1.4.2까지는 계정 하나에 하나뿐이어서, 한 대를 표시하면
+/// 같은 Apple 계정의 모든 기기가 같이 빠졌다.
 enum InternalUser {
-    static let key = "analyticsInternalUser"
     static let host = "internal"
-
-    /// 이 기기가 내부 사용자인가. iCloud 값이 있으면 그게 정본이다.
-    static func isOn(cloud: (any IdentityStore)?, local: any IdentityStore) -> Bool {
-        let value = cloud?.string(forKey: key) ?? local.string(forKey: key)
-        return value == "1"
-    }
-
-    static func set(_ on: Bool, cloud: (any IdentityStore)?, local: any IdentityStore) {
-        let value = on ? "1" : "0"
-        local.set(value, forKey: key)
-        cloud?.set(value, forKey: key)
-    }
 
     /// 받은 URL이 이 표시를 켜거나 끄라는 것이면 그 값, 아니면 nil.
     static func command(from url: URL) -> Bool? {

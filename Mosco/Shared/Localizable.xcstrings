@@ -47,6 +47,29 @@
         }
       }
     },
+    "%@에 시작해요": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts at %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@に始まります"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에 시작해요"
+          }
+        }
+      }
+    },
     "%@으로 보기": {
       "extractionState": "manual",
       "localizations": {
@@ -530,29 +553,6 @@
         }
       }
     },
-    "곧 시작해요": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Starting soon"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "まもなく始まります"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "곧 시작해요"
-          }
-        }
-      }
-    },
     "광복절": {
       "extractionState": "manual",
       "localizations": {
@@ -986,6 +986,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "다음 해"
+          }
+        }
+      }
+    },
+    "달력": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Calendar"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カレンダー"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "달력"
           }
         }
       }

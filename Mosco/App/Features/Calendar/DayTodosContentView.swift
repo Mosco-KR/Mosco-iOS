@@ -17,9 +17,28 @@ struct DayTodosContentView: View {
     /// 달력은 들어온 자리를 그대로 지키므로(`CalendarScreen.select`) 여기서
     /// 옮겨 다닌 결과를 밖으로 올리지 않는다.
     @State private var shownDate: Date
+    /// 이 화면이 어디에 서 있나. 보이는 것은 같지만 **로그에 남는 이름과 입력창
+    /// 출처가 갈린다** — "오늘 탭을 쓰는가"와 "달력에서 날짜를 눌러 들어오는가"는
+    /// 다른 질문이고, 둘을 한 이름으로 섞으면 어느 쪽도 답이 안 나온다.
+    enum Origin {
+        /// 오늘 탭의 뿌리. 뒤로 가기가 없다.
+        case tab
+        /// 달력에서 날짜를 눌러 밀려 들어온 페이지.
+        case pushed
+    }
 
-    init(date: Date) {
+    private let origin: Origin
+
+    init(date: Date, origin: Origin = .pushed) {
         _shownDate = State(initialValue: date)
+        self.origin = origin
+    }
+
+    /// 입력창에 실릴 출처. 오늘을 보고 있을 때만 탭과 페이지를 가른다 —
+    /// 다른 날짜는 어느 쪽에서 왔든 "달력의 그날"이다.
+    private var quickAddSource: String {
+        guard Calendar.current.isDateInToday(shownDate) else { return "calendar_day" }
+        return origin == .tab ? "today_tab" : "today_page"
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -69,11 +88,12 @@ struct DayTodosContentView: View {
         // 커지면 히트 영역이 따라오지 않는다. 먼저 붙인 쪽이 안쪽(위)에 온다.
         .safeAreaInset(edge: .bottom, spacing: Metrics.spacingSM) { pasteBar }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            // 오늘 페이지에서 적은 것은 따로 센다 — 예전 오늘 탭 자리가 쓰이는지 보려고.
+            // 어디서 적었는지 따로 센다 — 오늘 탭과 달력에서 눌러 들어온 오늘
+            // 페이지가 각각 얼마나 쓰이는지가 탭을 둘로 나눈 판단의 성적표다.
             QuickAddView(
                 date: shownDate,
                 editingTodo: $editingTodo,
-                analyticsSource: Calendar.current.isDateInToday(shownDate) ? "today_page" : "calendar_day"
+                analyticsSource: quickAddSource
             )
         }
         .safeAreaInset(edge: .top, spacing: 0) { weekStrip }
@@ -83,7 +103,10 @@ struct DayTodosContentView: View {
         // 다시 만들어야 하고, 스와이프는 흉내 내기도 어렵다.
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
-        .logScreen(.day)
+        // **탭 뿌리일 때는 자기를 세지 않는다.** 탭은 한 번 세워지면 앱이 떠 있는
+        // 동안 계속 살아 있어서 `task`가 다시 돌지 않는다 — 실행당 한 번만 찍히고
+        // "얼마나 자주 보나"에 답하지 못한다. 탭을 세는 자리는 `RootTabView`다.
+        .logScreen(origin == .pushed ? .day : nil)
     }
 
     /// 할 일 화면의 편집 버튼과 같은 이름·같은 모양이다. 하는 일도 같다 —

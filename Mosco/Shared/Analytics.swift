@@ -223,6 +223,11 @@ enum AnalyticsEvent {
 enum AnalyticsUserProperty {
     /// 개발자·테스트 기기. 보고서에서 이 값이 `true`인 사람을 빼야 실제 사용자 숫자다.
     case internalUser(Bool)
+    /// 어느 기기에서 온 이벤트인가. **기종만으로는 같은 기종 두 대를 가를 수 없고,**
+    /// GA4의 기종 열은 때로 그냥 "iPhone"이라 아무것도 가르지 못한다. 짧은 id를
+    /// 함께 실어서 보고서의 한 줄과 손에 든 기기를 맞출 수 있게 한다
+    /// (같은 id가 설정 화면에도 뜬다 — `DeviceIdentity`).
+    case device(id: String, model: String)
     /// 앱을 열 때 들고 있는 규모. 정확한 개수는 필요 없고 몇 건대인지만 안다.
     case dataScale(todoCount: Int, categoryCount: Int, calendarCount: Int)
 
@@ -231,6 +236,10 @@ enum AnalyticsUserProperty {
         switch self {
         case let .internalUser(isInternal):
             [("internal_user", String(isInternal))]
+        case let .device(id, model):
+            // 값은 36자까지다. 기종 문자열이 길어질 일은 없지만 잘라서 보낸다 —
+            // 넘치면 Firebase가 그 속성을 조용히 버린다.
+            [("device_id", String(id.prefix(36))), ("device_model", String(model.prefix(36)))]
         case let .dataScale(todoCount, categoryCount, calendarCount):
             [
                 ("todo_count_bucket", Self.countBucket(todoCount)),
@@ -329,10 +338,35 @@ enum Analytics {
         if AnalyticsIdentity.markReported(in: local) {
             log(.analyticsIdentity(origin: String(describing: origin)))
         }
-        set(.internalUser(InternalUser.isOn(cloud: cloud, local: local)))
+
+        // 어느 기기인가. 사람 식별자(위)와 다른 질문이다 — 한 사람이 여러 기기를
+        // 쓰고, 개발자 기기를 빼는 일은 사람이 아니라 기기 단위로 해야 한다.
+        let device = DeviceIdentity.resolve(cloud: cloud, local: local, model: DeviceModel.current).device
+        set(.device(id: device.id, model: device.model))
+        set(.internalUser(device.isInternal))
     }
 
+    /// 이 기기의 등록부 줄. 설정 화면이 id를 보여주고 내부 표시를 토글하는 데 쓴다.
+    static func currentDevice() -> DeviceRecord {
+        DeviceIdentity.resolve(
+            cloud: CloudIdentityStore(),
+            local: UserDefaults.standard,
+            model: DeviceModel.current
+        ).device
+    }
+
+    /// 화면 이동을 기기에서 바로 읽기 위한 통로. 아무 데도 보내지 않고 콘솔에만
+    /// 남는다(Xcode나 Console.app의 `com.Mosco.App` / `screens`).
+    private static let screenLogger = Logger(subsystem: "com.Mosco.App", category: "screens")
+
     static func log(_ event: AnalyticsEvent) {
+        // **화면 이름은 콘솔에도 남긴다.** GA4는 하루쯤 지나서야 보이고 DebugView는
+        // 따로 켜야 하는데, "지금 어느 화면으로 세어졌나"는 기기를 들고 눌러보며
+        // 확인하는 질문이다. 릴리스 빌드에서도 남으므로 실기기에서 바로 읽을 수 있다.
+        // 남는 것은 화면 이름 하나뿐이다 — 사람에 관한 것은 들어가지 않는다.
+        if case let .screenViewed(screen) = event, isEnabled {
+            screenLogger.info("화면 → \(screen.rawValue, privacy: .public)")
+        }
         send(name: event.name, parameters: event.parameters)
     }
 

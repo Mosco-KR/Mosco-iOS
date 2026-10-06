@@ -24,9 +24,25 @@
 
 **개발자 기기는 표시해서 뺀다.** TestFlight나 직접 설치한 빌드도 일반 사용자로 잡히기 때문에,
 개발자 기기에서 `mosco://internal`을 한 번 열어 둔다(메모 앱에 적고 누르면 된다). 그러면
-사용자 속성 `internal_user = true`가 붙고, iCloud에 저장돼 같은 Apple 계정의 다른 기기와
-재설치 뒤에도 따라온다. 끄려면 `mosco://internal/off`. 지금 개발자 기기는 iPhone 14 Pro와
-iPhone 18 Pro다.
+사용자 속성 `internal_user = true`가 붙는다. 끄려면 `mosco://internal/off`. 지금 개발자
+기기는 iPhone 14 Pro와 iPhone 18 Pro다.
+
+**1.4.3부터 그 표시는 기기 한 대에만 붙는다.** 그 전에는 계정 하나에 하나뿐이어서, 한 대를
+표시하면 같은 Apple 계정의 모든 기기가 같이 빠졌다 — 기기별로 켜고 끌 수가 없었다. 이제
+iCloud에는 기기 **목록**이 들어간다(`DeviceIdentity`). 각 줄에 짧은 id와 기종, 내부 표시가
+있고, 다른 기기에서도 그 목록이 보인다.
+
+앱을 지우면 기기 id가 새로 생기므로, **기종이 같고 내부로 표시된 기기가 목록에 있으면 그
+표시를 물려받는다.** 재설치한 14 Pro는 표시를 다시 얻고, 같은 계정의 다른 기종은 영향이
+없다. 기기를 영구히 식별하는 값은 앱이 가질 수 없어서(`identifierForVendor`도 앱을 지우면
+바뀐다) 이게 가능한 선 중 가장 정확한 쪽이다. 같은 기종 두 대를 하나만 내부로 두려는
+경우에는 틀리는데, 그 상황보다 재설치가 훨씬 잦다.
+
+**어느 기기인지 보고서에서 바로 가를 수 있다.** 사용자 속성 `device_id`(8자)와
+`device_model`(`iPhone17,1`)을 싣는다. GA4의 기종 열은 때로 그냥 "iPhone"이라 두 대를 가를
+수 없고, 기종이 같으면 애초에 가를 수가 없었다. 손에 든 기기의 id는 **설정 화면 맨 아래**에
+뜬다(내부로 표시한 기기에만 보인다. 누르면 복사된다). `mosco://internal`을 열었을 때 나오는
+알림창에도 같은 값이 적힌다.
 
 ## 2. 이벤트와 각자가 답하는 질문
 
@@ -34,7 +50,7 @@ iPhone 18 Pro다.
 
 | 이벤트 | 값 | 무엇을 정하려는가 |
 |---|---|---|
-| `todo_created` | `source`(`calendar_home`·`today_page`·`calendar_day`·`tutorial`·`tutorial_assist`), `has_date`, `has_time`, `repeat_rule`, `is_multi_day` | 어디서 적는가. 1.4.0에서 홈 입력창을 만든 게 쓰이는지, 오늘 페이지가 예전 오늘 탭 자리를 잇는지. 튜토리얼에서 따라 적은 것은 `tutorial`로 따로 센다 |
+| `todo_created` | `source`(`calendar_home`·`today_tab`·`today_page`·`calendar_day`·`tutorial`·`tutorial_assist`), `has_date`, `has_time`, `repeat_rule`, `is_multi_day` | 어디서 적는가. 홈 입력창이 쓰이는지, 되살린 오늘 탭(`today_tab`)과 달력에서 눌러 들어온 오늘 페이지(`today_page`)가 각각 얼마나 쓰이는지. 튜토리얼에서 따라 적은 것은 `tutorial`로 따로 센다 |
 | `todo_completed` | `source`(`app`·`widget`·`live_activity`), `completed`, `is_repeating` | 어디서 끝내는가. **체크 해제도 같은 이벤트다** — 끝낸 수를 볼 때는 `completed = true`만 센다 |
 
 ### 분류기 — 자동 카테고리가 값을 하나
@@ -80,7 +96,7 @@ iPhone 18 Pro다.
 
 | 이벤트 | 값 | 무엇을 정하려는가 |
 |---|---|---|
-| `day_opened` | `from`(`calendar_cell`·`widget`·`live_activity`·`search`·`tutorial`), `is_today` | 오늘 탭을 없앤 뒤에도 사람들이 오늘 페이지에 오는가, 무엇이 주된 입구인가. 오늘 열기가 크게 줄면 '오늘'로 바로 가는 길을 다시 만든다 |
+| `day_opened` | `from`(`calendar_cell`·`widget`·`live_activity`·`search`·`tutorial`), `is_today` | 어느 문으로 하루 페이지에 들어오는가. **탭을 직접 누른 것은 여기 안 들어온다** — 그건 `screen_view(today)`가 센다. 1.4.3에서 탭이 돌아온 뒤 `calendar_cell`로 오늘을 여는 비율이 떨어지는지 보면, 탭이 그 길을 대신하고 있는지 알 수 있다 |
 | `search_closed` | `opened_result` | 검색이 오늘 탭에서 달력 머리로 옮겨왔는데 쓰이는가. 거의 안 쓰이면 머리 자리를 비운다 |
 
 달 고르기, 돌아가기 버튼, 업데이트 안내는 일부러 안 센다 — 결과가 어느 쪽으로 나와도 다음에
@@ -93,14 +109,15 @@ iPhone 18 Pro다.
 | `review_prompt_requested` | 리뷰를 부탁할 조건이 얼마나 자주 차나. **실제로 창이 떴는지는 알 수 없다** — 조건을 조일지 풀지 정하는 데만 쓴다 |
 | `store_local_fallback` | iCloud 저장소를 못 열고 로컬로 물러났다. 드물지만 데이터를 잃는 길이라 0이 아니면 본다 |
 | `analytics_identity` (`origin`) | 설치마다 한 번 — 식별자를 새로 만들었나, iCloud에서 되찾았나. 재설치를 건너온 비율 |
-| 사용자 속성 `internal_user` | 개발자·테스트 기기. 보고서에서 `true`를 빼야 실제 사용자 숫자다 |
+| 사용자 속성 `internal_user` | 개발자·테스트 기기. 보고서에서 `true`를 빼야 실제 사용자 숫자다. 1.4.3부터 **기기 한 대 단위**다 |
+| 사용자 속성 `device_id`·`device_model` | 같은 사람의 어느 기기인가. 기종 이름만으로는 같은 기종 두 대를 가를 수 없다. 쓰임은 하나 — 개발자 기기를 정확히 집어 빼는 것 |
 | 사용자 속성 `todo_count_bucket`·`category_count`·`calendar_count` | 들고 있는 규모. "많이 든 사람이 더 남나" 같은 비교에 쓴다. 1.3.x까지는 `data_scale` 이벤트로 실행마다 남겼다 |
 
 ### 어느 화면에 있나 (1.4.2부터)
 
 | 이벤트 | 값 | 무엇을 정하려는가 |
 |---|---|---|
-| `screen_view` | `firebase_screen` | 어느 화면을 얼마나 여나. 설정 안쪽(캘린더·카테고리 목록)처럼 들어가는 사람이 적을 것 같은 곳이 정말 그런지 |
+| `screen_view` | `firebase_screen` | 어느 화면을 얼마나 여나. 설정 안쪽(캘린더·카테고리 목록)처럼 들어가는 사람이 적을 것 같은 곳이 정말 그런지. `calendar`와 `today`로 **되살린 탭이 쓰이는지**도 이걸로 본다 |
 
 **이름을 우리가 지은 게 아니다.** `screen_view`와 `firebase_screen`은 Firebase가 예약해 둔
 것이라, 이 이름으로 보내야 GA4의 "페이지 및 화면" 보고서에 들어간다. 다른 이름으로 보내면
@@ -111,10 +128,21 @@ iPhone 18 Pro다.
 느끼는 자리뿐이다 — 전체를 덮는 시트와 밀려 들어오는 페이지. 확인창과 길게 누르기 메뉴,
 안내 오버레이, 달력 아래 입력창은 세지 않는다.
 
+**탭은 화면이 스스로 세지 않는다.** 탭 바에 서는 둘(`calendar`·`today`)은 `RootTabView`가
+선택이 바뀔 때 센다. 뷰에 붙인 `logScreen`으로는 셀 수 없다 — 탭은 한 번 세워지면 앱이 떠
+있는 동안 살아 있어서 그 `task`가 실행당 한 번만 돌고, "얼마나 자주 보나"에 답하지 못한다.
+그래서 오늘 탭과 **달력에서 날짜를 눌러 밀려 들어온** 하루 페이지는 이름이 다르다
+(`today` / `day`). 같은 화면(`DayTodosContentView`)이지만 묻는 것이 다르다.
+
 **`day_opened`와 겹쳐 보일 수 있는데 하는 일이 다르다.** `screen_view(day)`는 "하루 페이지를
 얼마나 자주 보나", `day_opened`는 "어느 문으로 들어왔나(`from`)"에 답한다. 앞의 것은 다른
 화면과 나란히 비교할 수 있고, 뒤의 것은 입구를 고칠 때 쓴다. 둘 중 하나를 지우려면 질문이
 먼저 없어져야 한다.
+
+**기기에서 바로 읽을 수도 있다.** 화면 이름은 콘솔에도 남는다 — Xcode나 Console.app에서
+`com.Mosco.App`의 `screens` 분류를 보면 `화면 → today`처럼 찍힌다. 릴리스 빌드에서도 남는다.
+GA4는 하루쯤 지나서야 보이고 DebugView는 따로 켜야 하는데, "지금 어느 화면으로 세어졌나"는
+기기를 들고 눌러보며 확인하는 질문이라서 그 통로를 따로 뒀다.
 
 **1.3.x까지의 "페이지 및 화면" 보고서는 읽지 마라.** 그때는 이 이벤트가 없어서, 시스템이
 UIKit으로 띄워주는 것(`UIColorPickerViewController` = 설정의 색 선택기,
@@ -191,6 +219,7 @@ UIKit으로 띄워주는 것(`UIColorPickerViewController` = 설정의 색 선�
 | 첫날 할 일을 적는가 | 첫날 `todo_created`(source ≠ `tutorial`)가 있는 신규 사용자 비율 | 미측정(전체 기간 약 65%) | 낮으면 홈 입력창이 안 보이거나 안 쓰인다 |
 | 튜토리얼 입구 | `tutorial_step(step = typeTitle)` 사용자 ÷ `tutorial_started` 사용자 | 약 30% | 오르면 시작 카드를 없앤 게 맞았다 |
 | 오늘 페이지에 오는가 | `day_opened(is_today = true)` 사용자 비율, `from`별 | 없음(새 이벤트) | 활성 사용자 대비 낮으면 '오늘'로 바로 가는 길을 다시 둔다 |
+| 되살린 오늘 탭이 쓰이나 | `screen_view(today)` 사용자 수와 1인당 횟수, `todo_created(source = today_tab)` | 없음(1.4.3부터) | 거의 안 쓰이면 탭을 되살린 값어치가 없다. 반대로 `calendar_cell`로 오늘을 여는 것이 줄고 이쪽이 늘면 탭이 그 길을 대신하고 있다 |
 | 검색이 쓰이나 | `search_closed` 사용자 수, `opened_result = true` 비율 | 없음 | 거의 없으면 달력 머리에서 뺀다 |
 | 위젯을 두는가 | `widget_rendered` 사용자 ÷ 활성 사용자 | 16명(약 25%) | 오르면 끝맺음 카드의 권유가 먹혔다 |
 | 분류기가 돕나 | `category_overridden` ÷ `category_suggested(matched = true)` | 계산 불가(소음) | 높으면 임계값(0.35)부터 의심한다 |
@@ -204,9 +233,11 @@ UIKit으로 띄워주는 것(`UIColorPickerViewController` = 설정의 색 선�
 
 - **이벤트 범위:** `source`, `step`, `outcome`, `reason`, `completed`, `from`, `is_today`,
   `opened_result`, `kind`, `matched`, `granted`, `result`, `has_date`, `repeat_rule`
-- **사용자 범위:** `internal_user`, `todo_count_bucket`, `category_count`, `calendar_count`
+- **사용자 범위:** `internal_user`, `device_id`, `device_model`, `todo_count_bucket`,
+  `category_count`, `calendar_count`
 
 등록한 뒤에는 보고서마다 비교 조건 "`internal_user`가 `true`가 아님"을 걸어두면 된다.
+한 대만 빼고 싶을 때는 `device_id`로 거른다 — 그 값은 그 기기의 설정 화면 맨 아래에 뜬다.
 
 ## 8. 알려진 한계
 
@@ -217,7 +248,12 @@ UIKit으로 띄워주는 것(`UIColorPickerViewController` = 설정의 색 선�
   `completed`에서 `assisted`를 뺀다.
 - 리뷰창은 시스템이 1년에 세 번까지만 띄우고, 떴는지 앱이 알 수 없다.
 - 위젯 이벤트는 보낸 날짜로 찍힌다(일어난 날짜가 아니다).
-- **개인정보 처리방침(`PRIVACY.md`)은 이번에 고치지 않았다**(2026-10-01 결정). 지금 코드와
-  다른 곳이 있다 — 사용자 속성 `internal_user`가 적혀 있지 않고, 설정의 '통계 수집 끄기'
-  스위치를 약속하지만 앱에 없으며, "광고 식별자를 쓰지 않는다"고 적었는데 연결된
-  `FirebaseAnalytics` 패키지에 광고 식별자 모듈이 들어 있다. 공개 문서라 다음 출시 전에 맞춘다.
+- **개인정보 처리방침(`PRIVACY.md`)은 아직 코드와 완전히 같지 않다.** 1.4.3에서 수집 항목에
+  관한 것은 맞췄다 — 기기 구분용 식별자와 `internal_user`를 적었다. 남은 두 가지는 문구가
+  아니라 코드 쪽 일이다: 설정의 '통계 수집 끄기' 스위치를 약속하지만 앱에 없고
+  (`Analytics.isEnabled`는 있는데 그걸 켜고 끄는 화면이 없다), "광고 식별자를 쓰지 않는다"고
+  적었는데 연결된 `FirebaseAnalytics` 패키지에 광고 식별자 모듈이 들어 있다. 공개 문서라
+  다음 출시 전에 맞춘다.
+- 애플 개인정보 매니페스트(`PrivacyInfo.xcprivacy`)는 고칠 것이 없었다 — 이미
+  `NSPrivacyCollectedDataTypeDeviceID`를 분석 목적·비연결·비추적으로 신고해 두었고, 새로
+  싣는 기기 id가 그 안에 든다.

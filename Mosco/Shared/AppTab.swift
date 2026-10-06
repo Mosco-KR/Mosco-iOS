@@ -1,0 +1,40 @@
+import Foundation
+
+/// 아래 탭 바에 서는 두 자리.
+///
+/// **1.4.0에서 하나로 합쳤던 것을 다시 둘로 나눴다.** 그때 합친 이유는 지금도
+/// 유효하다 — 앱은 늘 달력으로 열렸는데 달력 화면엔 입력창이 없어서, 처음 온
+/// 사람이 할 일 하나 적어보기까지 길을 찾아야 했고 9월 데이터에서 셋 중 하나가
+/// 할 일을 한 번도 안 만들었다. 그래서 **그때 고친 것은 되돌리지 않는다**:
+/// 첫 탭은 여전히 달력이고, 홈 입력창도 그 자리에 그대로 있다. 되살린 것은
+/// 오늘 할 일로 가는 **문** 하나다 — 달력에서 오늘 칸을 찾아 누르는 것보다
+/// 탭 하나가 짧고, 그 자리를 잃은 예전 사용자에게는 원래 있던 길이다.
+nonisolated enum AppTab: String, CaseIterable, Sendable {
+    /// 달력 홈. 앱을 열면 여기다.
+    case calendar
+    /// 오늘 할 일.
+    case today
+
+    /// 앱을 열면 보이는 탭. **달력이다** — 열자마자 일정을 확인하는 게 이 앱을
+    /// 여는 이유라서, 1.4.0에서 달력을 홈으로 올린 판단을 그대로 둔다.
+    static let initial = AppTab.calendar
+
+    /// 이 탭이 로그에 남는 이름. 탭 바를 누른 것을 세는 자리는 `RootTabView`
+    /// 하나뿐이다 — 화면들이 각자 자기를 세면 처음 뜰 때 두 번 센다.
+    var screen: AnalyticsScreen {
+        switch self {
+        case .calendar: .calendar
+        case .today: .today
+        }
+    }
+
+    /// 위젯·라이브 액티비티로 들어왔을 때 설 자리.
+    ///
+    /// '오늘 할 일' 위젯과 라이브 액티비티는 오늘 할 일을 보여주던 것이라,
+    /// 눌렀는데 달력이 뜨면 한 번 더 눌러야 한다. 1.4.x에서는 이 길이 하루
+    /// 페이지를 **밀어 넣는** 것이었는데, 탭이 돌아왔으므로 이제는 탭에 선다 —
+    /// 들어온 뒤에 뒤로 가기가 남지 않는 쪽이 맞다.
+    static func destination(forWidgetKind kind: String) -> AppTab {
+        WidgetDeepLink.opensTodayPage(kind: kind) ? .today : .calendar
+    }
+}

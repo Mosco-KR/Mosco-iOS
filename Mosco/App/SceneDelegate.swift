@@ -81,11 +81,16 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// 보이지 않는 길이라 화면 대신 알림창 하나로 됐다는 것만 알린다 — 아무 반응이
     /// 없으면 링크가 먹었는지 알 수 없다.
     private func markInternalUser(_ on: Bool) {
-        InternalUser.set(on, cloud: CloudIdentityStore(), local: UserDefaults.standard)
+        let cloud = CloudIdentityStore()
+        let local = UserDefaults.standard
+        let device = DeviceIdentity.resolve(cloud: cloud, local: local, model: DeviceModel.current).device
+        _ = DeviceIdentity.mark(on, deviceID: device.id, model: device.model, cloud: cloud, local: local)
         Analytics.set(.internalUser(on))
         let alert = UIAlertController(
             title: on ? "이 기기를 내부 사용자로 표시했어요" : "내부 사용자 표시를 껐어요",
-            message: nil,
+            // **기기 id를 여기서 보여준다.** 보고서에서 어느 줄이 이 기기인지
+            // 맞추려면 이 값이 필요하고, 표시를 켜는 순간이 그걸 알려줄 자리다.
+            message: "기기 \(device.id) · \(device.model)",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "확인", style: .default))

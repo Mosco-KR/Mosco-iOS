@@ -13,9 +13,17 @@ private let logger = Logger(subsystem: "com.Mosco.App", category: "notifications
 /// 직접 펼쳐서 하나씩 예약한다 — 규칙(격일, 특정 요일, N일마다 등)이 캘린더 트리거로
 /// 표현되지 않는 게 많고, 표현되는 것만 따로 처리하면 두 갈래 로직이 생긴다.
 ///
-/// 예약은 "전부 지우고 다시 깔기"로 단순하게 간다. 할 일 하나가 바뀔 때마다 어떤
-/// 알림이 영향을 받는지 따지는 대신, 데이터가 바뀌면 통째로 다시 계산한다 —
-/// 개인용 앱 규모에서는 이 편이 훨씬 안전하고 디버깅할 게 없다.
+/// 예약할 것을 정하는 계산은 `ReminderPlan`(Shared)에 있다. 여기 남은 일은
+/// 시스템 알림 센터와 이야기하는 것과 문구를 만드는 것뿐이다 — 그 둘은 테스트로
+/// 덮을 수 없고, 덮을 수 있는 것은 전부 저쪽으로 옮겼다.
+///
+/// **"전부 지우고 다시 깔기"는 그만뒀다.** 데이터가 바뀌면 통째로 다시 계산하는
+/// 것은 그대로지만, 먼저 다 지우면 지운 직후부터 다시 깔기까지 알림이 **하나도
+/// 없는 창**이 생긴다. 그 사이에 작업이 취소되면(`.task(id:)`는 키가 바뀌는 즉시
+/// 취소된다 — 할 일을 연달아 고치면 실제로 그렇게 된다) 알림이 걷힌 채로 남는다.
+/// 그래서 지금은 **필요 없어진 것만 걷어내고 필요한 것은 그대로 다시 깐다.**
+/// 같은 식별자로 `add`하면 교체되므로, 시각이 바뀐 알림도 이 길로 갱신된다.
+/// 중간에 끊겨도 남아 있는 쪽은 멀쩡하고, 두 번 겹쳐 돌아도 결과가 같다.
 @Observable
 final class TodoNotificationScheduler {
     /// 시스템 알림 권한 상태 — 설정 화면에서 안내 문구를 고르는 데 쓴다.
@@ -44,12 +52,6 @@ final class TodoNotificationScheduler {
     var isEffectivelyOn: Bool {
         PermissionGate.isOn(userPreference: isEnabled, permission: permission)
     }
-
-    /// iOS가 앱당 허용하는 대기 중 로컬 알림은 64개다. 그 안에서 가까운 것부터
-    /// 채우고, 나머지는 다음 실행 때 다시 계산되며 자연히 채워진다.
-    private static let pendingLimit = 60
-    /// 반복 일정을 며칠치까지 펼칠지. 너무 길게 잡아도 64개 제한에 걸려 잘린다.
-    private static let horizonDays = 60
 
     @ObservationIgnored private let center = UNUserNotificationCenter.current()
     @ObservationIgnored private let calendar = Calendar.current
@@ -94,91 +96,79 @@ final class TodoNotificationScheduler {
         return granted
     }
 
-    /// 할 일/카테고리가 바뀔 때마다 부른다. 권한이 없으면 예약된 걸 지우기만 한다.
+    /// 할 일/카테고리가 바뀔 때마다 부른다. 권한이 없거나 전체 스위치가 꺼져 있으면
+    /// 예약된 것을 걷어내기만 한다.
+    ///
+    /// **입력을 값으로 먼저 베낀다.** `TodoItem`은 `@Model`이라 자기 컨텍스트의
+    /// 스레드 밖에서 만지면 안 되는데, 이 함수는 `await` 뒤로 그 스레드를 떠난다.
     func reschedule(todos: [TodoItem]) async {
-        center.removeAllPendingNotificationRequests()
+        let sources = await MainActor.run { todos.compactMap { ReminderSource($0) } }
 
         guard isEnabled else {
+            center.removeAllPendingNotificationRequests()
             logger.info("알림이 전체 꺼짐 — 예약 없음")
             return
         }
 
         await refreshAuthorizationStatus()
         guard authorizationStatus == .authorized || authorizationStatus == .provisional else {
+            center.removeAllPendingNotificationRequests()
             logger.warning("예약 중단: 알림 권한 없음 (status=\(self.authorizationStatus.rawValue))")
             return
         }
 
-        let requests = pendingRequests(for: todos)
-        for request in requests {
+        let planned = ReminderPlan.make(from: sources, now: Date(), calendar: calendar)
+        await apply(planned)
+    }
+
+    /// 계획과 지금 걸려 있는 것을 맞춘다 — **없어진 것만 걷어내고, 필요한 것은
+    /// 그대로 다시 깐다.** 먼저 전부 지우지 않는 이유는 머리 주석에 있다.
+    private func apply(_ planned: [PlannedReminder]) async {
+        let wanted = Set(planned.map(\.id))
+        let pending = await center.pendingNotificationRequests().map(\.identifier)
+        let stale = pending.filter { !wanted.contains($0) }
+        if !stale.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: stale)
+        }
+
+        var added = 0
+        for reminder in planned {
             do {
-                try await center.add(request)
+                // 같은 식별자면 교체된다 — 시각이나 제목이 바뀐 알림이 이 길로 갱신된다.
+                try await center.add(request(for: reminder))
+                added += 1
             } catch {
-                logger.error("알림 예약 실패 \(request.identifier): \(error.localizedDescription)")
+                logger.error("알림 예약 실패 \(reminder.id): \(error.localizedDescription)")
             }
         }
         // 알림이 안 온다는 신고가 들어왔을 때 가장 먼저 볼 값 — 0이면 예약 자체가
         // 안 된 것이고, 그때는 시작 시간이 있는 할 일인지/카테고리 알림이 켜졌는지부터 본다.
-        logger.info("알림 \(requests.count)개 예약 완료")
+        logger.info("알림 \(added)개 예약, \(stale.count)개 걷어냄")
     }
 
-    /// 지금 이후로 가까운 순서대로, 제한 개수만큼의 알림 요청을 만든다.
-    private func pendingRequests(for todos: [TodoItem]) -> [UNNotificationRequest] {
-        let now = Date()
-        guard let horizon = calendar.date(byAdding: .day, value: Self.horizonDays, to: now) else { return [] }
+    private func request(for reminder: PlannedReminder) -> UNNotificationRequest {
+        let content = UNMutableNotificationContent()
+        content.title = reminder.title
+        content.body = bodyText(for: reminder)
+        content.sound = .default
 
-        var fireTimes: [(date: Date, todo: TodoItem, occurrence: Date)] = []
-        for todo in todos {
-            guard let category = todo.category, category.notifiesBeforeStart else { continue }
-            guard todo.startTime != nil else { continue }
+        let components = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute], from: reminder.fireDate
+        )
+        return UNNotificationRequest(
+            identifier: reminder.id,
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        )
+    }
 
-            for occurrence in occurrences(of: todo, from: now, to: horizon) {
-                guard let fireDate = fireDate(for: todo, occurrence: occurrence, leadMinutes: category.notificationLeadMinutes),
-                      fireDate > now
-                else { continue }
-                // 이미 끝낸 인스턴스는 알릴 이유가 없다.
-                guard !todo.isCompleted(on: occurrence) else { continue }
-                fireTimes.append((fireDate, todo, occurrence))
-            }
+    /// 리드타임이 0분이면 "0분 뒤"가 아니라 지금 시작하는 것이다 — 그대로 끼워
+    /// 넣으면 "0분 뒤 오후 7시에 시작해요"라는 말이 된다.
+    private func bodyText(for reminder: PlannedReminder) -> String {
+        guard reminder.leadMinutes > 0 else {
+            return String(localized: "\(reminder.startDate.localizedTime)에 시작해요")
         }
-
-        return fireTimes
-            .sorted { $0.date < $1.date }
-            .prefix(Self.pendingLimit)
-            .map { entry in
-                let content = UNMutableNotificationContent()
-                content.title = entry.todo.title
-                content.body = bodyText(for: entry.todo, category: entry.todo.category)
-                content.sound = .default
-
-                let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: entry.date)
-                return UNNotificationRequest(
-                    // 같은 할 일의 다른 날 인스턴스가 서로 덮어쓰지 않도록 날짜까지 넣는다.
-                    identifier: "\(entry.todo.id.uuidString)-\(entry.occurrence.dayKey)",
-                    content: content,
-                    trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-                )
-            }
-    }
-
-    private func bodyText(for todo: TodoItem, category: TodoCategory?) -> String {
-        let minutes = category?.notificationLeadMinutes ?? 0
-        guard let startTime = todo.startTime else { return String(localized: "곧 시작해요") }
-        return String(localized: "\(minutes)분 뒤 \(startTime.localizedTime)에 시작해요")
-    }
-
-    /// 알림이 울릴 시각 = 그 인스턴스의 시작 날짜 + 시작 시각 - 리드타임.
-    /// startTime은 시:분만 의미가 있어서(TodoItem 주석 참고) 날짜와 합쳐 써야 한다.
-    private func fireDate(for todo: TodoItem, occurrence: Date, leadMinutes: Int) -> Date? {
-        guard let startTime = todo.startTime else { return nil }
-        let time = calendar.dateComponents([.hour, .minute], from: startTime)
-        guard let start = calendar.date(
-            bySettingHour: time.hour ?? 0,
-            minute: time.minute ?? 0,
-            second: 0,
-            of: occurrence
-        ) else { return nil }
-        return calendar.date(byAdding: .minute, value: -leadMinutes, to: start)
+        return String(localized: "\(reminder.leadMinutes)분 뒤 \(reminder.startDate.localizedTime)에 시작해요")
     }
 
     /// 앱이 떠 있을 때도 알림을 배너로 띄운다. iOS 기본값은 "포그라운드면 안 띄움"이라,
@@ -203,27 +193,5 @@ final class TodoNotificationScheduler {
             guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
             await MainActor.run { Analytics.log(.notificationOpened) }
         }
-    }
-
-    /// 원본 + 반복 인스턴스의 시작일들을 기간 안에서 펼친다.
-    private func occurrences(of todo: TodoItem, from start: Date, to end: Date) -> [Date] {
-        guard let baseDate = todo.date else { return [] }
-        let baseStart = calendar.startOfDay(for: baseDate)
-
-        guard todo.repeatRule != .none else {
-            return baseStart <= calendar.startOfDay(for: end) ? [baseStart] : []
-        }
-
-        var result: [Date] = []
-        if baseStart >= calendar.startOfDay(for: start) { result.append(baseStart) }
-
-        var cursor = max(calendar.startOfDay(for: start), baseStart)
-        let last = calendar.startOfDay(for: end)
-        while cursor <= last {
-            if todo.isRepeatStart(cursor) { result.append(cursor) }
-            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
-        }
-        return result
     }
 }

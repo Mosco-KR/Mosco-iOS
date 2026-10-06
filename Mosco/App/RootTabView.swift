@@ -4,8 +4,12 @@ import StoreKit
 import UIKit
 import WidgetKit
 
-/// 앱의 뿌리. 화면은 달력 하나이고(탭 없음), 여기서는 앱 전체가 함께 쓰는
-/// 저장소들을 환경에 얹고 실행·백그라운드 전환 때 할 일을 맡는다.
+/// 앱의 뿌리. 탭 둘(달력·오늘)을 세우고, 앱 전체가 함께 쓰는 저장소들을 환경에
+/// 얹고, 실행·백그라운드 전환 때 할 일을 맡는다.
+///
+/// **탭을 옮기는 일은 여기서만 한다.** 화면들은 "어디가 필요하다"까지만 말하고
+/// (`AppNavigation`, `TutorialCoordinator`) 실제 이동에는 관여하지 않는다 —
+/// 두 곳에서 탭을 건드리면 서로 밀어내는 순간이 생긴다.
 struct RootTabView: View {
     @State private var weatherStore = WeatherStore()
     @State private var notificationScheduler = TodoNotificationScheduler()
@@ -32,6 +36,10 @@ struct RootTabView: View {
     @Query private var calendars: [TodoCalendar]
     /// 시드는 앱 실행당 한 번만. `onAppear`은 여러 번 불릴 수 있다.
     @State private var didSeed = false
+    /// 지금 선 탭. 앱을 열면 달력이다.
+    @State private var selectedTab = AppTab.initial
+    /// 앱 밖(위젯·라이브 액티비티)에서 들어온 길. 깃발이 서면 탭을 옮긴다.
+    @State private var navigation = AppNavigation.shared
     /// 알림 재예약의 입력 — 할 일이나 카테고리 설정이 바뀌면 이 배열도 바뀌므로,
     /// 이걸 지켜보다가 통째로 다시 계산한다.
     @Query private var todos: [TodoItem]
@@ -41,22 +49,46 @@ struct RootTabView: View {
     private static let defaultCategoryColorHex = "8B5CF6"
 
     /// 알림에 영향을 주는 값들만 추린 키 — 이게 바뀔 때만 재예약한다.
-    /// 제목/시간/카테고리 알림 설정이 들어가고, 색이나 메모처럼 알림과 무관한
+    /// 제목/시간/카테고리 알림 설정·완료 여부가 들어가고, 색처럼 알림과 무관한
     /// 변경으로는 다시 예약하지 않는다.
+    ///
+    /// **권한 상태가 키에 들어가는 게 중요하다.** 예전엔 없었다. 실행 직후 한 번
+    /// 재예약이 도는데 그때는 아직 권한을 안 물어본 상태라 "권한 없음"으로 그냥
+    /// 돌아나가고, 그 뒤에 사용자가 허용해도 키가 그대로라 다시 돌지 않았다 —
+    /// 앱을 뒤로 보냈다 돌아오기 전까지 알림이 하나도 안 걸려 있었다.
+    /// 거부했을 때는 전체 스위치가 함께 내려가서(`isEnabled`) 키가 바뀌었기
+    /// 때문에, 허용한 쪽만 조용히 비어 있었다.
     private var rescheduleKey: String {
         // 전체 스위치도 키에 넣어야 껐을 때 예약이 즉시 걷힌다.
-        "\(notificationScheduler.isEnabled)|" + todos.map { todo in
-            let category = todo.category
-            return [
-                todo.id.uuidString,
-                todo.title,
-                todo.startTime.map { "\($0.timeIntervalSince1970)" } ?? "-",
-                todo.date.map { "\($0.timeIntervalSince1970)" } ?? "-",
-                todo.repeatRule.rawValue,
-                category.map { "\($0.notifiesBeforeStart)-\($0.notificationLeadMinutes)" } ?? "-"
-            ].joined(separator: "|")
+        "\(notificationScheduler.isEnabled)|\(notificationScheduler.authorizationStatus.rawValue)|"
+            + todos.map(Self.reminderFingerprint(of:)).joined(separator: ";")
+    }
+
+    /// 할 일 하나가 알림에 미치는 것들만 문자열 하나로 압축한다.
+    ///
+    /// `liveActivityFingerprint`와 같은 이유로 한 줄짜리 배열 리터럴을 쓰지 않는다 —
+    /// 항목이 늘어나면 컴파일러가 타입 추론을 포기한다("unable to type-check this
+    /// expression in reasonable time").
+    private static func reminderFingerprint(of todo: TodoItem) -> String {
+        var parts: [String] = []
+        parts.append(todo.id.uuidString)
+        parts.append(todo.title)
+        parts.append(timeKey(todo.startTime))
+        parts.append(timeKey(todo.date))
+        parts.append(todo.repeatRule.rawValue)
+        parts.append(timeKey(todo.repeatEndDate))
+        // **완료 여부가 들어가야 끝낸 일의 알림이 즉시 걷힌다.** 예전엔 빠져 있어서,
+        // 10시 일정을 9시 30분에 끝내도 9시 50분에 알림이 울렸다 — 걷히는 시점이
+        // 앱을 뒤로 보냈다 돌아올 때였다. 라이브 액티비티 키에는 처음부터 있었고
+        // (`liveActivityFingerprint`) 이쪽만 빠져 있었다.
+        parts.append(String(todo.isCompleted))
+        parts.append(todo.completedDayKeys?.joined(separator: ",") ?? "-")
+        if let category = todo.category {
+            parts.append("\(category.notifiesBeforeStart)-\(category.notificationLeadMinutes)")
+        } else {
+            parts.append("-")
         }
-        .joined(separator: ";")
+        return parts.joined(separator: "|")
     }
 
     /// 라이브 액티비티를 다시 계산해야 하는 값들.
@@ -273,16 +305,6 @@ struct RootTabView: View {
         // 처음 온 사람에게만, 그것도 **물어보고** 시작한다. 이미 할 일을 들고
         // 있는 사람(기기를 바꿔 iCloud에서 내려받은 경우)에게 "처음 오셨네요"는
         // 틀린 인사라 아예 띄우지 않는다.
-        // 오늘 탭이 사라졌다는 안내를 띄울지 **튜토리얼보다 먼저** 정한다 — 그 뒤엔
-        // 처음 온 사람도 안내에 답한 상태가 돼서 예전 사용자와 구분이 안 된다.
-        let defaults = UserDefaults.standard
-        defaults.set(
-            CalendarHomeNotice.decide(
-                current: defaults.string(forKey: CalendarHomeNotice.key) ?? "",
-                answeredTutorialBefore: tutorial.hasAnswered
-            ),
-            forKey: CalendarHomeNotice.key
-        )
         let willGuide = tutorial.startIfFirstLaunch(hasExistingData: !todos.isEmpty)
 
         // **권한은 안내가 끝난 뒤에 모아서 묻는다** (`StartupPermissionRequest`).
@@ -308,16 +330,33 @@ struct RootTabView: View {
         homeWithLifecycle
     }
 
+    /// 탭 바. 라벨 텍스트 없이 아이콘만 — `Label` 대신 `Image`를 주면 시스템이
+    /// 아이콘 전용 탭으로 그린다. 접근성 이름은 `accessibilityLabel`로 남긴다
+    /// (텍스트를 지운다고 VoiceOver 사용자까지 못 읽게 하면 안 된다).
+    ///
+    /// **달력이 먼저다.** 1.4.0에서 달력을 홈으로 올린 판단은 그대로 둔다 —
+    /// 열자마자 일정을 확인하는 게 이 앱을 여는 이유다. 되살린 것은 오늘 할 일로
+    /// 가는 문 하나고, 그 화면은 달력에서 날짜를 눌러 들어가는 하루 페이지와
+    /// **같은 것**이다(`TodayScreen`).
+    private var tabs: some View {
+        TabView(selection: $selectedTab) {
+            CalendarScreen()
+                .tabItem { Image(systemName: "calendar") }
+                .accessibilityLabel("달력")
+                .tag(AppTab.calendar)
+
+            TodayScreen()
+                .tabItem { Image(systemName: "list.bullet") }
+                .accessibilityLabel("오늘")
+                .tag(AppTab.today)
+        }
+    }
+
     /// 1단계 — 화면과 앱 전체가 함께 쓰는 저장소들.
     private var home: some View {
-        // **탭이 없다. 달력이 홈이다** (1.4.0). 예전엔 '할 일'·'달력' 두 탭이었는데,
-        // 앱은 늘 달력으로 열렸고 입력창은 달력 화면에 없었다 — 처음 온 사람이
-        // 할 일 하나 적어보기까지 길을 찾아야 했다. 오늘 탭이 하던 일은 달력에서
-        // 오늘을 누르면 열리는 오늘 페이지가 맡는다(`DayTodosContentView`).
-        // 첫 화면에 달력이 보이는 것은 바꾸지 않는다 — 열자마자 일정을 확인하는
-        // 게 이 앱을 여는 이유다.
-        CalendarScreen()
-            // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다.
+        tabs
+            // 명시적으로 안 주면 시스템 기본(파란색)을 쓴다 — 앱 테마(바이올렛)가
+            // 선택된 탭 색에도 이어지도록 지정.
             .tint(MoscoPalette.accent)
             .environment(weatherStore)
             .environment(notificationScheduler)
@@ -360,6 +399,23 @@ struct RootTabView: View {
             // 실행 시점에 한 번만 보면 그 도착을 못 본다.
             .onChange(of: calendars, initial: true) { _, _ in mergeDuplicateDefaults() }
             .onChange(of: categories, initial: true) { _, _ in mergeDuplicateDefaults() }
+            // **탭을 세는 자리는 여기 하나다.** 화면에 붙인 `logScreen`으로는 탭을
+            // 셀 수 없다 — 탭은 한 번 세워지면 앱이 떠 있는 동안 살아 있어서 그
+            // `task`가 다시 돌지 않고, 실행당 한 번만 찍힌다. `initial: true`로
+            // 첫 화면도 같이 센다.
+            .onChange(of: selectedTab, initial: true) { _, tab in
+                Analytics.log(.screenViewed(tab.screen))
+            }
+            // '오늘 할 일' 위젯·라이브 액티비티로 들어오면 오늘 탭에 선다. 꺼져
+            // 있다 켜진 경우엔 URL이 화면보다 먼저 와 있으므로 처음 값도 본다.
+            .onChange(of: navigation.todayPageRequest, initial: true) { _, source in
+                guard let source else { return }
+                navigation.todayPageRequest = nil
+                selectedTab = .today
+                // 어느 문으로 오늘에 들어왔나. 탭을 직접 누른 것은 `screen_view`가
+                // 세므로, 이 이벤트는 앱 밖에서 들어온 길만 센다.
+                Analytics.log(.dayOpened(from: source, isToday: true))
+            }
     }
 
     /// 3단계 — 앱이 뜨고, 앞뒤로 오가고, 예약을 다시 거는 생애주기.

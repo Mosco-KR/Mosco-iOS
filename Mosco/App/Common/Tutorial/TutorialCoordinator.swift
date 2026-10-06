@@ -51,10 +51,6 @@ final class TutorialCoordinator {
 
     var isRunning: Bool { step != nil }
 
-    /// 튜토리얼을 본 적이 있는가(끝냈든 건너뛰었든). 업데이트 안내가 예전 사용자를
-    /// 가려내는 데 쓴다(`CalendarHomeNotice`).
-    var hasAnswered: Bool { defaults.bool(forKey: Key.answered) }
-
     /// 튜토리얼이 도는 동안에는 셀을 꾹 눌러도 메뉴가 안 뜬다 — 시스템 메뉴는
     /// 마스크 위로 떠서 화면을 통째로 덮기 때문에, 지금 따라가야 할 지시가 가려진다.
     /// 정리(`cleanUp`) 단계에서만 연다. 그 단계는 그 메뉴를 여는 것이 곧 과제다.
