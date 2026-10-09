@@ -173,4 +173,68 @@ struct DeviceIdentityTests {
         #expect(DeviceIdentity.read(from: MemoryStore()).isEmpty)
         #expect(DeviceIdentity.read(from: MemoryStore([DeviceIdentity.registryKey: "망가진 값"])).isEmpty)
     }
+
+    // MARK: - 남의 줄을 지우지 않기
+
+    /// 재설치 직후 첫 실행에서는 iCloud 등록부가 아직 안 와 있을 수 있다. 예전엔
+    /// 그때 "나 한 대"짜리 목록으로 통째로 덮어써서, **다른 기기들의 줄과 내부
+    /// 표시가 날아갔다.** 그러면 개발 기기가 다음 실행에 표시가 꺼진 새 줄로
+    /// 돌아온다 — 이 구조를 만든 이유가 그걸 막는 것이었는데.
+    @Test("늦게_도착한_클라우드_등록부의_다른_기기를_지우지_않는다")
+    func 병합() {
+        let other = DeviceRecord(id: "aaaa1111", model: "iPad14,1", isInternal: true, firstSeen: .now)
+        let mine = DeviceRecord(id: "bbbb2222", model: "iPhone17,1", isInternal: false, firstSeen: .now)
+
+        let merged = DeviceIdentity.merge([mine], into: [other])
+
+        #expect(merged.count == 2)
+        #expect(merged.contains(other), "내가 못 본 기기를 지우면 그 기기의 내부 표시가 날아간다")
+        #expect(merged.contains(mine))
+    }
+
+    @Test("같은_기기의_줄은_내가_든_것이_이긴다")
+    func 병합_덮어쓰기() {
+        let old = DeviceRecord(id: "bbbb2222", model: "iPhone17,1", isInternal: true, firstSeen: .now)
+        let turnedOff = DeviceRecord(id: "bbbb2222", model: "iPhone17,1", isInternal: false, firstSeen: old.firstSeen)
+
+        let merged = DeviceIdentity.merge([turnedOff], into: [old])
+
+        #expect(merged.count == 1)
+        #expect(merged.first?.isInternal == false, "껐는데 클라우드의 켜진 옛 줄이 이기면 다음 실행에 다시 켜진다")
+    }
+
+    // MARK: - 재설치를 건너기
+
+    /// 기기 id가 `UserDefaults`에만 있으면 앱을 지울 때 같이 사라져서, 재설치한
+    /// 같은 기기가 등록부에 새 줄로 또 선다 — 보고서에서 "내 14 Pro"가 여러 줄로
+    /// 보이던 것이 그것이다.
+    @Test("앱을_지웠다_깔아도_키체인에_있던_기기_id를_그대로_쓴다")
+    func 키체인_기기_id() {
+        let cloud = MemoryStore()
+        let keychain = MemoryStore([DeviceIdentity.localKey: "cafe1234"])
+        let local = MemoryStore()   // 앱을 지워서 비어 있다
+
+        let result = DeviceIdentity.resolve(
+            cloud: cloud,
+            keychain: keychain,
+            local: local,
+            model: "iPhone17,1",
+            newID: { "새로운id" }
+        )
+
+        #expect(result.device.id == "cafe1234", "재설치마다 새 id면 한 대가 여러 대로 센다")
+        #expect(result.registry.count == 1)
+    }
+
+    @Test("처음_만든_기기_id는_키체인에도_남는다")
+    func 키체인에_남는다() {
+        let keychain = MemoryStore(), local = MemoryStore()
+
+        _ = DeviceIdentity.resolve(
+            cloud: nil, keychain: keychain, local: local,
+            model: "iPhone17,1", newID: { "cafe1234" }
+        )
+
+        #expect(keychain.string(forKey: DeviceIdentity.localKey) == "cafe1234")
+    }
 }

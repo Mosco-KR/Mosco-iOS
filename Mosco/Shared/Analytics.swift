@@ -231,6 +231,27 @@ enum AnalyticsUserProperty {
     /// 앱을 열 때 들고 있는 규모. 정확한 개수는 필요 없고 몇 건대인지만 안다.
     case dataScale(todoCount: Int, categoryCount: Int, calendarCount: Int)
 
+    /// **이벤트에도 함께 실어야 하는 것.**
+    ///
+    /// GA4의 user property는 사용자 하나당 값 **하나**다. 그런데 이 앱의 사용자
+    /// 식별자는 iCloud로 기기를 건너 공유된다 — 아이폰과 맥을 같이 쓰면 `device_id`가
+    /// 마지막에 실행한 쪽으로 덮어써지고, 아이폰 한 대를 내부로 표시하면 **그 사람의
+    /// 맥에서 온 이벤트까지 함께 빠진다.** 1.4.2에서 "계정 하나에 표시 하나뿐이라
+    /// 기기별로 못 가른다"며 고친 바로 그 문제가, 저장 위치만 바뀐 채 전송 계층에
+    /// 그대로 남아 있었다.
+    ///
+    /// 이벤트에 실으면 그 줄이 어느 기기에서 왔는지가 그 줄에 남는다. user property는
+    /// "가장 최근 기기"로 그대로 둔다 — 둘은 다른 질문에 답한다.
+    ///
+    /// 보유 규모(`dataScale`)는 싣지 않는다. 그건 "그 사람이 어떤 사람인가"라서
+    /// 사용자 단위가 맞고, 모든 이벤트에 붙여봐야 같은 말을 되풀이할 뿐이다.
+    var eventParameters: [(name: String, value: String)] {
+        switch self {
+        case .internalUser, .device: values
+        case .dataScale: []
+        }
+    }
+
     /// Firebase 제한: 이름 24자, 값 36자 이하.
     var values: [(name: String, value: String)] {
         switch self {
@@ -313,6 +334,9 @@ enum Analytics {
 
     private static var userID: String?
     private static var userProperties: [String: String] = [:]
+    /// 모든 이벤트에 함께 실리는 값 — 지금은 기기와 내부 표시다.
+    /// 왜 user property만으로는 안 되는지는 `AnalyticsUserProperty.eventParameters`에 있다.
+    private static var commonParameters: [String: String] = [:]
 
     static func set(_ property: AnalyticsUserProperty) {
         for (name, value) in property.values {
@@ -320,6 +344,15 @@ enum Analytics {
             guard isEnabled else { continue }
             for sink in sinks { sink.setUserProperty(value, forName: name) }
         }
+        for (name, value) in property.eventParameters {
+            commonParameters[name] = value
+        }
+    }
+
+    /// 이벤트 자신의 값이 **이긴다.** 공통값이 같은 이름을 덮으면 그 이벤트가
+    /// 하려던 말이 사라진다.
+    static func merge(_ parameters: [String: String], with common: [String: String]) -> [String: String] {
+        common.merging(parameters) { _, own in own }
     }
 
     /// 앱 시작 때 한 번. 같은 사람을 같은 사람으로 세기 위한 익명 식별자를 정하고
@@ -329,8 +362,9 @@ enum Analytics {
     /// 여기서는 실제 저장소를 붙이는 일만 한다.
     static func identify() {
         let cloud = CloudIdentityStore()
+        let keychain = KeychainIdentityStore()
         let local = UserDefaults.standard
-        let (id, origin) = AnalyticsIdentity.resolve(cloud: cloud, local: local)
+        let (id, origin) = AnalyticsIdentity.resolve(cloud: cloud, keychain: keychain, local: local)
         userID = id
         for sink in sinks { sink.setUserID(id) }
         // 어디서 온 값인지 **이 설치에서 한 번** 남긴다 — "재설치했는데 다른 사람으로
@@ -341,7 +375,12 @@ enum Analytics {
 
         // 어느 기기인가. 사람 식별자(위)와 다른 질문이다 — 한 사람이 여러 기기를
         // 쓰고, 개발자 기기를 빼는 일은 사람이 아니라 기기 단위로 해야 한다.
-        let device = DeviceIdentity.resolve(cloud: cloud, local: local, model: DeviceModel.current).device
+        let device = DeviceIdentity.resolve(
+            cloud: cloud,
+            keychain: keychain,
+            local: local,
+            model: DeviceModel.current
+        ).device
         set(.device(id: device.id, model: device.model))
         set(.internalUser(device.isInternal))
     }
@@ -350,6 +389,7 @@ enum Analytics {
     static func currentDevice() -> DeviceRecord {
         DeviceIdentity.resolve(
             cloud: CloudIdentityStore(),
+            keychain: KeychainIdentityStore(),
             local: UserDefaults.standard,
             model: DeviceModel.current
         ).device
@@ -381,10 +421,14 @@ enum Analytics {
         }
     }
 
+    /// **병합은 여기 한 곳에서 한다.** 위젯이 App Group에 쌓아둔 이벤트도 이 길로
+    /// 나가므로, 앱이 대신 보내는 그 이벤트들에도 기기 값이 붙는다 — 익스텐션은
+    /// 자기가 어느 기기인지 모른다.
     private static func send(name: String, parameters: [String: String]) {
         guard isEnabled else { return }
+        let merged = merge(parameters, with: commonParameters)
         for sink in sinks {
-            sink.send(name: name, parameters: parameters)
+            sink.send(name: name, parameters: merged)
         }
     }
 }

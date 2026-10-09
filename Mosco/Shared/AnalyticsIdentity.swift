@@ -12,6 +12,9 @@ nonisolated protocol IdentityStore {
 nonisolated enum IdentityOrigin: Equatable {
     /// iCloud에 있던 것을 그대로 썼다. 재설치·기기 교체를 건너온 값이다.
     case restoredFromCloud
+    /// 키체인에 있던 것을 썼다. **이 기기에서 재설치했다**는 뜻이다 — iCloud가
+    /// 아직 안 왔거나 못 쓰는 상태에서도 같은 사람으로 이어졌다.
+    case restoredFromKeychain
     /// 로컬에만 있던 것을 iCloud로 올렸다. iCloud를 나중에 켠 경우.
     case promotedFromLocal
     /// 처음 만들었다.
@@ -27,11 +30,16 @@ nonisolated enum IdentityOrigin: Equatable {
 /// "튜토리얼을 건너뛴 사람이 나중에 돌아와서 다시 봤나" 같은 것을 물어볼 수
 /// 없고, 재방문·리텐션은 전부 실제보다 낮게 잡힌다.
 ///
-/// **왜 iCloud에 두나.** 키체인은 재설치를 건너오지만 기기마다 다르다. iCloud
-/// 키–값 저장소는 같은 Apple 계정이면 기기가 달라도 같은 값을 준다 — 이 앱은
-/// 이미 iCloud로 할 일을 동기화하므로 새로 얻어야 할 권한도 없다.
+/// **저장소가 셋이고, 셋 다 다른 일을 한다.**
 ///
-/// iCloud를 못 쓰는 경우(로그인 안 됨)에도 로컬 값으로 계속 동작하고, 나중에
+/// - iCloud 키–값 저장소: 같은 Apple 계정이면 **기기를 건넌다.** 다만 비동기라
+///   재설치 직후 첫 실행에는 아직 안 와 있을 수 있다.
+/// - 키체인: 앱을 지워도 남고 기다릴 필요가 없다. **재설치를 건넌다.** iCloud가
+///   늦게 오는 그 순간을 메우는 것이 이것의 유일한 일이다 — 이게 없으면 그 틈에
+///   새 값을 만들어 iCloud의 멀쩡한 값을 덮어쓴다(`KeychainIdentityStore`).
+/// - `UserDefaults`: 가장 빠르고 가장 먼저 사라진다. 캐시로만 쓴다.
+///
+/// iCloud를 못 쓰는 경우(로그인 안 됨)에도 나머지로 계속 동작하고, 나중에
 /// 로그인하면 그때 iCloud로 올린다(`promotedFromLocal`).
 nonisolated enum AnalyticsIdentity {
     static let key = "analyticsUserID"
@@ -44,29 +52,50 @@ nonisolated enum AnalyticsIdentity {
     ///   - local: 기기 저장소. iCloud가 없을 때의 대비책.
     static func resolve(
         cloud: (any IdentityStore)?,
+        keychain: (any IdentityStore)? = nil,
         local: any IdentityStore,
         newID: () -> String = { UUID().uuidString }
     ) -> (id: String, origin: IdentityOrigin) {
         // 1. iCloud에 있으면 그게 정본이다. 재설치도 기기 교체도 건너온 값이다.
-        if let cloud, let existing = cloud.string(forKey: key), !existing.isEmpty {
-            // 기기 저장소에도 적어둔다 — 다음 실행에서 iCloud가 늦게 붙어도
+        if let existing = value(in: cloud) {
+            // 다른 저장소에도 적어둔다 — 다음 실행에서 iCloud가 늦게 붙어도
             // 곧바로 같은 값을 쓸 수 있다.
             local.set(existing, forKey: key)
+            keychain?.set(existing, forKey: key)
             return (existing, .restoredFromCloud)
         }
 
-        // 2. 로컬에만 있으면 그대로 쓰고, iCloud를 쓸 수 있으면 올려둔다.
-        //    iCloud를 나중에 켠 사람이 여기로 온다.
-        if let existing = local.string(forKey: key), !existing.isEmpty {
+        // 2. 키체인. **여기가 재설치를 막는 자리다.** iCloud 키–값 저장소는
+        //    비동기라, 재설치 직후 첫 실행에서는 아직 비어 있을 수 있다. 그때
+        //    곧장 새 값을 만들면 그 값이 iCloud의 멀쩡한 값을 덮어쓰고, 한 사람이
+        //    둘이 된다. 키체인은 앱을 지워도 남고 기다릴 필요가 없다.
+        if let existing = value(in: keychain) {
+            local.set(existing, forKey: key)
             cloud?.set(existing, forKey: key)
+            return (existing, .restoredFromKeychain)
+        }
+
+        // 3. 로컬에만 있으면 그대로 쓰고, 쓸 수 있는 곳에 올려둔다.
+        //    iCloud를 나중에 켠 사람, 그리고 키체인을 쓰기 전 버전에서 올라온
+        //    사람이 여기로 온다.
+        if let existing = value(in: local) {
+            cloud?.set(existing, forKey: key)
+            keychain?.set(existing, forKey: key)
             return (existing, cloud == nil ? .created : .promotedFromLocal)
         }
 
-        // 3. 아무 데도 없으면 새로 만든다. 진짜 첫 실행이다.
+        // 4. 아무 데도 없으면 새로 만든다. 진짜 첫 실행이다.
         let created = newID()
         local.set(created, forKey: key)
+        keychain?.set(created, forKey: key)
         cloud?.set(created, forKey: key)
         return (created, .created)
+    }
+
+    /// 빈 문자열은 없는 것으로 친다 — 저장소에 따라 지운 자리에 빈 값이 남는다.
+    private static func value(in store: (any IdentityStore)?) -> String? {
+        guard let raw = store?.string(forKey: key), !raw.isEmpty else { return nil }
+        return raw
     }
 
     static let reportedKey = "analyticsIdentityReported"

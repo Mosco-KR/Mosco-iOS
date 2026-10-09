@@ -29,12 +29,21 @@ nonisolated struct DeviceRecord: Equatable, Codable, Sendable {
 ///
 /// ## 재설치를 건너오는 방법
 ///
-/// 기기를 영구히 식별하는 값은 앱이 가질 수 없다 — `identifierForVendor`도 앱을
-/// 지우면 바뀐다. 그래서 **기종이 같고 내부로 표시된 기기가 등록부에 있으면 그
-/// 표시를 물려받는다.** 재설치한 14 Pro는 내부 표시를 다시 얻고, 같은 계정의 다른
-/// 기종은 영향이 없다. 같은 기종 두 대를 하나만 내부로 두고 싶은 경우에는 틀리지만,
-/// 그런 상황보다 재설치가 훨씬 잦다 — 지웠다 깔 때마다 새 사람이 되는 것이 애초에
-/// 이 전체를 만든 이유다.
+/// **기기 id를 키체인에 둔다.** 키체인은 앱을 지워도 남아서, 재설치한 기기가
+/// 등록부에 자기 줄을 그대로 다시 찾는다. 예전엔 `UserDefaults`에만 있어서 지웠다
+/// 깔 때마다 같은 기기가 한 줄씩 늘었다 — 보고서에서 "내 14 Pro"가 여러 줄로
+/// 보이던 것이 그것이다.
+///
+/// 키체인이 비어 있는 경우(키체인을 쓰기 전 버전에서 올라왔거나, 기기를 바꿨거나)를
+/// 위해 **기종이 같고 내부로 표시된 기기가 등록부에 있으면 그 표시를 물려받는
+/// 규칙**은 남겨둔다. 같은 기종 두 대를 하나만 내부로 두고 싶은 경우에는 틀리지만,
+/// 그런 상황보다 재설치가 훨씬 잦다.
+///
+/// ## 등록부는 덮어쓰지 않고 합친다
+///
+/// iCloud 키–값 저장소는 비동기다. 재설치 직후 첫 실행에서는 등록부가 아직 안 와
+/// 있을 수 있는데, 그때 손에 든 "나 한 대"짜리 목록으로 덮어쓰면 **다른 기기들의
+/// 줄이 통째로 날아간다.** 그래서 쓰기 직전에 다시 읽어 합친다(`merge`).
 nonisolated enum DeviceIdentity {
     /// iCloud에 둘 등록부.
     static let registryKey = "analyticsDevices"
@@ -54,14 +63,21 @@ nonisolated enum DeviceIdentity {
     /// 두 대가 된다.
     static func resolve(
         cloud: (any IdentityStore)?,
+        keychain: (any IdentityStore)? = nil,
         local: any IdentityStore,
         model: String,
         now: Date = .now,
         newID: () -> String = Self.makeID
     ) -> (device: DeviceRecord, registry: [DeviceRecord]) {
         var registry = current(cloud: cloud, local: local)
-        let id = local.string(forKey: localKey).flatMap { $0.isEmpty ? nil : $0 } ?? newID()
+        // **키체인을 먼저 본다.** 앱을 지워도 남으므로, 재설치한 기기가 등록부에
+        // 새 줄로 또 서는 일이 없다. 예전엔 `UserDefaults`에만 있어서 지웠다 깔
+        // 때마다 같은 기기가 한 줄씩 늘었다 — 보고서에서 "내 14 Pro"가 여러
+        // 줄로 보이던 것이 그것이다.
+        let stored = nonEmpty(keychain?.string(forKey: localKey)) ?? nonEmpty(local.string(forKey: localKey))
+        let id = stored ?? newID()
         local.set(id, forKey: localKey)
+        keychain?.set(id, forKey: localKey)
 
         // 1.4.2까지의 계정 단위 표시, 또는 같은 기종의 내부 표시를 물려받는다.
         let legacy = local.string(forKey: legacyInternalKey) == "1"
@@ -136,14 +152,43 @@ nonisolated enum DeviceIdentity {
         return (try? JSONDecoder().decode([DeviceRecord].self, from: data)) ?? []
     }
 
+    /// **쓰기 직전에 iCloud를 다시 읽어 합친다.**
+    ///
+    /// 예전엔 손에 든 목록을 그대로 덮어썼다. 재설치 직후 첫 실행처럼 iCloud가
+    /// 아직 안 와 있는 순간에는 그 목록이 "나 한 대"뿐이라, **다른 기기들의 줄이
+    /// 통째로 날아갔다.** 주석에는 "각 기기가 다음 실행에 자기를 다시 세운다"고
+    /// 적어뒀지만, 돌아올 때 그 기기는 내부 표시가 꺼진 새 줄로 돌아온다 —
+    /// 물려받을 같은 기종의 줄도 함께 지워졌기 때문이다. 개발 기기가 조용히
+    /// 실사용자로 복귀하는 길이었고, 이 전체를 만든 이유가 바로 그걸 막는 것이었다.
     private static func write(_ registry: [DeviceRecord], to cloud: (any IdentityStore)?, local: any IdentityStore) {
-        guard let data = try? JSONEncoder().encode(registry),
+        let merged = merge(registry, into: cloud.map { read(from: $0) } ?? [])
+        guard let data = try? JSONEncoder().encode(merged),
               let raw = String(data: data, encoding: .utf8)
         else { return }
         // 기기 저장소에도 적어둔다 — iCloud가 늦게 붙는 실행에서도 곧바로 같은
         // 목록을 쓸 수 있다.
         local.set(raw, forKey: registryKey)
         cloud?.set(raw, forKey: registryKey)
+    }
+
+    /// 내가 든 목록(`mine`)이 이기되, **내가 못 본 줄은 지우지 않는다.**
+    /// 내부 표시를 끄는 것도 이 규칙을 따른다 — 끈 줄은 `mine`에 들어 있으므로
+    /// 클라우드의 켜진 옛 줄을 제대로 덮는다.
+    static func merge(_ mine: [DeviceRecord], into theirs: [DeviceRecord]) -> [DeviceRecord] {
+        var result = theirs
+        for record in mine {
+            if let index = result.firstIndex(where: { $0.id == record.id }) {
+                result[index] = record
+            } else {
+                result.append(record)
+            }
+        }
+        return result
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value, !value.isEmpty else { return nil }
+        return value
     }
 }
 

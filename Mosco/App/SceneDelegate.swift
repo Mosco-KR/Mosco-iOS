@@ -82,8 +82,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// 없으면 링크가 먹었는지 알 수 없다.
     private func markInternalUser(_ on: Bool) {
         let cloud = CloudIdentityStore()
+        let keychain = KeychainIdentityStore()
         let local = UserDefaults.standard
-        let device = DeviceIdentity.resolve(cloud: cloud, local: local, model: DeviceModel.current).device
+        let device = DeviceIdentity.resolve(
+            cloud: cloud,
+            keychain: keychain,
+            local: local,
+            model: DeviceModel.current
+        ).device
         _ = DeviceIdentity.mark(on, deviceID: device.id, model: device.model, cloud: cloud, local: local)
         Analytics.set(.internalUser(on))
         let alert = UIAlertController(
