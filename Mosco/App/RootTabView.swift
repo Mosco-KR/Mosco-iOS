@@ -478,7 +478,14 @@ struct RootTabView: View {
         // 시점이 다시 그리기 가장 좋은 자리다(편집 중에 매번 깨우면 시스템이
         // 갱신 예산을 금세 소진한다).
         if phase == .background {
-            WidgetCenter.shared.reloadAllTimelines()
+            // **저장을 먼저 한다.** 위젯은 같은 파일을 다른 프로세스에서 읽으므로,
+            // 아직 디스크에 안 내려간 변경은 위젯에게 없는 것이나 같다. 예전엔
+            // 여기서 바로 깨우기만 해서, 자동 저장이 늦게 떨어지면 위젯이 옛
+            // 상태를 그대로 그렸다.
+            try? modelContext.save()
+            // 앱이 뒤로 가면 예약해둔 작업이 돌아간다는 보장이 없다 — 모으기를
+            // 포기하고 지금 보낸다.
+            WidgetRefresh.flush()
         }
         // 설정 앱에서 권한을 바꾸고 돌아왔을 수 있다 — 돌아올 때마다 맞춰준다.
         guard phase == .active else { return }

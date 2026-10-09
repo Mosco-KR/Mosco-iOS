@@ -230,7 +230,7 @@ struct WidgetTodoRow: View {
         let color = todo.color
 
         HStack(spacing: 6) {
-            Button(intent: ToggleTodoCompletionIntent(todoID: todo.id, day: day)) {
+            Button(intent: ToggleTodoCompletionIntent(todoID: todo.id, day: day, completed: !todo.isCompleted)) {
                 Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: fontSize, weight: .medium))
                     .foregroundStyle(todo.isCompleted ? color.opacity(0.55) : color)

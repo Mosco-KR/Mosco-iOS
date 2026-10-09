@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// 할 일 하나를 그릴 때 쓰는 **공용 조각들**.
@@ -75,6 +76,16 @@ enum TodoCompletion {
         }
 
         let nowCompleted = !wasDone
+
+        // **저장하고 나서 위젯에 알린다.** 예전엔 둘 다 없었다 — 바꾼 것을
+        // SwiftData의 자동 저장에 맡기고, 위젯은 앱이 뒤로 갈 때 한 번 깨웠다.
+        // 그 둘 사이에 순서 보장이 없어서, 위젯이 **아직 저장되지 않은 파일**을
+        // 읽고 체크 안 된 상태를 그리는 일이 생겼다. 위젯에서 누른 완료는
+        // 멀쩡했는데 앱에서 누른 것만 어긋난 이유가 이것이다
+        // (`TodoCompletionWriter`는 처음부터 저장 → 알림 순서였다).
+        try? todo.modelContext?.save()
+        WidgetRefresh.schedule()
+
         Analytics.log(
             .todoCompleted(
                 source: "app",

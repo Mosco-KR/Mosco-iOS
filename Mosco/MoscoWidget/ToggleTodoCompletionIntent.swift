@@ -18,17 +18,22 @@ struct ToggleTodoCompletionIntent: AppIntent {
 
     @Parameter(title: "할 일") var todoID: String
     @Parameter(title: "날짜") var dayKey: String
+    /// 눌렀을 때 **되어야 할 값**. 뒤집기가 아니라 값을 싣는 이유는
+    /// `TodoCompletionWriter.set`에 적어뒀다 — 요약하면, 위젯은 자기가 그리고 있는
+    /// 상태를 알지만 익스텐션이 들고 있는 저장소 캐시는 낡아 있을 수 있어서다.
+    @Parameter(title: "완료") var completed: Bool
 
     init() {}
 
-    init(todoID: UUID, day: Date) {
+    init(todoID: UUID, day: Date, completed: Bool) {
         self.todoID = todoID.uuidString
         self.dayKey = day.dayKey
+        self.completed = completed
     }
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        WidgetStore.toggleCompletion(todoID: todoID, dayKey: dayKey)
+        WidgetStore.setCompletion(todoID: todoID, dayKey: dayKey, completed: completed)
         return .result()
     }
 }
