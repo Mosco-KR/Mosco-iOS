@@ -91,6 +91,11 @@ private struct TodoListContent: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            // **제목과 첫 묶음 사이가 비는 것을 막는다.** plain 리스트는 첫 섹션
+            // 머리 위에 제 여백을 또 넣어서, 내비게이션 제목 아래로 손가락 두 마디쯤
+            // 되는 빈 칸이 생긴다 — 화면을 열자마자 보이는 것이 빈 공간이면
+            // 목록이 짧아 보인다.
+            .contentMargins(.top, Metrics.spacingSM, for: .scrollContent)
         }
     }
 
