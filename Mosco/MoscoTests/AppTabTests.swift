@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-/// 탭 둘(달력·오늘)과, 앱 밖에서 들어오는 길이 어느 탭에 서는지.
+/// 탭 셋(달력·오늘·할 일)과, 앱 밖에서 들어오는 길이 어느 탭에 서는지.
 ///
 /// 1.4.0에서 두 탭을 하나로 합쳤다가 다시 나눴다. 되돌리면서도 **첫 탭은 달력으로
 /// 둔다** — 열자마자 일정을 확인하는 게 이 앱을 여는 이유라서, 그 판단만은 그대로
@@ -16,9 +16,10 @@ struct AppTabTests {
         #expect(AppTab.initial == .calendar)
     }
 
-    @Test("탭은_둘이다")
+    /// 순서가 뜻을 만든다 — **언제 · 지금 · 전부**로 읽혀야 한다.
+    @Test("탭은_셋이고_달력_오늘_할_일_순이다")
     func 탭_개수() {
-        #expect(AppTab.allCases == [.calendar, .today])
+        #expect(AppTab.allCases == [.calendar, .today, .todos])
     }
 
     // MARK: 위젯으로 들어온 길
@@ -43,7 +44,8 @@ struct AppTabTests {
     func 탭_이름() {
         #expect(AppTab.calendar.screen == .calendar)
         #expect(AppTab.today.screen == .today)
-        #expect(AppTab.calendar.screen != AppTab.today.screen)
+        #expect(AppTab.todos.screen == .todos)
+        #expect(Set(AppTab.allCases.map(\.screen)).count == AppTab.allCases.count)
     }
 
     /// 오늘 탭과 달력에서 눌러 들어온 하루 페이지는 **같은 화면**인데 이름이 다르다.
