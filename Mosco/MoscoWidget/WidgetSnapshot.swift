@@ -30,10 +30,20 @@ enum WidgetStore {
     /// 프로세스 안에 컨테이너가 둘 생길 자리 자체가 없다.
     private static var container: ModelContainer? { SharedModelContainer.sharedIfAvailable }
 
+    /// **읽을 때마다 컨텍스트를 새로 만든다.**
+    ///
+    /// 위젯 익스텐션은 타임라인 요청 사이에 살아남는다 — 프로세스가 죽지 않으면
+    /// `container.mainContext`도 그대로 남고, 거기 한 번 올라온 객체는 **다른
+    /// 프로세스(앱)가 파일을 고쳐도 옛 값을 들고 있다.** 그래서 앱에서 체크한 것이
+    /// 위젯에서만 미완료로 남는 일이 생겼고, 한 번 어긋나면 프로세스가 죽을 때까지
+    /// 끈질기게 어긋난 채였다.
+    ///
+    /// 새 컨텍스트는 저장소에서 바로 읽는다. 읽은 것은 즉시 값 타입으로 베껴가므로
+    /// (`WidgetTodo`·`TodoSnapshot`) 컨텍스트가 바로 사라져도 문제없다.
     @MainActor
     private static func allItems() -> [TodoItem] {
         guard let container else { return [] }
-        guard let all = try? container.mainContext.fetch(FetchDescriptor<TodoItem>()) else { return [] }
+        guard let all = try? ModelContext(container).fetch(FetchDescriptor<TodoItem>()) else { return [] }
         return all
     }
 
@@ -67,9 +77,12 @@ enum WidgetStore {
     /// 체크 표시가 다음 자정까지 그대로다.
     /// 실제 쓰기는 `TodoCompletionWriter`가 한다 — 라이브 액티비티의 완료 버튼과
     /// 같은 규칙을 써야 반복 일정의 날짜별 완료가 두 곳에서 어긋나지 않는다.
+    /// **뒤집지 않고 값을 정해서 보낸다.** 위젯은 자기가 그리고 있는 상태를 알고
+    /// 있으니 그걸 그대로 반대로 뒤집어 넘기면 되고, 그러면 쓰는 쪽이 저장소를
+    /// 다시 읽을 일이 없다 — 익스텐션이 들고 있던 옛 값으로 뒤집는 사고가 사라진다.
     @MainActor
-    static func toggleCompletion(todoID: String, dayKey: String) {
-        TodoCompletionWriter.toggle(todoID: todoID, dayKey: dayKey, source: "widget")
+    static func setCompletion(todoID: String, dayKey: String, completed: Bool) {
+        TodoCompletionWriter.set(completed, todoID: todoID, dayKey: dayKey, source: "widget")
     }
 
     /// 달력 위젯이 쓸 막대 배치. 앱의 격자와 **같은 계산**(`CalendarSnapshotBuilder`)을

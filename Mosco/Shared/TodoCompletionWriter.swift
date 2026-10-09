@@ -16,6 +16,17 @@ enum TodoCompletionWriter {
         write(todoID: todoID, dayKey: dayKey, to: nil, source: source)
     }
 
+    /// 정해진 값으로 고정한다 — **위젯 체크박스가 이쪽을 쓴다.**
+    ///
+    /// 위젯은 자기가 지금 무엇을 그리고 있는지 안다(체크 표시가 그것이다). 그러니
+    /// "뒤집어라"가 아니라 "이 값으로 해라"라고 말할 수 있고, 그래야 **쓰는 쪽이
+    /// 저장소를 다시 읽어 지금 값을 알아낼 필요가 없다.** 익스텐션 프로세스가 들고
+    /// 있던 옛 값으로 뒤집으면 눌러도 아무 일이 안 일어난 것처럼 보인다.
+    @MainActor
+    static func set(_ completed: Bool, todoID: String, dayKey: String, source: String) {
+        write(todoID: todoID, dayKey: dayKey, to: completed, source: source)
+    }
+
     /// 완료로 고정한다. 라이브 액티비티는 아직 안 끝난 일에만 떠 있으니 그 버튼이
     /// 뜻하는 건 언제나 "지금 끝냈다" 하나뿐이고, 전환으로 두면 이미 다른 데서
     /// 체크된 일을 도로 풀어버릴 수 있다.
