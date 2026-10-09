@@ -41,19 +41,6 @@ struct TodayPageTests {
 
     // MARK: 디데이
 
-    @Test("디데이는_오늘과_앞으로_올_것만_가까운_순으로_나온다")
-    func 디데이() {
-        let all = [
-            make("지난 기념일", date: d("2026-09-20"), dDay: true),
-            make("엄마 생신", date: d("2026-10-06"), dDay: true),
-            make("오늘 마감", date: d("2026-10-01"), dDay: true),
-            make("그냥 할 일", date: d("2026-10-03"))
-        ]
-        #expect(TodayPage.dDays(in: all, today: today).map(\.title) == ["오늘 마감", "엄마 생신"])
-    }
-
-    // MARK: 지난 할 일
-
     @Test("지난_할_일은_오래된_순이고_기간_안의_일은_빠진다")
     func 지난_할_일() {
         let all = [

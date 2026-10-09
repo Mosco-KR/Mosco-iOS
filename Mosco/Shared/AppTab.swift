@@ -1,6 +1,6 @@
 import Foundation
 
-/// 아래 탭 바에 서는 두 자리.
+/// 아래 탭 바에 서는 세 자리 — 언제(달력) · 지금(오늘) · 전부(할 일).
 ///
 /// **1.4.0에서 하나로 합쳤던 것을 다시 둘로 나눴다.** 그때 합친 이유는 지금도
 /// 유효하다 — 앱은 늘 달력으로 열렸는데 달력 화면엔 입력창이 없어서, 처음 온
@@ -14,6 +14,13 @@ nonisolated enum AppTab: String, CaseIterable, Sendable {
     case calendar
     /// 오늘 할 일.
     case today
+    /// 날짜를 가로지르는 할 일 목록.
+    ///
+    /// **달력·오늘과 다른 질문에 답한다.** 앞의 둘은 날짜 위에 선 화면이라
+    /// 날짜를 아직 안 정한 일이 설 자리가 없었다 — 오늘 페이지 맨 아래 칸에
+    /// 들어 있었는데, 적어둔 것이 오늘을 열어야만, 그것도 오늘 할 일들 아래에서야
+    /// 보였다. 할 일 앱으로 쓰려는 사람에게는 그게 본진이다.
+    case todos
 
     /// 앱을 열면 보이는 탭. **달력이다** — 열자마자 일정을 확인하는 게 이 앱을
     /// 여는 이유라서, 1.4.0에서 달력을 홈으로 올린 판단을 그대로 둔다.
@@ -25,6 +32,7 @@ nonisolated enum AppTab: String, CaseIterable, Sendable {
         switch self {
         case .calendar: .calendar
         case .today: .today
+        case .todos: .todos
         }
     }
 

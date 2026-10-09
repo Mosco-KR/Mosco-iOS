@@ -338,6 +338,10 @@ struct RootTabView: View {
     /// 열자마자 일정을 확인하는 게 이 앱을 여는 이유다. 되살린 것은 오늘 할 일로
     /// 가는 문 하나고, 그 화면은 달력에서 날짜를 눌러 들어가는 하루 페이지와
     /// **같은 것**이다(`TodayScreen`).
+    ///
+    /// 셋째 자리가 '할 일'이다. 셋이 **언제 · 지금 · 전부**로 읽힌다.
+    /// 오늘 탭 아이콘을 목록에서 해로 바꾼 건 그래서다 — 목록 아이콘 둘이 나란히
+    /// 서면 어느 쪽이 무엇인지 아이콘만으로는 알 수 없다.
     private var tabs: some View {
         TabView(selection: $selectedTab) {
             CalendarScreen()
@@ -346,9 +350,14 @@ struct RootTabView: View {
                 .tag(AppTab.calendar)
 
             TodayScreen()
-                .tabItem { Image(systemName: "list.bullet") }
+                .tabItem { Image(systemName: "sun.max") }
                 .accessibilityLabel("오늘")
                 .tag(AppTab.today)
+
+            TodoListScreen()
+                .tabItem { Image(systemName: "checklist") }
+                .accessibilityLabel("할 일")
+                .tag(AppTab.todos)
         }
     }
 
@@ -405,6 +414,12 @@ struct RootTabView: View {
             // 첫 화면도 같이 센다.
             .onChange(of: selectedTab, initial: true) { _, tab in
                 Analytics.log(.screenViewed(tab.screen))
+            }
+            // 화면이 "저쪽으로 보내달라"고 한 것. 탭을 옮기는 자리는 여기 하나다.
+            .onChange(of: navigation.tabRequest) { _, tab in
+                guard let tab else { return }
+                navigation.tabRequest = nil
+                selectedTab = tab
             }
             // '오늘 할 일' 위젯·라이브 액티비티로 들어오면 오늘 탭에 선다. 꺼져
             // 있다 켜진 경우엔 URL이 화면보다 먼저 와 있으므로 처음 값도 본다.
