@@ -197,22 +197,6 @@ struct TodoListPageTests {
         #expect(sections.map(\.section) == [.overdue, .today, .thisWeek, .later, .noDate])
     }
 
-    // MARK: - 오늘 탭 머리의 한 줄
-
-    /// 오늘 탭에서 지난 할 일과 백로그 묶음을 들어냈으므로, 거기 뭐가 있다는 것을
-    /// 알려줄 길이 필요하다. 그냥 들어내면 적어둔 게 어디 갔는지 모르게 된다.
-    @Test("넘어온_것의_수는_지난_것과_날짜_없는_것을_함께_센다")
-    func 넘어온_수() {
-        make("어제", date: day("2026-10-08"))
-        make("지난주", date: day("2026-10-01"))
-        make("언젠가", date: nil)
-        make("오늘", date: today)
-        make("어제 끝냄", date: day("2026-10-08"), completed: true)
-        let todos = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
-
-        #expect(TodoListPage.carryOverCount(in: todos, today: today) == 3)
-    }
-
     // MARK: - 디데이 세기
 
     @Test("디데이는_남은_날을_센다")

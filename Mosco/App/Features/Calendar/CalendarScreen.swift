@@ -16,6 +16,7 @@ struct CalendarScreen: View {
     @State private var visibleMonth = CalendarMonth.containing(Date())
     /// 값이 들어오면 하루치 페이지가 밀려 들어온다(`navigationDestination`).
     @State private var selectedDate: Date?
+    @State private var navigation = AppNavigation.shared
     @State private var showsSettings = false
     @State private var showsMonthPicker = false
     /// 홈 입력창의 키보드가 떠 있는가. 떠 있는 동안만 달력 위에 '내리기' 판을 깐다.
@@ -123,6 +124,14 @@ struct CalendarScreen: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .background { BackButtonMenuRemover() }
+            // **'오늘 할 일' 위젯과 라이브 액티비티가 들어오는 문.** 오늘 탭이
+            // 없어진 뒤로 하루 페이지에 서는 길은 여기 하나다. 꺼져 있다 켜진
+            // 경우엔 URL이 화면보다 먼저 와 있으므로 처음 값도 본다.
+            .onChange(of: navigation.todayPageRequest, initial: true) { _, source in
+                guard let source else { return }
+                navigation.todayPageRequest = nil
+                select(Date(), from: source)
+            }
             .navigationDestination(item: $selectedDate) { day in
                 DayTodosContentView(date: day)
             }

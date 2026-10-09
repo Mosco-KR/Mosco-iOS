@@ -7,11 +7,11 @@ import Foundation
 /// 여기서 정하고 테스트로 묶는다(`TodayPageTests`).
 ///
 /// **지금은 이 중 둘이 할 일 탭으로 옮겨 갔다.** `overdue`와 `backlog`는 여기 남아
-/// 있지만 읽는 쪽은 할 일 탭(`TodoListPage`)과 오늘 탭 머리의 "넘어온 것" 한 줄이다.
+/// 있지만 읽는 쪽은 할 일 탭(`TodoListPage`)과 하루 요약 알림(`DailySummaryPlan`)이다.
 /// 디데이를 추리던 `dDays`는 지웠다 — 디데이 카드가 하던 "며칠 남았나"는 이제
 /// 행에 붙는 `D-7` 조각이 답하고, 순서는 `TodoListPage.sort`가 정한다.
 enum TodayPage {
-    /// 남은 할 일이 이보다 많으면 '하루에 하기엔 많아 보여요'. 오늘 탭과 같은 기준.
+    /// 남은 할 일이 이보다 많으면 '하루에 하기엔 많아 보여요'.
     static let overloadThreshold = 8
 
     /// 날짜가 지났는데 안 끝낸 일, 오래된 순. 판정은 `TodoItem.isOverdue` —

@@ -1,72 +1,106 @@
-import CoreGraphics
 import Foundation
 import Testing
 
-/// 하루치 페이지 머리 스트립 — 들어온 날이 맨 왼쪽 끝에 붙던 증상.
-/// 일요일로 시작하는 주로 끊었더니 30일(일요일)에 들어가면 그 칸이 줄 끝에 붙었다.
-@Suite("주간 스트립 위치")
+/// 하루치 페이지 머리 스트립이 어느 주를 보여주고, 주를 넘길 때 어느 날로 가는가.
+///
+/// **한 번 되돌린 자리다.** 고른 날을 가운데 두는 7일 창으로 바꿨다가 일~토로
+/// 돌아왔다 — 칸의 요일이 고정되지 않으면 줄을 읽을 수 없고 요일 머리글도 붙일
+/// 수 없다. 되돌린 판단을 테스트로 묶어둔다.
+@Suite("주간 스트립")
 struct WeekStripPagingTests {
 
     private let calendar = TestCalendar.korea
 
-    @Test("고른_날이_일곱_칸의_가운데에_온다", arguments: [
-        ("2026-08-30", "2026-08-27"),   // 일요일 — 예전엔 맨 왼쪽이었다
-        ("2026-09-05", "2026-09-02"),   // 토요일 — 예전엔 맨 오른쪽이었다
-        ("2026-10-01", "2026-09-28"),   // 월초 — 앞 달로 넘어간다
-        ("2026-03-02", "2026-02-27"),   // 2월 끝을 건넌다
-        ("2025-01-02", "2024-12-30"),   // 해를 건넌다
-    ])
-    func 가운데_정렬(selected: String, expectedLeading: String) {
-        let leading = WeekStripPaging.leadingDay(centering: day(selected), calendar: calendar)
-        #expect(label(leading) == expectedLeading)
+    private func weekStart(_ date: String) -> Date {
+        WeekStripPaging.weekStart(containing: day(date, calendar: calendar), calendar: calendar)
+    }
 
-        let center = calendar.date(byAdding: .day, value: WeekStripPaging.daysBeforeCenter, to: leading)!
-        #expect(label(center) == selected, "넷째 칸이 \(label(center))다 — 고른 날이 아니다")
+    // MARK: - 어느 주인가
+
+    /// 2026-10-15는 목요일. 그 주의 일요일은 10-11이다.
+    @Test("그_날이_속한_주의_일요일을_찾는다")
+    func 주의_시작() {
+        #expect(label(weekStart("2026-10-15"), calendar: calendar) == "2026-10-11")
+    }
+
+    /// **일요일이 왼쪽 끝에 서는 것은 어색한 게 아니라 맞는 것이다.**
+    /// 머리글에 '일'이라고 쓰여 있으면 그렇게 읽힌다.
+    @Test("일요일을_고르면_그_날이_주의_첫째_칸이다")
+    func 일요일() {
+        #expect(label(weekStart("2026-10-11"), calendar: calendar) == "2026-10-11")
+    }
+
+    @Test("토요일을_고르면_그_주의_일요일로_거슬러_올라간다")
+    func 토요일() {
+        #expect(label(weekStart("2026-10-17"), calendar: calendar) == "2026-10-11")
     }
 
     @Test("하루_중간_시각이어도_그날_0시_기준으로_맞춘다")
     func 시각은_버린다() {
-        let afternoon = calendar.date(byAdding: .hour, value: 15, to: day("2026-08-30"))!
-        let leading = WeekStripPaging.leadingDay(centering: afternoon, calendar: calendar)
-        #expect(leading == day("2026-08-27"))
+        let 오후 = calendar.date(bySettingHour: 23, minute: 30, second: 0, of: day("2026-10-15", calendar: calendar))!
+        let start = WeekStripPaging.weekStart(containing: 오후, calendar: calendar)
+        #expect(label(start, calendar: calendar) == "2026-10-11")
     }
 
-    // MARK: - 미는 손짓
+    // MARK: - 한 주의 날들
 
-    private let dayWidth: CGFloat = 50
-    private var page: CGFloat { dayWidth * 7 }
+    @Test("한_주는_일요일부터_이레다")
+    func 이레() {
+        let days = WeekStripPaging.days(of: weekStart("2026-10-15"), calendar: calendar)
 
-    @Test("반_주_넘게_밀면_정확히_한_주_넘어간다")
-    func 다음_주() {
-        let start = dayWidth * 100
-        #expect(WeekStripPaging.restingOffset(start: start, proposed: start + page * 0.6, dayWidth: dayWidth) == start + page)
-        #expect(WeekStripPaging.restingOffset(start: start, proposed: start - page * 0.6, dayWidth: dayWidth) == start - page)
+        #expect(days.count == 7)
+        #expect(label(days.first!, calendar: calendar) == "2026-10-11")
+        #expect(label(days.last!, calendar: calendar) == "2026-10-17")
     }
 
-    @Test("세게_튕겨도_한_번에_한_주만_간다")
-    func 한_주씩만() {
-        let start = dayWidth * 100
-        #expect(WeekStripPaging.restingOffset(start: start, proposed: start + page * 5, dayWidth: dayWidth) == start + page)
+    // MARK: - 주를 넘길 때
+
+    /// 목요일을 보다가 다음 주로 밀면 **다음 주 목요일**이다. 주의 첫날로 데려가면
+    /// 밀 때마다 요일이 일요일로 되돌아가서, 두 번 넘기면 보던 요일을 잃는다.
+    @Test("주를_넘겨도_보던_요일을_지킨다")
+    func 요일_유지() {
+        let 다음_주 = weekStart("2026-10-18")
+        let 결과 = WeekStripPaging.day(
+            inWeek: 다음_주,
+            keepingWeekdayOf: day("2026-10-15", calendar: calendar),
+            calendar: calendar
+        )
+
+        #expect(label(결과, calendar: calendar) == "2026-10-22", "목요일에서 다음 주 목요일로")
     }
 
-    @Test("조금_밀다_놓으면_제자리로_돌아온다")
-    func 제자리() {
-        let start = dayWidth * 100
-        #expect(WeekStripPaging.restingOffset(start: start, proposed: start + page * 0.3, dayWidth: dayWidth) == start)
-        #expect(WeekStripPaging.restingOffset(start: start, proposed: start - page * 0.3, dayWidth: dayWidth) == start)
+    @Test("이전_주로_밀어도_같은_요일이다")
+    func 이전_주() {
+        let 지난_주 = weekStart("2026-10-04")
+        let 결과 = WeekStripPaging.day(
+            inWeek: 지난_주,
+            keepingWeekdayOf: day("2026-10-15", calendar: calendar),
+            calendar: calendar
+        )
+
+        #expect(label(결과, calendar: calendar) == "2026-10-08")
     }
 
-    @Test("미끄러지는_도중에_잡아도_칸_경계에_멈춘다")
-    func 칸_경계() {
-        // 102.4칸에서 다시 잡았다 — 102칸에서 출발한 것으로 친다.
-        let start = dayWidth * 102.4
-        let resting = WeekStripPaging.restingOffset(start: start, proposed: start + page, dayWidth: dayWidth)
-        #expect(resting == dayWidth * 109)
-        #expect(resting.truncatingRemainder(dividingBy: dayWidth) == 0)
+    @Test("일요일을_보고_있었으면_넘긴_주의_일요일이다")
+    func 일요일_유지() {
+        let 결과 = WeekStripPaging.day(
+            inWeek: weekStart("2026-10-18"),
+            keepingWeekdayOf: day("2026-10-11", calendar: calendar),
+            calendar: calendar
+        )
+
+        #expect(label(결과, calendar: calendar) == "2026-10-18")
     }
 
-    @Test("창의_맨_앞에서는_음수로_가지_않는다")
-    func 맨_앞() {
-        #expect(WeekStripPaging.restingOffset(start: 0, proposed: -page, dayWidth: dayWidth) == 0)
+    // MARK: - 올려두는 창
+
+    @Test("앞뒤_십_년치_주가_주_간격으로_놓인다")
+    func 창() {
+        let weeks = WeekStripWindow.weeks
+
+        #expect(weeks.count == WeekStripWindow.radius * 2 + 1)
+        #expect(Set(weeks).count == weeks.count, "같은 주가 두 번 들어가면 스크롤이 제자리에서 튄다")
+        let gap = Calendar.current.dateComponents([.day], from: weeks[0], to: weeks[1]).day
+        #expect(gap == 7)
     }
 }

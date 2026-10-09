@@ -181,14 +181,6 @@ nonisolated enum TodoListPage {
         todo.date == nil ? todo.isCompleted : todo.isCompleted(on: day)
     }
 
-    /// 오늘 탭 머리에 뜨는 한 줄 — "여기 말고 저기에 더 있다". 숫자가 0이면 안 띄운다.
-    ///
-    /// 오늘 탭에서 지난 할 일과 날짜 없는 할 일 묶음을 들어냈기 때문에 필요하다.
-    /// 그냥 들어내면 **기존 사용자가 잃는 것이 생긴다** — 적어둔 게 어디 갔는지
-    /// 모르게 되는 것이 제일 나쁘다.
-    static func carryOverCount(in todos: [TodoItem], today: Date) -> Int {
-        TodayPage.overdue(in: todos, today: today).count + TodayPage.backlog(in: todos).count
-    }
 }
 
 extension TodoItem {

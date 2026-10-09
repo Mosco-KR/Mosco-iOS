@@ -17,28 +17,14 @@ struct DayTodosContentView: View {
     /// 달력은 들어온 자리를 그대로 지키므로(`CalendarScreen.select`) 여기서
     /// 옮겨 다닌 결과를 밖으로 올리지 않는다.
     @State private var shownDate: Date
-    /// 이 화면이 어디에 서 있나. 보이는 것은 같지만 **로그에 남는 이름과 입력창
-    /// 출처가 갈린다** — "오늘 탭을 쓰는가"와 "달력에서 날짜를 눌러 들어오는가"는
-    /// 다른 질문이고, 둘을 한 이름으로 섞으면 어느 쪽도 답이 안 나온다.
-    enum Origin {
-        /// 오늘 탭의 뿌리. 뒤로 가기가 없다.
-        case tab
-        /// 달력에서 날짜를 눌러 밀려 들어온 페이지.
-        case pushed
-    }
-
-    private let origin: Origin
-
-    init(date: Date, origin: Origin = .pushed) {
+    init(date: Date) {
         _shownDate = State(initialValue: date)
-        self.origin = origin
     }
 
-    /// 입력창에 실릴 출처. 오늘을 보고 있을 때만 탭과 페이지를 가른다 —
-    /// 다른 날짜는 어느 쪽에서 왔든 "달력의 그날"이다.
+    /// 입력창에 실릴 출처. 오늘만 따로 센다 — 오늘 탭이 없어진 뒤로 "오늘에 적는
+    /// 일"이 얼마나 되는지가 탭을 둘로 되돌린 판단의 성적표다.
     private var quickAddSource: String {
-        guard Calendar.current.isDateInToday(shownDate) else { return "calendar_day" }
-        return origin == .tab ? "today_tab" : "today_page"
+        Calendar.current.isDateInToday(shownDate) ? "today_page" : "calendar_day"
     }
 
     @Environment(\.modelContext) private var modelContext
@@ -88,8 +74,8 @@ struct DayTodosContentView: View {
         // 커지면 히트 영역이 따라오지 않는다. 먼저 붙인 쪽이 안쪽(위)에 온다.
         .safeAreaInset(edge: .bottom, spacing: Metrics.spacingSM) { pasteBar }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            // 어디서 적었는지 따로 센다 — 오늘 탭과 달력에서 눌러 들어온 오늘
-            // 페이지가 각각 얼마나 쓰이는지가 탭을 둘로 나눈 판단의 성적표다.
+            // 어디서 적었는지 따로 센다 — 오늘에 적는 일과 다른 날에 적는 일의
+            // 비율이, 오늘 탭을 없애도 괜찮았는지에 답한다.
             QuickAddView(
                 date: shownDate,
                 editingTodo: $editingTodo,
@@ -103,10 +89,8 @@ struct DayTodosContentView: View {
         // 다시 만들어야 하고, 스와이프는 흉내 내기도 어렵다.
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
-        // **탭 뿌리일 때는 자기를 세지 않는다.** 탭은 한 번 세워지면 앱이 떠 있는
-        // 동안 계속 살아 있어서 `task`가 다시 돌지 않는다 — 실행당 한 번만 찍히고
-        // "얼마나 자주 보나"에 답하지 못한다. 탭을 세는 자리는 `RootTabView`다.
-        .logScreen(origin == .pushed ? .day : nil)
+        // 이 화면은 늘 밀려 들어온다 — 탭 뿌리로 서는 길은 오늘 탭과 함께 없어졌다.
+        .logScreen(.day)
     }
 
     /// 할 일 화면의 편집 버튼과 같은 이름·같은 모양이다. 하는 일도 같다 —
@@ -298,7 +282,7 @@ private struct DayTodoList: View {
     /// 위쪽 격자와 같은 캘린더만 보여야 한다 — 격자엔 없는 일정이 아래 리스트에만
     /// 나오면 어느 쪽이 맞는지 알 수 없다.
     @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
-    /// 마지막으로 고른 모양. 오늘 할 일 탭과 **같은 값을 공유한다**.
+    /// 마지막으로 고른 모양. 어느 날 페이지에서 고르든 같은 값을 쓴다.
     @AppStorage(DayViewMode.storageKey) private var viewModeRaw = DayViewMode.list.rawValue
 
     /// 반복 인스턴스는 저장소에 없고 규칙으로 계산되므로 #Predicate로는 못 거른다.
@@ -340,8 +324,7 @@ private struct DayTodoList: View {
 
     // MARK: 오늘 페이지 — 예전 오늘 탭이 하던 일
 
-    /// 오늘을 볼 때만 "넘어온 것" 한 줄이 붙는다. 다른 날 페이지는 그날 목록만 —
-    /// 거기에 지난 할 일이 붙으면 "이날 할 일"이 실제보다 많아 보인다.
+    /// 오늘을 보고 있나. 남은 개수를 머리에 적을지만 가른다.
     private var isToday: Bool { Calendar.current.isDateInToday(date) }
 
     private var visibleTodos: [TodoItem] {
@@ -353,24 +336,12 @@ private struct DayTodoList: View {
         todosForDay.filter { !$0.isCompleted(on: date) }.count
     }
 
-    /// 오늘이 아닌 것 중 챙겨야 할 것의 수 — 지난 할 일과 날짜 안 정한 할 일.
-    ///
-    /// **이 화면은 이제 오늘 것만 보여준다.** 디데이·지난 할 일·날짜 없는 할 일
-    /// 세 칸이 여기 붙어 있었는데, 그러면 "오늘 할 일"이 실제보다 훨씬 많아 보이고
-    /// 오늘 치울 수 있는 것이 그 사이에 묻혔다. 셋은 전부 할 일 탭으로 옮겼다.
-    ///
-    /// 다만 **그냥 들어내면 적어둔 게 어디 갔는지 모르게 된다.** 그게 제일 나쁘다.
-    /// 그래서 숫자만 한 줄로 남기고 누르면 그쪽으로 보낸다.
-    private var carryOverCount: Int {
-        isToday ? TodoListPage.carryOverCount(in: visibleTodos, today: date) : 0
-    }
-
     var body: some View {
         // **비었을 때는 List를 쓰지 않는다.** List 안에 넣으면 안내가 첫 행 자리,
         // 즉 화면 맨 위에 붙어서 그 아래로 빈 공간이 길게 남는다 — 아무것도 없다는
         // 말을 하면서 화면의 대부분을 비워두는 셈이다. 리스트를 통째로 걷어내면
         // ContentUnavailableView가 제 프레임 한가운데에 선다.
-        if todosForDay.isEmpty && carryOverCount == 0 {
+        if todosForDay.isEmpty {
             emptyState
         } else if DayViewMode.from(viewModeRaw) == .timeline {
             // 편집(순서 바꾸기)은 목록에서만 한다 — 시간축에서 끌어 옮기면
@@ -405,7 +376,6 @@ private struct DayTodoList: View {
 
     private var list: some View {
         List {
-            if carryOverCount > 0 { carryOverRow }
             if isToday, remainingCount > TodayPage.overloadThreshold { overloadNotice }
             Section {
                 // 날짜를 넘기는 스와이프는 맨 위 주간 스트립에만 있다. 줄에는
@@ -423,7 +393,9 @@ private struct DayTodoList: View {
             } header: {
                 // 섹션이 하나뿐이면 머리가 필요 없다. 오늘처럼 여럿이 붙을 때만 '할 일'을
                 // 세우고, 남은 개수는 이 한 곳에서만 말한다.
-                if carryOverCount > 0 {
+                // 오늘만 남은 개수를 적는다. 다른 날은 "몇 개 남았나"가 물음이
+                // 아니다 — 아직 오지 않은 날이다.
+                if isToday {
                     sectionHeader(String(localized: "할 일"), trailing: String(localized: "\(remainingCount)개 남음"))
                 }
             }
@@ -461,38 +433,6 @@ private struct DayTodoList: View {
         }
         .font(.moscoCaption())
         .foregroundStyle(MoscoPalette.textSecondary)
-    }
-
-    /// "오늘 말고 저기에 더 있다" 한 줄. 누르면 할 일 탭으로 간다.
-    ///
-    /// 경고가 아니라 **안내**다. 지난 할 일을 빨갛게 세워두면 앱을 열 때마다
-    /// 혼나는 기분이 되고, 그러면 사람은 앱을 덜 연다.
-    private var carryOverRow: some View {
-        Button {
-            AppNavigation.shared.tabRequest = .todos
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "tray.full")
-                Text("오늘 말고 챙길 것 \(carryOverCount)개")
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-            }
-            .font(.moscoCaption().weight(.semibold))
-            .foregroundStyle(MoscoPalette.textSecondary)
-            .padding(.horizontal, Metrics.spacingMD)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                MoscoPalette.textSecondary.opacity(0.07),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
-        .listRowInsets(EdgeInsets(top: Metrics.listRowGap, leading: Metrics.spacingMD, bottom: Metrics.listRowGap, trailing: Metrics.spacingMD))
     }
 
     private var overloadNotice: some View {

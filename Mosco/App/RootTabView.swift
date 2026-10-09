@@ -335,24 +335,15 @@ struct RootTabView: View {
     /// (텍스트를 지운다고 VoiceOver 사용자까지 못 읽게 하면 안 된다).
     ///
     /// **달력이 먼저다.** 1.4.0에서 달력을 홈으로 올린 판단은 그대로 둔다 —
-    /// 열자마자 일정을 확인하는 게 이 앱을 여는 이유다. 되살린 것은 오늘 할 일로
-    /// 가는 문 하나고, 그 화면은 달력에서 날짜를 눌러 들어가는 하루 페이지와
-    /// **같은 것**이다(`TodayScreen`).
+    /// 열자마자 일정을 확인하는 게 이 앱을 여는 이유다.
     ///
-    /// 셋째 자리가 '할 일'이다. 셋이 **언제 · 지금 · 전부**로 읽힌다.
-    /// 오늘 탭 아이콘을 목록에서 해로 바꾼 건 그래서다 — 목록 아이콘 둘이 나란히
-    /// 서면 어느 쪽이 무엇인지 아이콘만으로는 알 수 없다.
+    /// 둘째 자리가 '할 일'이다. 둘이 **언제 · 무엇부터**로 읽힌다.
     private var tabs: some View {
         TabView(selection: $selectedTab) {
             CalendarScreen()
                 .tabItem { Image(systemName: "calendar") }
                 .accessibilityLabel("달력")
                 .tag(AppTab.calendar)
-
-            TodayScreen()
-                .tabItem { Image(systemName: "sun.max") }
-                .accessibilityLabel("오늘")
-                .tag(AppTab.today)
 
             TodoListScreen()
                 .tabItem { Image(systemName: "checklist") }
@@ -415,21 +406,13 @@ struct RootTabView: View {
             .onChange(of: selectedTab, initial: true) { _, tab in
                 Analytics.log(.screenViewed(tab.screen))
             }
-            // 화면이 "저쪽으로 보내달라"고 한 것. 탭을 옮기는 자리는 여기 하나다.
-            .onChange(of: navigation.tabRequest) { _, tab in
-                guard let tab else { return }
-                navigation.tabRequest = nil
-                selectedTab = tab
-            }
-            // '오늘 할 일' 위젯·라이브 액티비티로 들어오면 오늘 탭에 선다. 꺼져
-            // 있다 켜진 경우엔 URL이 화면보다 먼저 와 있으므로 처음 값도 본다.
+            // '오늘 할 일' 위젯·라이브 액티비티로 들어오면 달력 탭에 세운다.
+            // **깃발은 여기서 내리지 않는다** — 하루 페이지를 실제로 미는 것은
+            // 달력이고(`CalendarScreen`), 거기서 내린다. 꺼져 있다 켜진 경우엔
+            // URL이 화면보다 먼저 와 있으므로 처음 값도 본다.
             .onChange(of: navigation.todayPageRequest, initial: true) { _, source in
-                guard let source else { return }
-                navigation.todayPageRequest = nil
-                selectedTab = .today
-                // 어느 문으로 오늘에 들어왔나. 탭을 직접 누른 것은 `screen_view`가
-                // 세므로, 이 이벤트는 앱 밖에서 들어온 길만 센다.
-                Analytics.log(.dayOpened(from: source, isToday: true))
+                guard source != nil else { return }
+                selectedTab = .calendar
             }
     }
 
