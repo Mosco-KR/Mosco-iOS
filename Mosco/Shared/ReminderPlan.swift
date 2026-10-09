@@ -67,7 +67,11 @@ nonisolated enum ReminderPlan {
     static let horizonDays = 60
     /// iOS가 앱당 허용하는 대기 중 로컬 알림은 64개다. 그 안에서 **가까운 것부터**
     /// 채우고, 나머지는 다음 실행 때 다시 계산되며 자연히 채워진다.
-    static let limit = 60
+    ///
+    /// 하루 요약(`DailySummaryPlan`)이 최대 7칸을 쓰므로 그만큼 비워둔다. 요약을
+    /// 할 일별 알림이 밀어내면 **알림이 하나도 없는 사람에게 아무것도 안 가는**
+    /// 상황만 남는다 — 요약은 그런 사람을 위해 만든 것이다.
+    static let limit = 64 - DailySummaryPlan.horizonDays
 
     static func make(
         from sources: [ReminderSource],

@@ -76,6 +76,14 @@ struct SettingsScreen: View {
             }
             // 설정 앱에서 권한을 바꾸고 돌아왔을 수 있다 — 이 화면이 뜰 때마다 맞춘다.
             .task { await notificationScheduler.refreshAuthorizationStatus() }
+            // 고른 시각을 시·분으로 떼어 저장한다. 예약을 다시 거는 것은 앱 뿌리가
+            // 맡는다 — 이 화면을 닫으면 `rescheduleKey`가 바뀌어 통째로 다시 돈다.
+            .onChange(of: dailySummaryTime) { _, picked in
+                DailySummarySettings.setTime(
+                    Calendar.current.dateComponents([.hour, .minute], from: picked),
+                    in: .standard
+                )
+            }
             .navigationTitle("설정")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -219,14 +227,39 @@ struct SettingsScreen: View {
                     openSystemSettings(.notifications)
                 }
             }
+
+            // 앱 전체 알림이 꺼져 있으면 이 줄은 아무 일도 못 한다 — 켤 수 있는
+            // 것처럼 보이면 켜두고 왜 안 오는지 모르게 된다.
+            if notificationScheduler.isEffectivelyOn {
+                Toggle("하루 마무리 알림", isOn: $dailySummaryEnabled)
+
+                if dailySummaryEnabled {
+                    DatePicker(
+                        "받을 시각",
+                        selection: $dailySummaryTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                }
+            }
         } header: {
             Text("알림")
         } footer: {
             if isNotificationBlocked {
                 Text("기기 설정에서 알림이 꺼져 있어요. 허용하면 켜둔 대로 다시 옵니다.")
+            } else if notificationScheduler.isEffectivelyOn, dailySummaryEnabled {
+                // **"남아 있을 때만"이 핵심이다.** 그 말이 없으면 매일 울리는
+                // 알림으로 읽혀서, 받아보기도 전에 끄는 사람이 생긴다.
+                Text("그날 안 끝낸 일이 남아 있을 때만 알려줘요. 시간을 안 정한 일도 함께 세요.")
             }
         }
     }
+
+    /// 하루 마무리 알림 — 켜고 끄기와 시각.
+    ///
+    /// **시각은 `DateComponents`가 아니라 `Date`로 들고 있는다.** `DatePicker`가
+    /// `Date`만 받아서다. 저장할 때 시·분만 떼어 낸다(`DailySummarySettings`).
+    @AppStorage(DailySummarySettings.enabledKey) private var dailySummaryEnabled = true
+    @State private var dailySummaryTime = DailySummarySettings.timeAsDate(in: .standard)
 
     /// 잠금화면·다이나믹 아일랜드 스위치.
     ///
