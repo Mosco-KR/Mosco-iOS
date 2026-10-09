@@ -26,6 +26,13 @@ enum WidgetRefresh {
     /// 프로세스에서 부를 수 없다.
     static var reload: @MainActor () -> Void = { WidgetCenter.shared.reloadAllTimelines() }
 
+    /// 기다리는 방법. **테스트가 갈아끼우라고 뽑아둔 것이다.**
+    ///
+    /// 실제 시계로 테스트하면 느린 기계에서 흔들린다 — CI 러너에서 30밀리초짜리
+    /// 기다림이 120밀리초 안에 안 끝나서 깨졌다. 그건 코드가 틀린 게 아니라
+    /// 기계가 바쁜 것인데, 그렇게 깨지는 테스트는 곧 아무도 안 믿는다.
+    static var sleep: @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) }
+
     private static var pending: Task<Void, Never>?
 
     /// 곧 다시 그려야 한다고 알린다. 이미 예약된 것이 있으면 그것을 물리고
@@ -33,11 +40,17 @@ enum WidgetRefresh {
     static func schedule() {
         pending?.cancel()
         pending = Task {
-            try? await Task.sleep(for: delay)
+            await sleep(delay)
             guard !Task.isCancelled else { return }
             pending = nil
             reload()
         }
+    }
+
+    /// 예약된 일이 끝날 때까지 기다린다. **테스트가 쓴다** — 시계가 아니라
+    /// 그 일 자체를 기다리므로 기계가 아무리 느려도 결과가 같다.
+    static func waitForPending() async {
+        await pending?.value
     }
 
     /// 기다릴 수 없는 자리 — 앱이 뒤로 갈 때. 예약된 것이 있으면 물리고 지금 보낸다.
