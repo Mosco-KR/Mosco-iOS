@@ -32,7 +32,12 @@ final class TodoCategory {
     /// 끄는 편이 "왜 알림이 안 오지"보다 알아채기 쉽다.
     var notifiesBeforeStart: Bool = true
     /// 시작 몇 분 전에 알릴지. notifiesBeforeStart가 false면 의미 없다.
-    var notificationLeadMinutes: Int = 10
+    var notificationLeadMinutes: Int = TodoCategory.defaultLeadMinutes
+
+    /// 카테고리를 따로 손대지 않았을 때의 리드타임. **카테고리가 아예 없는 할 일도
+    /// 이 값으로 알린다**(`ReminderSource`) — 그래서 숫자를 두 곳에 적지 않고
+    /// 여기 하나만 둔다.
+    static let defaultLeadMinutes = 10
 
     init(name: String, colorHex: String, sortOrder: Int, isDefault: Bool = false) {
         self.id = UUID()
