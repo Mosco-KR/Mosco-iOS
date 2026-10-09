@@ -34,13 +34,25 @@ nonisolated struct ReminderSource: Equatable, Sendable {
     }
 
     /// 저장소의 할 일에서 베껴온다. 알림을 받을 이유가 없는 것은 nil —
-    /// 카테고리 알림이 꺼져 있거나, 시작 시각이 없거나, 날짜가 없는(백로그) 것.
+    /// 카테고리 알림을 **꺼둔** 것이거나, 날짜가 없는(백로그) 것.
+    ///
+    /// **카테고리가 아예 없는 할 일도 알린다.** 예전엔 그냥 돌려보냈다 — 그래서
+    /// 분류가 안 붙은 할 일은 시각을 정성껏 적어도 알림이 한 번도 오지 않았고,
+    /// 그 이유가 화면 어디에도 없었다. "카테고리를 붙여야 알림이 온다"는 규칙은
+    /// 아무도 모르고, 알 방법도 없다. 끄고 싶으면 끌 자리가 따로 있다
+    /// (카테고리 설정, 그리고 앱 전체 스위치).
     @MainActor
     init?(_ todo: TodoItem, calendar: Calendar = .current) {
-        guard let category = todo.category, category.notifiesBeforeStart else { return nil }
+        let lead: Int
+        if let category = todo.category {
+            guard category.notifiesBeforeStart else { return nil }
+            lead = category.notificationLeadMinutes
+        } else {
+            lead = TodoCategory.defaultLeadMinutes
+        }
         guard let snapshot = TodoSnapshot(todo, calendar: calendar) else { return nil }
         self.todo = snapshot
-        self.leadMinutes = category.notificationLeadMinutes
+        self.leadMinutes = lead
     }
 }
 

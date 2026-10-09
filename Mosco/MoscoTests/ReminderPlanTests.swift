@@ -234,11 +234,22 @@ struct ReminderSourceTests {
         #expect(ReminderSource(make(notifies: false)) == nil)
     }
 
-    @Test("카테고리가_없으면_가져오지_않는다")
-    func 카테고리_없음() {
-        let todo = TodoItem(title: "분류 없음", date: Calendar.current.startOfDay(for: .now))
+    /// 카테고리가 없다는 건 "알림을 원하지 않는다"는 뜻이 아니다 — 분류가 아직
+    /// 안 붙었다는 뜻일 뿐이다. 예전엔 여기서 돌려보내서, 시각을 적어둔 할 일이
+    /// 조용히 알림을 못 받았다.
+    @Test("카테고리가_없어도_기본_리드타임으로_알린다")
+    func 카테고리_없음() throws {
+        let today = Calendar.current.startOfDay(for: .now)
+        let todo = TodoItem(
+            title: "분류 없음",
+            date: today,
+            startTime: Calendar.current.date(bySettingHour: 19, minute: 0, second: 0, of: today)
+        )
         context.insert(todo)
-        #expect(ReminderSource(todo) == nil)
+
+        let source = try #require(ReminderSource(todo))
+        #expect(source.leadMinutes == TodoCategory.defaultLeadMinutes)
+        #expect(source.todo.startMinutes == 19 * 60)
     }
 
     /// 날짜를 안 정한 할 일(백로그)은 울릴 날이 없다.
