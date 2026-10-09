@@ -102,7 +102,15 @@ final class TodoNotificationScheduler {
     /// **입력을 값으로 먼저 베낀다.** `TodoItem`은 `@Model`이라 자기 컨텍스트의
     /// 스레드 밖에서 만지면 안 되는데, 이 함수는 `await` 뒤로 그 스레드를 떠난다.
     func reschedule(todos: [TodoItem]) async {
-        let sources = await MainActor.run { todos.compactMap { ReminderSource($0) } }
+        let (sources, summaryInput) = await MainActor.run {
+            (
+                todos.compactMap { ReminderSource($0) },
+                (
+                    snapshots: todos.compactMap { TodoSnapshot($0) },
+                    backlog: TodayPage.backlog(in: todos).count
+                )
+            )
+        }
 
         guard isEnabled else {
             center.removeAllPendingNotificationRequests()
@@ -117,14 +125,40 @@ final class TodoNotificationScheduler {
             return
         }
 
-        let planned = ReminderPlan.make(from: sources, now: Date(), calendar: calendar)
-        await apply(planned)
+        let now = Date()
+        let planned = ReminderPlan.make(from: sources, now: now, calendar: calendar)
+        let summaries = summaryPlan(
+            snapshots: summaryInput.snapshots,
+            backlogCount: summaryInput.backlog,
+            now: now
+        )
+        await apply(planned, summaries: summaries)
+    }
+
+    /// 하루 요약을 걸 것인가, 건다면 언제.
+    ///
+    /// 앱 전체 스위치와 **따로 끌 수 있다.** 시작 전 알림은 받고 싶은데 저녁에
+    /// 한 번 더 울리는 건 싫은 경우가 있다 — 라이브 액티비티 스위치와 같은 이유다.
+    private func summaryPlan(
+        snapshots: [TodoSnapshot],
+        backlogCount: Int,
+        now: Date
+    ) -> [PlannedSummary] {
+        let defaults = UserDefaults.standard
+        guard DailySummarySettings.isEnabled(in: defaults) else { return [] }
+        return DailySummaryPlan.make(
+            from: snapshots,
+            backlogCount: backlogCount,
+            at: DailySummarySettings.time(in: defaults),
+            now: now,
+            calendar: calendar
+        )
     }
 
     /// 계획과 지금 걸려 있는 것을 맞춘다 — **없어진 것만 걷어내고, 필요한 것은
     /// 그대로 다시 깐다.** 먼저 전부 지우지 않는 이유는 머리 주석에 있다.
-    private func apply(_ planned: [PlannedReminder]) async {
-        let wanted = Set(planned.map(\.id))
+    private func apply(_ planned: [PlannedReminder], summaries: [PlannedSummary]) async {
+        let wanted = Set(planned.map(\.id)).union(summaries.map(\.id))
         let pending = await center.pendingNotificationRequests().map(\.identifier)
         let stale = pending.filter { !wanted.contains($0) }
         if !stale.isEmpty {
@@ -139,6 +173,14 @@ final class TodoNotificationScheduler {
                 added += 1
             } catch {
                 logger.error("알림 예약 실패 \(reminder.id): \(error.localizedDescription)")
+            }
+        }
+        for summary in summaries {
+            do {
+                try await center.add(request(for: summary))
+                added += 1
+            } catch {
+                logger.error("요약 예약 실패 \(summary.id): \(error.localizedDescription)")
             }
         }
         // 알림이 안 온다는 신고가 들어왔을 때 가장 먼저 볼 값 — 0이면 예약 자체가
@@ -157,6 +199,28 @@ final class TodoNotificationScheduler {
         )
         return UNNotificationRequest(
             identifier: reminder.id,
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        )
+    }
+
+    /// 하루 요약. 제목은 날마다 같고, 몸말만 그날 사정을 말한다.
+    ///
+    /// **숫자를 모르는 날은 숫자를 말하지 않는다.** 로컬 알림은 내용을 예약할 때
+    /// 정해야 해서 먼 날의 개수는 맞을 가능성이 낮은데, 틀린 숫자는 안 보여주는
+    /// 것보다 나쁘다 — 한 번 틀리면 그다음부터 그 숫자를 안 믿는다.
+    private func request(for summary: PlannedSummary) -> UNNotificationRequest {
+        let content = UNMutableNotificationContent()
+        content.title = String(localized: "오늘 할 일")
+        content.body = summary.remaining.map { String(localized: "안 끝낸 일이 \($0)개 남았어요") }
+            ?? String(localized: "오늘 할 일을 확인해요")
+        content.sound = .default
+
+        let components = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute], from: summary.fireDate
+        )
+        return UNNotificationRequest(
+            identifier: summary.id,
             content: content,
             trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         )
