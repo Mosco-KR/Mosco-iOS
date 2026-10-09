@@ -16,10 +16,4 @@ final class AppNavigation {
     /// 달력이 열고 나서 nil로 내린다. 출처는 `day_opened`에 실린다.
     var todayPageRequest: String?
 
-    /// 다른 탭으로 보내달라는 요청. `RootTabView`가 집어 가고 nil로 내린다.
-    ///
-    /// **화면이 직접 탭을 바꾸지 않는다.** 탭을 옮기는 자리는 `RootTabView`
-    /// 하나뿐이다 — 두 곳에서 건드리면 서로 밀어내는 순간이 생긴다. 오늘 탭 머리의
-    /// "넘어온 것" 줄이 이 길로 할 일 탭에 간다.
-    var tabRequest: AppTab?
 }

@@ -53,13 +53,22 @@ struct CellTouchBridge: UIViewRepresentable {
         press.delegate = context.coordinator
         view.addGestureRecognizer(press)
 
-        let pull = UIPanGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handlePull(_:))
-        )
-        pull.cancelsTouchesInView = false
-        pull.delegate = context.coordinator
-        view.addGestureRecognizer(pull)
+        // **쓰지 않을 때는 아예 달지 않는다.** 예전엔 `onPullDown`이 nil이어도
+        // 달아뒀다 — 핸들러가 바로 돌아 나올 뿐이라 해롭지 않아 보였다. 하지만
+        // 제스처 중재는 "무엇이 붙어 있는가"로 정해지므로, 아무 일도 안 하는
+        // 인식기가 바깥 스크롤뷰의 pan과 경쟁할 자리를 만든다. 주간 스트립이
+        // 좌우로 안 밀리는 증상을 쫓다 찾았는데, **그게 원인이라고 확인하지는
+        // 못했다** — 이 중재는 시뮬레이터의 합성 터치로 재현되지 않는다(머리 주석).
+        // 다만 안 쓰는 인식기를 달아둘 이유가 애초에 없다.
+        if onPullDown != nil {
+            let pull = UIPanGestureRecognizer(
+                target: context.coordinator,
+                action: #selector(Coordinator.handlePull(_:))
+            )
+            pull.cancelsTouchesInView = false
+            pull.delegate = context.coordinator
+            view.addGestureRecognizer(pull)
+        }
 
         return view
     }
