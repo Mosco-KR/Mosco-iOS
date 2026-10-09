@@ -53,4 +53,39 @@ struct AnalyticsReportingTests {
             #expect(value.count <= 36, "\(name)=\(value): 값이 36자를 넘으면 버려진다")
         }
     }
+
+    // MARK: - 이벤트에 함께 실리는 값
+
+    /// user property만으로는 기기를 가를 수 없다. GA4의 user property는 사용자
+    /// 하나당 값 하나인데, 이 앱의 사용자 식별자는 iCloud로 기기를 건너 공유된다 —
+    /// 아이폰 한 대를 내부로 표시하면 그 사람의 맥에서 온 이벤트까지 함께 빠졌다.
+    @Test("기기와_내부_표시는_이벤트에도_실린다")
+    func 이벤트에_실린다() {
+        let device = AnalyticsUserProperty.device(id: "cafe1234", model: "iPhone17,1")
+        let names = device.eventParameters.map(\.name)
+        #expect(names.contains("device_id"))
+        #expect(names.contains("device_model"))
+
+        let internalUser = AnalyticsUserProperty.internalUser(true)
+        #expect(internalUser.eventParameters.map(\.name) == ["internal_user"])
+    }
+
+    /// 보유 규모는 "그 사람이 어떤 사람인가"라 사용자 단위가 맞다. 모든 이벤트에
+    /// 붙여봐야 같은 말을 되풀이할 뿐이다.
+    @Test("보유_규모는_이벤트에_싣지_않는다")
+    func 규모는_빠진다() {
+        let scale = AnalyticsUserProperty.dataScale(todoCount: 12, categoryCount: 3, calendarCount: 1)
+        #expect(scale.eventParameters.isEmpty)
+        #expect(!scale.values.isEmpty, "사용자 속성으로는 계속 나가야 한다")
+    }
+
+    @Test("이벤트_자신의_파라미터가_공통값을_이긴다")
+    func 이벤트가_이긴다() {
+        let merged = Analytics.merge(
+            ["source": "widget"],
+            with: ["device_id": "cafe1234", "source": "덮어쓰면 안 된다"]
+        )
+        #expect(merged["source"] == "widget", "공통값이 이기면 그 이벤트가 하려던 말이 사라진다")
+        #expect(merged["device_id"] == "cafe1234")
+    }
 }

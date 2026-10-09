@@ -27,6 +27,49 @@ struct AnalyticsIdentityTests {
         #expect(cloud.string(forKey: key) == "새-값", "iCloud에 안 올라가면 재설치 때 사라진다")
     }
 
+    /// **여기가 이 설계에서 제일 중요한 자리다.** iCloud 키–값 저장소는 비동기라,
+    /// 재설치 직후 첫 실행에서는 값이 아직 안 와 있을 수 있다. 그 순간을 키체인이
+    /// 메우지 못하면 새 값을 만들어 iCloud의 멀쩡한 값을 덮어쓰고, 한 사람이 둘이 된다.
+    @Test("iCloud가_아직_안_왔어도_키체인_값으로_같은_사람을_유지한다")
+    func 키체인_재설치() {
+        // 앱을 지우면 로컬은 비고, iCloud는 남아 있지만 이 순간에는 아직 안 보인다.
+        let cloud = MemoryStore()
+        let keychain = MemoryStore([AnalyticsIdentity.key: "원래-사람"])
+        let local = MemoryStore()
+
+        let result = AnalyticsIdentity.resolve(
+            cloud: cloud, keychain: keychain, local: local, newID: { "새-값" }
+        )
+
+        #expect(result.id == "원래-사람", "재설치했다고 다른 사람이 됐다")
+        #expect(result.origin == .restoredFromKeychain)
+        #expect(cloud.string(forKey: key) == "원래-사람", "새 값으로 iCloud를 덮어쓰면 다른 기기까지 갈아탄다")
+    }
+
+    @Test("iCloud에_값이_있으면_키체인보다_그쪽이_정본이다")
+    func 클라우드_우선() {
+        let cloud = MemoryStore([AnalyticsIdentity.key: "계정-사람"])
+        let keychain = MemoryStore([AnalyticsIdentity.key: "이-기기-사람"])
+        let local = MemoryStore()
+
+        let result = AnalyticsIdentity.resolve(cloud: cloud, keychain: keychain, local: local)
+
+        #expect(result.id == "계정-사람", "기기를 건너온 값이 이겨야 기기 교체가 이어진다")
+        #expect(result.origin == .restoredFromCloud)
+        #expect(keychain.string(forKey: key) == "계정-사람", "키체인도 맞춰둬야 다음에 엇갈리지 않는다")
+    }
+
+    @Test("처음_만든_값은_키체인에도_남는다")
+    func 첫_실행_키체인() {
+        let cloud = MemoryStore(), keychain = MemoryStore(), local = MemoryStore()
+
+        _ = AnalyticsIdentity.resolve(
+            cloud: cloud, keychain: keychain, local: local, newID: { "새-값" }
+        )
+
+        #expect(keychain.string(forKey: key) == "새-값", "키체인에 안 남으면 다음 재설치에 또 새 사람이 된다")
+    }
+
     @Test("재설치해도_iCloud에_있던_값을_그대로_쓴다")
     func 재설치() {
         // 앱을 지우면 로컬은 비지만 iCloud는 남는다 — 그게 이 설계의 핵심이다.
