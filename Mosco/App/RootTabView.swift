@@ -415,6 +415,12 @@ struct RootTabView: View {
             .onChange(of: selectedTab, initial: true) { _, tab in
                 Analytics.log(.screenViewed(tab.screen))
             }
+            // 화면이 "저쪽으로 보내달라"고 한 것. 탭을 옮기는 자리는 여기 하나다.
+            .onChange(of: navigation.tabRequest) { _, tab in
+                guard let tab else { return }
+                navigation.tabRequest = nil
+                selectedTab = tab
+            }
             // '오늘 할 일' 위젯·라이브 액티비티로 들어오면 오늘 탭에 선다. 꺼져
             // 있다 켜진 경우엔 URL이 화면보다 먼저 와 있으므로 처음 값도 본다.
             .onChange(of: navigation.todayPageRequest, initial: true) { _, source in
