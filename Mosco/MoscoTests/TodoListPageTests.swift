@@ -139,26 +139,16 @@ struct TodoListPageTests {
         #expect(sorted.map(\.title) == ["아침 회의", "저녁 약속", "끝낸 일"])
     }
 
-    /// 석 달 뒤 시험은 날짜순으로는 저 아래인데, 디데이로 표시했다는 건
-    /// "자주 보고 싶다"는 뜻이다.
-    @Test("나중_칸에서는_디데이가_맨_위로_온다")
-    func 나중_디데이() {
+    /// 한때 '나중' 칸에서 디데이를 맨 위로 끌어올렸다. 날짜순을 깨는 예외라
+    /// 목록을 읽는 리듬이 끊겼다 — 되돌렸고, 그 약속을 여기서 지킨다.
+    @Test("디데이라고_순서를_앞당기지_않는다")
+    func 디데이는_순서를_안_바꾼다() {
         let 가까운_것 = make("다음 달 약속", date: day("2026-11-01"))
         let 시험 = make("시험", date: day("2027-01-20"), isDDay: true)
 
-        let sorted = TodoListPage.sort([가까운_것, 시험], in: .later, today: today, calendar: calendar)
+        let sorted = TodoListPage.sort([시험, 가까운_것], in: .later, today: today, calendar: calendar)
 
-        #expect(sorted.map(\.title) == ["시험", "다음 달 약속"])
-    }
-
-    @Test("이번_주_칸에서는_디데이라고_올라오지_않는다")
-    func 이번_주_디데이() {
-        let 모레 = make("모레 일", date: day("2026-10-11"))
-        let 디데이 = make("닷새 뒤 디데이", date: day("2026-10-14"), isDDay: true)
-
-        let sorted = TodoListPage.sort([디데이, 모레], in: .thisWeek, today: today, calendar: calendar)
-
-        #expect(sorted.map(\.title) == ["모레 일", "닷새 뒤 디데이"], "가까운 주에서는 날짜순이 곧 할 순서다")
+        #expect(sorted.map(\.title) == ["다음 달 약속", "시험"], "날짜순이 곧 할 순서다")
     }
 
     @Test("지난_칸은_오래된_것부터다")
@@ -183,7 +173,9 @@ struct TodoListPageTests {
         #expect(sections.map(\.section) == [.today], "화면이 매번 비었는지 따져보지 않아도 되게")
     }
 
-    @Test("묶음은_급한_순서로_나온다")
+    /// 지난 할 일과 날짜를 안 정한 할 일이 먼저다 — 둘 다 "언제 할지 아직 안
+    /// 정해진 것"이라 사람이 손을 대야 움직인다. 그다음이 시간순이다.
+    @Test("손이_가야_하는_것이_먼저_오고_그_뒤가_시간순이다")
     func 묶음_순서() {
         make("어제", date: day("2026-10-08"))
         make("오늘", date: today)
@@ -194,23 +186,49 @@ struct TodoListPageTests {
 
         let sections = TodoListPage.sections(in: todos, today: today, calendar: calendar)
 
-        #expect(sections.map(\.section) == [.overdue, .today, .thisWeek, .later, .noDate])
+        #expect(sections.map(\.section) == [.overdue, .noDate, .today, .thisWeek, .later])
     }
 
-    // MARK: - 디데이 세기
+    // MARK: - 디데이 카드
 
-    @Test("디데이는_남은_날을_센다")
-    func 디데이_세기() {
-        let 이레_뒤 = make("시험", date: day("2026-10-16"), isDDay: true)
-        #expect(이레_뒤.dDayCount(from: today, calendar: calendar) == 7)
+    /// 디데이가 답하는 것은 "며칠 남았나" 하나다. 그걸 목록 안에서 말하려고 두 번
+    /// 시도했고 둘 다 되돌렸다 — 행에 `D-7` 조각을 붙이는 것, '나중' 칸에서 맨
+    /// 위로 끌어올리는 것. 이제 목록 바깥 카드가 맡는다.
+    @Test("디데이로_표시한_것만_카드에_선다")
+    func 디데이_카드() {
+        make("시험", date: day("2026-10-20"), isDDay: true)
+        make("보통 일", date: day("2026-10-20"))
+        let todos = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
 
-        let 오늘_것 = make("오늘이 그날", date: today, isDDay: true)
-        #expect(오늘_것.dDayCount(from: today, calendar: calendar) == 0)
+        #expect(TodoListPage.dDays(in: todos, today: today, calendar: calendar).map(\.title) == ["시험"])
     }
 
-    @Test("디데이로_표시하지_않았으면_세지_않는다")
-    func 디데이_아님() {
-        #expect(make("보통 일", date: day("2026-10-16")).dDayCount(from: today, calendar: calendar) == nil)
-        #expect(make("날짜 없음", date: nil, isDDay: true).dDayCount(from: today, calendar: calendar) == nil)
+    @Test("카드는_가까운_순이다")
+    func 디데이_순서() {
+        make("먼 것", date: day("2027-01-20"), isDDay: true)
+        make("가까운 것", date: day("2026-10-20"), isDDay: true)
+        let todos = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
+
+        let titles = TodoListPage.dDays(in: todos, today: today, calendar: calendar).map(\.title)
+        #expect(titles == ["가까운 것", "먼 것"])
+    }
+
+    /// 날짜가 지났어도 안 끝냈으면 '지난 할 일' 칸에 그대로 있다. 카드에서까지
+    /// 사라지면 왜 없어졌는지 알 수 없다.
+    @Test("지난_디데이도_카드에_남는다")
+    func 지난_디데이() {
+        make("놓친 마감", date: day("2026-10-05"), isDDay: true)
+        let todos = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
+
+        #expect(TodoListPage.dDays(in: todos, today: today, calendar: calendar).count == 1)
+    }
+
+    @Test("끝낸_디데이와_날짜_없는_디데이는_카드에_안_선다")
+    func 카드에서_빠지는_것() {
+        make("끝냄", date: day("2026-10-20"), completed: true, isDDay: true)
+        make("날짜 없음", date: nil, isDDay: true)
+        let todos = (try? context.fetch(FetchDescriptor<TodoItem>())) ?? []
+
+        #expect(TodoListPage.dDays(in: todos, today: today, calendar: calendar).isEmpty)
     }
 }

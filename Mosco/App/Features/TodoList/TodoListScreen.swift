@@ -6,7 +6,7 @@ import SwiftUI
 /// ## 왜 셋째 탭인가
 ///
 /// 달력은 "언제"에 답한다. 거기에만 기대면 **날짜를 아직 안 정한 일이 설 자리가
-/// 없다.** 지금까지는 오늘 페이지 맨 아래 '날짜를 안 정한 할 일' 칸에 들어 있었는데 —
+/// 없다.** 지금까지는 오늘 페이지 맨 아래 '날짜 없음' 칸에 들어 있었는데 —
 /// 적어는 뒀는데 오늘을 열어야만 보이고, 그것도 오늘 할 일들 **아래**에 있었다.
 /// 할 일 앱으로 쓰려는 사람에게는 그게 본진인데 부속으로 놓여 있던 셈이다.
 ///
@@ -76,12 +76,17 @@ private struct TodoListContent: View {
             }
     }
 
+    private var dDayTodos: [TodoItem] {
+        TodoListPage.dDays(in: visibleTodos, today: today)
+    }
+
     @ViewBuilder
     private var list: some View {
-        if sections.isEmpty {
+        if sections.isEmpty && dDayTodos.isEmpty {
             emptyState
         } else {
             List {
+                if !dDayTodos.isEmpty { dDaySection }
                 ForEach(sections, id: \.section) { group in
                     Section {
                         ForEach(group.todos) { todo in
@@ -102,6 +107,69 @@ private struct TodoListContent: View {
         }
     }
 
+    /// 맨 위 디데이 줄. **세로로 쌓지 않고 가로로 넘겨 본다** — 세로로 쌓으면
+    /// 디데이 몇 개만으로 정작 할 일이 화면 밖으로 밀려난다.
+    private var dDaySection: some View {
+        Section {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(dDayTodos) { todo in
+                        dDayCard(todo, isNearest: todo.id == dDayTodos.first?.id)
+                    }
+                }
+                .padding(.horizontal, Metrics.spacingMD)
+            }
+            .scrollClipDisabled()
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 0, trailing: 0))
+        } header: {
+            header(title: String(localized: "디데이"), count: nil, tinted: false)
+        }
+    }
+
+    /// 가장 가까운 하나만 채운다 — 나머지는 옅게. 그래야 "다음은 이것"이 한눈에 선다.
+    private func dDayCard(_ todo: TodoItem, isNearest: Bool) -> some View {
+        let day = Calendar.current.startOfDay(for: todo.date ?? today)
+        let left = Calendar.current.dateComponents([.day], from: today, to: day).day ?? 0
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(dDayLabel(left))
+                .font(.system(size: 27, weight: .heavy, design: .rounded).monospacedDigit())
+                .foregroundStyle(isNearest ? .white : MoscoPalette.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer(minLength: 6)
+            Text(todo.title)
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(isNearest ? .white : MoscoPalette.textPrimary)
+                .lineLimit(1)
+            Text(day.localizedMonthDayWeekday)
+                .font(.system(size: 11))
+                .foregroundStyle(isNearest ? .white.opacity(0.75) : MoscoPalette.textSecondary)
+                .lineLimit(1)
+        }
+        .padding(14)
+        .frame(width: 138, height: 112, alignment: .topLeading)
+        // 유리도 그림자도 쓰지 않는다 — 셀과 같은 이유로 단색 채우기만 쓴다.
+        .background(
+            isNearest ? MoscoPalette.accent : MoscoPalette.accent.opacity(0.12),
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { editingTodo = todo }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// `D-7` · `D-DAY` · `D+3`. 지난 디데이도 센다 — 지났다고 숨기면 왜 사라졌는지
+    /// 알 수 없고, 지난 디데이야말로 눈에 띄어야 하는 것이다.
+    private func dDayLabel(_ days: Int) -> String {
+        switch days {
+        case 0: String(localized: "D-DAY")
+        case 1...: String(localized: "D-\(days)")
+        default: String(localized: "D+\(-days)")
+        }
+    }
+
     private func row(_ todo: TodoItem, in section: TodoListPage.Section) -> some View {
         HStack(spacing: 8) {
             TodoRow(
@@ -118,20 +186,10 @@ private struct TodoListContent: View {
                 memoDisplay: .compact
             )
 
-            // 지난 것과 날짜 없는 것에만 '오늘로 가져오기'를 붙인다. 앞날 일정은
-            // 당길 이유가 없고, 오늘 것은 이미 오늘이다.
+            // 지난 것과 날짜 없는 것에만 붙인다. 앞날 일정은 당길 이유가 없고,
+            // 오늘 것은 이미 오늘이다.
             if section == .overdue || section == .noDate {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        todo.pullIntoToday(today)
-                    }
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(MoscoPalette.accent)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("오늘로 가져오기")
+                pullIntoTodayButton(todo)
             }
         }
         .listRowBackground(Color.clear)
@@ -146,21 +204,51 @@ private struct TodoListContent: View {
         )
     }
 
+    /// **글자로 쓴다.** 예전엔 위를 가리키는 화살표 동그라미였는데, 그 화살표가
+    /// 무엇을 뜻하는지 알 수가 없었다 — 위로 올린다는 건지, 순서를 바꾼다는 건지,
+    /// 접는다는 건지. 날짜를 오늘로 바꾸는 일에는 가리킬 방향이 애초에 없다.
+    /// 아이콘이 뜻을 못 나르면 글자가 낫다. 셀의 다른 칩과 같은 모양이라 줄에
+    /// 섞여도 튀지 않는다.
+    private func pullIntoTodayButton(_ todo: TodoItem) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                todo.pullIntoToday(today)
+            }
+        } label: {
+            Text("오늘로")
+                .font(.moscoCaption().weight(.semibold))
+                .foregroundStyle(MoscoPalette.accent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(MoscoPalette.accent.opacity(0.12), in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("오늘로 가져오기")
+        .accessibilityHint("날짜를 오늘로 바꿉니다")
+    }
+
     /// 화면에 두 개 이상의 캘린더가 섞여 있을 때만 소속을 밝힌다.
     private var showsCalendarTag: Bool {
         Set(visibleTodos.compactMap { $0.calendar?.id }).count > 1
     }
 
     private func header(_ section: TodoListPage.Section, count: Int) -> some View {
+        header(title: title(for: section), count: count, tinted: section == .overdue)
+    }
+
+    /// `tinted`는 지난 할 일에만 쓴다. **한 화면에 경고색이 여러 번 나오면 아무것도
+    /// 경고가 아니게 된다**(DesignSystem/README.md의 "색은 한 행에 한 번").
+    private func header(title: String, count: Int?, tinted: Bool) -> some View {
         HStack(spacing: 6) {
-            Text(title(for: section))
-            Text("\(count)").foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
+            Text(title)
+            if let count {
+                Text("\(count)").foregroundStyle(MoscoPalette.textSecondary.opacity(0.6))
+            }
             Spacer()
         }
         .font(.moscoCaption())
-        // 지난 것만 색을 쓴다. **한 화면에 경고색이 여러 번 나오면 아무것도
-        // 경고가 아니게 된다**(DesignSystem/README.md의 "색은 한 행에 한 번").
-        .foregroundStyle(section == .overdue ? MoscoPalette.must : MoscoPalette.textSecondary)
+        .foregroundStyle(tinted ? MoscoPalette.must : MoscoPalette.textSecondary)
     }
 
     private func title(for section: TodoListPage.Section) -> String {
@@ -169,7 +257,7 @@ private struct TodoListContent: View {
         case .today: String(localized: "오늘")
         case .thisWeek: String(localized: "이번 주")
         case .later: String(localized: "나중")
-        case .noDate: String(localized: "날짜를 안 정한 할 일")
+        case .noDate: String(localized: "날짜 없음")
         }
     }
 
