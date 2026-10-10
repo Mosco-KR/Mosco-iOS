@@ -284,7 +284,27 @@
 
     },
     "D-DAY" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TODAY"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当日"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "D-DAY"
+          }
+        }
+      }
     },
     "D+%lld" : {
 
@@ -589,13 +609,73 @@
       }
     },
     "그날 안 끝낸 일이 남아 있을 때만 알려줘요. 시간을 안 정한 일도 함께 세요." : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only sent when something's still unfinished that day. Items without a time are counted too."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その日に終わっていないやることが残っているときだけお知らせします。時間を決めていないやることも一緒に数えます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그날 안 끝낸 일이 남아 있을 때만 알려줘요. 시간을 안 정한 일도 함께 세요."
+          }
+        }
+      }
     },
     "기기 ID" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Device ID"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバイスID"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기기 ID"
+          }
+        }
+      }
     },
     "기기 ID %@ 복사하기" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy Device ID %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバイスID %@ をコピー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기기 ID %@ 복사하기"
+          }
+        }
+      }
     },
     "기기 설정에서 라이브 액티비티가 꺼져 있어요." : {
       "extractionState" : "manual",
@@ -736,7 +816,27 @@
       }
     },
     "나중" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Later"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この先"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나중"
+          }
+        }
+      }
     },
     "날씨" : {
       "extractionState" : "manual",
@@ -923,7 +1023,27 @@
       }
     },
     "내부 사용자" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Internal User"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内部ユーザー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내부 사용자"
+          }
+        }
+      }
     },
     "다 하셨어요" : {
       "extractionState" : "manual",
@@ -1800,7 +1920,27 @@
       }
     },
     "받을 시각" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時刻"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "받을 시각"
+          }
+        }
+      }
     },
     "방금 적은 할 일이 거기 있어요" : {
       "extractionState" : "manual",
@@ -1941,7 +2081,27 @@
       }
     },
     "빠른 입력 미리보기" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quick Add Preview"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クイック入力プレビュー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "빠른 입력 미리보기"
+          }
+        }
+      }
     },
     "사용법 다시 보기" : {
       "extractionState" : "manual",
@@ -2657,10 +2817,50 @@
       }
     },
     "아래에 한 줄 적으면 여기에 쌓여요" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Write a line below and it'll collect here"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下に一行書くとここにたまります"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아래에 한 줄 적으면 여기에 쌓여요"
+          }
+        }
+      }
     },
     "안 끝낸 일이 %lld개 남았어요" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld left to finish"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "終わっていないやることが%lld件あります"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "안 끝낸 일이 %lld개 남았어요"
+          }
+        }
+      }
     },
     "안 함" : {
       "extractionState" : "manual",
@@ -3008,7 +3208,27 @@
       }
     },
     "오늘 할 일을 확인해요" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check today's to-dos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日のやることを確認しましょう"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오늘 할 일을 확인해요"
+          }
+        }
+      }
     },
     "오늘 해야 할 일을 블록으로 모아서 보여줘요." : {
       "extractionState" : "manual",
@@ -3029,6 +3249,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "오늘 해야 할 일을 블록으로 모아서 보여줘요."
+          }
+        }
+      }
+    },
+    "오늘로" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To Today"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日へ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오늘로"
           }
         }
       }
@@ -3264,7 +3507,27 @@
       }
     },
     "이 기기(%@)는 분석에서 빠져요. 끄려면 mosco://internal/off를 열어요." : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device (%@) is excluded from analytics. Open mosco://internal/off to turn it off."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイス（%@）は分析から除外されます。解除するには mosco://internal/off を開いてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기(%@)는 분석에서 빠져요. 끄려면 mosco://internal/off를 열어요."
+          }
+        }
+      }
     },
     "이 기기에만 저장 중" : {
       "extractionState" : "manual",
@@ -3474,7 +3737,27 @@
       }
     },
     "이번 주" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Week"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今週"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이번 주"
+          }
+        }
+      }
     },
     "이번 주 일곱 칸에 할 일 블록을 보여줘요." : {
       "extractionState" : "manual",
@@ -4420,7 +4703,27 @@
       }
     },
     "하루 마무리 알림" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily Wrap-Up"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一日のまとめ通知"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하루 마무리 알림"
+          }
+        }
+      }
     },
     "하루에 하기엔 많아 보여요" : {
       "extractionState" : "manual",
@@ -4745,7 +5048,27 @@
       }
     },
     "할 일이 없어요" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to do"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "やることがありません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일이 없어요"
+          }
+        }
+      }
     },
     "현재 시각 %@" : {
       "extractionState" : "manual",

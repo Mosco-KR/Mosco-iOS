@@ -24,6 +24,7 @@ docs/architecture/           지금 구조(CURRENT.md)와 후보 패턴 비교(P
 tools/artifact_check.sh      entitlements·plist·버전 일치 검사
 tools/quality_baseline.py    코드 품질 기준선. 리팩터링 전후를 비교하려고 센다
 tools/deadcode_audit.py      안 쓰이는 코드 훑기. periphery는 이 프로젝트에서 못 쓴다
+tools/i18n_check.py          번역 빠진 문구 검사. 빌드로는 안 잡힌다
 ```
 
 배포 타깃 iOS 17.0. 번들 ID `com.Mosco.App`.
