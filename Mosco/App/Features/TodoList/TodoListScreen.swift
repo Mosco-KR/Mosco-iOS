@@ -6,7 +6,7 @@ import SwiftUI
 /// ## 왜 셋째 탭인가
 ///
 /// 달력은 "언제"에 답한다. 거기에만 기대면 **날짜를 아직 안 정한 일이 설 자리가
-/// 없다.** 지금까지는 오늘 페이지 맨 아래 '날짜를 안 정한 할 일' 칸에 들어 있었는데 —
+/// 없다.** 지금까지는 오늘 페이지 맨 아래 '날짜 없음' 칸에 들어 있었는데 —
 /// 적어는 뒀는데 오늘을 열어야만 보이고, 그것도 오늘 할 일들 **아래**에 있었다.
 /// 할 일 앱으로 쓰려는 사람에게는 그게 본진인데 부속으로 놓여 있던 셈이다.
 ///
@@ -257,7 +257,7 @@ private struct TodoListContent: View {
         case .today: String(localized: "오늘")
         case .thisWeek: String(localized: "이번 주")
         case .later: String(localized: "나중")
-        case .noDate: String(localized: "날짜를 안 정한 할 일")
+        case .noDate: String(localized: "날짜 없음")
         }
     }
 

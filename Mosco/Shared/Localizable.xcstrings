@@ -853,29 +853,6 @@
         }
       }
     },
-    "날짜를 안 정한 할 일" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No Date"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "日付未定"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "날짜를 안 정한 할 일"
-          }
-        }
-      }
-    },
     "날짜를 정하지 않으면 '언젠가 할 일'에 담겨요." : {
       "extractionState" : "manual",
       "localizations" : {
