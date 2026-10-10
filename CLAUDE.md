@@ -19,6 +19,7 @@ CONTRIBUTING.md              커밋·브랜치 규칙
 RELEASING.md                 버전·태그·릴리스 노트
 docs/TRAPS.md                플랫폼 함정. 해당 영역 건드리기 전에 읽는다
 docs/CATEGORIZATION.md       카테고리 자동 분류가 어떻게 돌고 왜 Core ML을 버렸나
+docs/ANALYTICS.md            보낸 지표를 콘솔에서 어떻게 꺼내 보나. 지표 질문 전에 읽는다
 docs/BACKLOG.md              밀린 일
 docs/architecture/           지금 구조(CURRENT.md)와 후보 패턴 비교(PATTERNS.md)
 tools/artifact_check.sh      entitlements·plist·버전 일치 검사
