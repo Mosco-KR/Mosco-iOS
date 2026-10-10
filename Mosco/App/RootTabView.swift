@@ -43,59 +43,41 @@ struct RootTabView: View {
     /// 알림 재예약의 입력 — 할 일이나 카테고리 설정이 바뀌면 이 배열도 바뀌므로,
     /// 이걸 지켜보다가 통째로 다시 계산한다.
     @Query private var todos: [TodoItem]
+    /// 하루 요약 알림 설정. **여기서도 읽어야 재예약이 깨어난다** — 설정 화면이
+    /// `UserDefaults`에 적는 것만으로는 뿌리의 키가 바뀌지 않아서, 받을 시각을
+    /// 옮겨도 할 일을 하나 손대기 전까지는 옛 시각 그대로 걸려 있었다.
+    @AppStorage(DailySummarySettings.enabledKey) private var dailySummaryEnabled = true
+    @AppStorage(DailySummarySettings.hourKey) private var dailySummaryHour = DailySummarySettings.defaultHour
+    @AppStorage(DailySummarySettings.minuteKey) private var dailySummaryMinute = DailySummarySettings.defaultMinute
 
     /// 앱 테마(액센트) 색과 통일된 기본 카테고리. "미분류"로 남겨두는 대신,
     /// 카테고리를 하나도 안 만든 사용자도 첫 할 일부터 뭔가에는 속하게 한다.
     private static let defaultCategoryColorHex = "8B5CF6"
 
     /// 알림에 영향을 주는 값들만 추린 키 — 이게 바뀔 때만 재예약한다.
-    /// 제목/시간/카테고리 알림 설정·완료 여부가 들어가고, 색처럼 알림과 무관한
-    /// 변경으로는 다시 예약하지 않는다.
     ///
-    /// **권한 상태가 키에 들어가는 게 중요하다.** 예전엔 없었다. 실행 직후 한 번
-    /// 재예약이 도는데 그때는 아직 권한을 안 물어본 상태라 "권한 없음"으로 그냥
-    /// 돌아나가고, 그 뒤에 사용자가 허용해도 키가 그대로라 다시 돌지 않았다 —
-    /// 앱을 뒤로 보냈다 돌아오기 전까지 알림이 하나도 안 걸려 있었다.
-    /// 거부했을 때는 전체 스위치가 함께 내려가서(`isEnabled`) 키가 바뀌었기
-    /// 때문에, 허용한 쪽만 조용히 비어 있었다.
+    /// **무엇이 들어가야 하는지와 왜인지는 `ReminderScheduleKey`에 있다.**
+    /// 여기서는 화면이 들고 있는 값을 모아 넘기기만 한다 — 판단을 `Shared/`로
+    /// 옮긴 것은 테스트가 닿게 하기 위해서고, 닿지 않던 동안 같은 자리에서 같은
+    /// 실수가 세 번 났다.
     private var rescheduleKey: String {
-        // 전체 스위치도 키에 넣어야 껐을 때 예약이 즉시 걷힌다.
-        "\(notificationScheduler.isEnabled)|\(notificationScheduler.authorizationStatus.rawValue)|"
-            + todos.map(Self.reminderFingerprint(of:)).joined(separator: ";")
-    }
-
-    /// 할 일 하나가 알림에 미치는 것들만 문자열 하나로 압축한다.
-    ///
-    /// `liveActivityFingerprint`와 같은 이유로 한 줄짜리 배열 리터럴을 쓰지 않는다 —
-    /// 항목이 늘어나면 컴파일러가 타입 추론을 포기한다("unable to type-check this
-    /// expression in reasonable time").
-    private static func reminderFingerprint(of todo: TodoItem) -> String {
-        var parts: [String] = []
-        parts.append(todo.id.uuidString)
-        parts.append(todo.title)
-        parts.append(timeKey(todo.startTime))
-        parts.append(timeKey(todo.date))
-        parts.append(todo.repeatRule.rawValue)
-        parts.append(timeKey(todo.repeatEndDate))
-        // **완료 여부가 들어가야 끝낸 일의 알림이 즉시 걷힌다.** 예전엔 빠져 있어서,
-        // 10시 일정을 9시 30분에 끝내도 9시 50분에 알림이 울렸다 — 걷히는 시점이
-        // 앱을 뒤로 보냈다 돌아올 때였다. 라이브 액티비티 키에는 처음부터 있었고
-        // (`liveActivityFingerprint`) 이쪽만 빠져 있었다.
-        parts.append(String(todo.isCompleted))
-        parts.append(todo.completedDayKeys?.joined(separator: ",") ?? "-")
-        if let category = todo.category {
-            parts.append("\(category.notifiesBeforeStart)-\(category.notificationLeadMinutes)")
-        } else {
-            parts.append("-")
-        }
-        return parts.joined(separator: "|")
+        ReminderScheduleKey.make(
+            notificationsEnabled: notificationScheduler.isEnabled,
+            authorizationStatus: notificationScheduler.authorizationStatus.rawValue,
+            summaryEnabled: dailySummaryEnabled,
+            summaryHour: dailySummaryHour,
+            summaryMinute: dailySummaryMinute,
+            todoFingerprints: todos.map(ReminderScheduleKey.fingerprint(of:))
+        )
     }
 
     /// 라이브 액티비티를 다시 계산해야 하는 값들.
     ///
-    /// **완료 여부가 들어가는 게 알림 키와 다른 점이다.** 잠금화면에 떠 있는
-    /// 일정을 앱에서 체크하면 그 즉시 걷혀야 하는데, 알림 키에는 완료가 없어서
-    /// 그것만 보고 있으면 끝낸 일이 계속 시간을 세고 있게 된다.
+    /// **알림 키와 겹치지만 같지는 않다.** 끝낸 일을 즉시 걷어내야 하는 것은
+    /// 양쪽 다 같아서 완료 여부가 둘 다에 들어간다(알림 키는 1.4.2에서 뒤늦게
+    /// 따라붙었다). 다른 것은 잠금화면에만 그려지는 것들이다 — 끝나는 시각,
+    /// 카테고리 색, 메모. 그것만 고쳐도 떠 있는 카드는 다시 그려져야 하지만
+    /// 알림은 그대로여야 한다.
     private var liveActivityKey: String {
         // 스위치도 키에 넣어야 껐을 때 떠 있던 것이 즉시 걷힌다.
         "\(liveActivityController.isEnabled)|"
@@ -111,9 +93,9 @@ struct RootTabView: View {
         var parts: [String] = []
         parts.append(todo.id.uuidString)
         parts.append(todo.title)
-        parts.append(timeKey(todo.startTime))
-        parts.append(timeKey(todo.endTime))
-        parts.append(timeKey(todo.date))
+        parts.append(ReminderScheduleKey.timeKey(todo.startTime))
+        parts.append(ReminderScheduleKey.timeKey(todo.endTime))
+        parts.append(ReminderScheduleKey.timeKey(todo.date))
         parts.append(todo.repeatRule.rawValue)
         parts.append(String(todo.isCompleted))
         parts.append(todo.completedDayKeys?.joined(separator: ",") ?? "-")
@@ -122,11 +104,6 @@ struct RootTabView: View {
         // 고쳐도 키가 그대로라 갱신이 안 걸렸고, 방금 적은 메모가 안 보였다.
         parts.append(todo.memo ?? "-")
         return parts.joined(separator: "|")
-    }
-
-    private static func timeKey(_ date: Date?) -> String {
-        guard let date else { return "-" }
-        return String(date.timeIntervalSince1970)
     }
 
     /// 기본 카테고리·캘린더를 보장하고, 아직 어느 캘린더에도 안 들어간 할 일을

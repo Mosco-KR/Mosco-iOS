@@ -70,6 +70,117 @@ App Store의 "새로운 기능" 칸에 들어가는 글입니다. 규칙은 넷�
 
 ## 버전별 릴리스 노트
 
+### 1.5.0 (빌드 9) — 2026-10-10
+
+**1.4.2와 1.4.3은 스토어에 안 나갔다.** 둘 다 만들다 말고 다음 것이 들어와서,
+스토어에 올라가 있는 마지막 버전은 1.4.1(빌드 8)이다. 그래서 이 노트는 1.4.1을
+쓰던 사람이 읽는다는 전제로 쓴다 — 중간 버전에서 넣었다 뺀 것(오늘 탭을 되살렸다
+다시 없앤 일 같은 것)은 그 사람에게 일어난 적이 없으니 적지 않는다.
+
+#### 한국어
+
+```
+탭이 둘로 늘었어요. 달력 옆에 '할 일'이 생겼어요.
+날짜를 아직 안 정한 일도 여기 모여요. 급한 순서로 묶여 있어서, 위에서부터
+읽으면 그게 할 순서예요.
+
+새로 생긴 것
+• 할 일 탭이에요. 지난 것 · 날짜 없음 · 오늘 · 이번 주 · 나중으로 묶여요.
+• 저녁에 하루 마무리 알림을 받아요. 남은 게 있을 때만 울리고, 시간을 안 정한
+  일도 함께 세요.
+• 디데이가 할 일 탭 맨 위에 카드로 떠요.
+
+더 편해진 것
+• 주간 띠가 일요일부터 토요일까지 한 주로 서고, 요일이 적혀 있어요.
+• 주를 넘기면 보고 있던 요일의 그 주 날짜로 가요.
+• '오늘로 가져오기'가 글자 버튼이 돼서 무엇을 하는 버튼인지 바로 읽혀요.
+
+고친 것
+• 알림을 허용한 그 자리에서 알림이 걸려요. 앱을 닫았다 열지 않아도 돼요.
+• 분류가 안 붙은 할 일에도 알림이 와요.
+• 끝낸 할 일은 알림이 바로 걷혀요.
+• 앱에서 체크한 완료가 위젯에도 바로 보여요.
+• 알림을 '시작 시간에'로 두면 "0분 뒤"라고 나오지 않아요.
+```
+
+#### English
+
+```
+The calendar has company now: a To-Dos tab.
+
+Anything you haven't scheduled lives there too. It's grouped by how soon
+things matter, so reading top to bottom gives you the order to work in.
+
+New
+• A To-Dos tab that cuts across dates: overdue, no date, today, this week, later.
+• An evening wrap-up notification. It only arrives when something is left,
+  and it counts the to-dos you never gave a time.
+• D-Days sit in a card at the top of the To-Dos tab.
+
+Better
+• The week strip runs Sunday to Saturday again, with weekday labels.
+• Swiping to another week keeps you on the same weekday.
+• "Move to today" is a labelled button now, not an arrow.
+
+Fixed
+• Reminders are scheduled the moment you allow notifications. You no longer
+  have to close and reopen the app.
+• To-dos without a category get reminders too.
+• Finishing a to-do clears its reminder right away.
+• Checking something off in the app now shows up in the widget.
+• Setting a reminder to "At start time" no longer says "in 0 minutes".
+```
+
+#### 日本語
+
+```
+タブが2つになりました。カレンダーの隣に「やること」が増えました。
+まだ日付を決めていないものも、ここに集まります。急ぐ順に並んでいるので、
+上から読めばそれが着手する順番です。
+
+新しくなったこと
+• 日付をまたぐ「やること」タブ。過ぎたもの・日付なし・今日・今週・あとで の順です。
+• 夜のまとめ通知。残っているときだけ届き、時刻を決めていないやることも一緒に数えます。
+• Dデーが「やること」タブの上部にカードで表示されます。
+
+よくなったこと
+• 週の帯が日曜から土曜までの1週間に戻り、曜日が表示されます。
+• 週を移動しても、見ていた曜日のままになります。
+• 「今日にする」がアイコンから文字のボタンになりました。
+
+修正
+• 通知を許可したその場で予約されます。アプリを閉じて開き直す必要はありません。
+• カテゴリが付いていないやることにも通知が届きます。
+• 終えたやることの通知はすぐに消えます。
+• アプリでチェックした完了が、ウィジェットにも反映されます。
+• 通知を「開始時刻に」にしたとき「0分後」と表示されなくなりました。
+```
+
+**1.5.0을 고른 이유**: 기능이 둘 늘었고(할 일 탭, 하루 마무리 알림) 탭이 없던
+구조가 탭 둘로 바뀌었다. 저장 스키마는 그대로고 마이그레이션이 없어서 MAJOR는
+아니다. 판단이 갈리면 낮은 쪽으로 가는 규칙대로 MINOR다.
+
+**첫 줄을 탭으로 잡은 이유**: 규칙 1 그대로다. 1.4.0 노트에서 "탭이 없어지고
+달력이 홈이 됐어요"라고 분명히 알렸던 것을 이번에 되돌린다. 그 노트를 읽은
+사람에게는 "어? 탭이 다시 생겼네"가 업데이트 직후 첫 경험이다. 고친 것 중에
+알림이 더 값어치 있지만, 규칙 1은 중요한 것이 아니라 **당황할 것**을 먼저
+쓰라고 한다.
+
+**알림 고침을 셋으로 나눠 적은 이유**: 사용자에게는 "알림이 안 왔다" 하나였지만
+원인이 셋이고, 각자 겪은 사람이 다르다. 권한을 허용한 그 실행에서만 안 걸린
+사람, 분류가 안 붙은 할 일만 안 온 사람, 끝냈는데도 울린 사람. 하나로 뭉쳐
+"알림 문제를 고쳤어요"라고 쓰면 자기 경우가 고쳐졌는지 알 수 없다.
+
+**하루 마무리 알림 설정이 안 먹던 것은 '고친 것'에 없다**: 이번에 같이 고쳤지만
+그 기능 자체가 1.5.0에 처음 나간다. 1.4.1을 쓰던 사람에게는 일어난 적이 없는
+일이라 적을 자리가 없다.
+
+**분석 쪽은 적지 않는다**(규칙 4): 한 사람이 여러 사람으로 세어지던 것, 기기별
+식별, 화면 로깅. 사용자에게 일어나는 일이 없다.
+
+**맥은 이 노트에 없다**: Mac Catalyst 빌드는 CI에서 계속 돌지만 App Store
+Connect에 아직 macOS 플랫폼을 안 올렸다.
+
 ### 1.4.1 (빌드 8) — 2026-10-03
 
 **1.4.1과 1.4.2로 나눠 적었다가 하나로 합쳤다.** 1.4.1(주간 띠·뒤로 가기)을 스토어에
