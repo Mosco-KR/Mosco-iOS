@@ -8,14 +8,12 @@ import Foundation
 /// 위해서다. 그래서 월·화·수로 줄 세우지 않고 지난 것 → 오늘 → 이번 주 → 나중 →
 /// 날짜 없음으로 묶는다. 위에서부터 읽으면 그게 곧 할 순서다.
 ///
-/// ## 디데이는 묶음이 아니라 행에 붙는다
+/// ## 디데이는 맨 위 카드다
 ///
-/// 오늘 페이지의 디데이 카드는 "며칠 남았나" 하나에 답했다. 그건 섹션 하나를
-/// 차지할 만한 질문이 아니라 **행 오른쪽의 `D-7` 한 조각**이면 된다. 날짜순 정렬이
-/// 이미 가까운 것을 위로 올려주기도 한다.
-///
-/// 예외가 하나 있다. '나중'에서는 디데이를 맨 위로 올린다 — 석 달 뒤 시험은
-/// 날짜순으로는 저 아래인데, 디데이로 표시했다는 건 "자주 보고 싶다"는 뜻이다.
+/// 디데이가 답하는 것은 "며칠 남았나" 하나다. 그걸 목록 안에서 말하려고 두 번
+/// 시도했고 둘 다 되돌렸다 — 행에 `D-7` 조각을 붙이면 태그 줄이 길어지고,
+/// '나중' 칸에서 디데이를 맨 위로 끌어올리면 날짜순이 깨져 목록을 읽는 리듬이
+/// 끊긴다. 남은 날을 세는 일은 **목록 바깥**, 맨 위 카드에 맡긴다(`dDays`).
 ///
 /// ## 왜 화면이 아니라 여기 있나
 ///
@@ -25,17 +23,21 @@ import Foundation
 nonisolated enum TodoListPage {
 
     /// 묶음. 순서가 곧 화면에 쌓이는 순서다.
+    ///
+    /// **먼저 '손이 가야 하는 것' 둘, 그다음 시간순.** 지난 할 일과 날짜를 안 정한
+    /// 할 일은 둘 다 "언제 할지 아직 안 정해진 것"이라 사람이 손을 대야 움직인다.
+    /// 그 둘을 위에 두고, 이미 날짜가 정해진 것들은 시간순으로 뒤따른다.
     enum Section: String, CaseIterable, Sendable {
         /// 날짜가 지났는데 안 끝낸 것.
         case overdue
+        /// 날짜를 안 정한 것.
+        case noDate
         /// 오늘 걸치는 것(반복 포함).
         case today
         /// 내일부터 이레 안.
         case thisWeek
-        /// 그 뒤. 디데이가 맨 위로 온다.
+        /// 그 뒤.
         case later
-        /// 날짜를 안 정한 것.
-        case noDate
     }
 
     /// '이번 주'가 며칠까지인가. 내일부터 이레 — "이번 주"라는 말이 달력의 주(週)가
@@ -121,10 +123,11 @@ nonisolated enum TodoListPage {
         return nil
     }
 
-    /// 묶음 안의 순서.
+    /// 묶음 안의 순서. **끝낸 것은 아래로, 그다음 날짜순**이다.
     ///
-    /// 공통 규칙은 **끝낸 것은 아래로, 그다음 날짜순**이다. '나중'만 디데이를
-    /// 맨 위로 끌어올린다(머리 주석).
+    /// 한때 '나중' 칸에서 디데이를 맨 위로 끌어올렸다. 날짜순을 깨는 예외라
+    /// 목록을 읽는 리듬이 끊겼다 — 디데이가 답하는 "며칠 남았나"는 맨 위
+    /// 카드가 맡는다(`dDays`).
     static func sort(
         _ todos: [TodoItem],
         in section: Section,
@@ -132,8 +135,6 @@ nonisolated enum TodoListPage {
         calendar: Calendar = .current
     ) -> [TodoItem] {
         todos.sorted { lhs, rhs in
-            if section == .later, lhs.isDDay != rhs.isDDay { return lhs.isDDay }
-
             let lhsDone = isCompleted(lhs, on: today, calendar: calendar)
             let rhsDone = isCompleted(rhs, on: today, calendar: calendar)
             if lhsDone != rhsDone { return !lhsDone }
@@ -177,21 +178,19 @@ nonisolated enum TodoListPage {
         }
     }
 
+    /// 맨 위 카드에 설 것 — 디데이로 표시한 것 중 오늘이거나 앞으로 올 것, 가까운 순.
+    ///
+    /// **지난 디데이는 빼지 않는다.** 날짜가 지났어도 안 끝냈으면 '지난 할 일' 칸에
+    /// 그대로 있고, 카드에서까지 사라지면 왜 없어졌는지 알 수 없다 — 다만 카드는
+    /// "며칠 남았나"를 세는 자리라, 지난 것은 `D+3`으로 센다.
+    static func dDays(in todos: [TodoItem], today: Date, calendar: Calendar = .current) -> [TodoItem] {
+        todos
+            .filter { $0.isDDay && $0.date != nil && !$0.isCompleted }
+            .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
+    }
+
     private static func isCompleted(_ todo: TodoItem, on day: Date, calendar: Calendar) -> Bool {
         todo.date == nil ? todo.isCompleted : todo.isCompleted(on: day)
     }
 
-}
-
-extension TodoItem {
-    /// 오늘부터 며칠 남았나. 디데이로 표시한 것만 답한다.
-    ///
-    /// **문구는 만들지 않는다** — 번역 카탈로그와 사용자 언어는 화면의 사정이다
-    /// (`ReminderPlan`과 같은 규칙).
-    func dDayCount(from today: Date, calendar: Calendar = .current) -> Int? {
-        guard isDDay, let date else { return nil }
-        let start = calendar.startOfDay(for: today)
-        let target = calendar.startOfDay(for: date)
-        return calendar.dateComponents([.day], from: start, to: target).day
-    }
 }

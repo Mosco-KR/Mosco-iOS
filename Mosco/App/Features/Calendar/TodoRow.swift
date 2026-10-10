@@ -53,16 +53,6 @@ struct TodoRow: View {
     /// 입구라 각자 자기 상태를 갖는다.
     @State private var showsMemoEditor = false
 
-    /// `D-7` · `D-DAY` · `D+3`. 지난 디데이도 센다 — 지났다고 숨기면 왜 사라졌는지
-    /// 알 수 없고, 지난 디데이야말로 눈에 띄어야 하는 것이다.
-    private func dDayLabel(_ days: Int) -> String {
-        switch days {
-        case 0: String(localized: "D-DAY")
-        case 1...: String(localized: "D-\(days)")
-        default: String(localized: "D+\(-days)")
-        }
-    }
-
     private var isDone: Bool {
         if let occurrenceDate { return todo.isCompleted(on: occurrenceDate) }
         return todo.isCompleted
@@ -119,25 +109,16 @@ struct TodoRow: View {
                     // 디데이로 표시해둔 항목. 남은 날짜는 적지 않는다 — 옆의 날짜
                     // 태그와 같은 말을 두 번 하는 셈이고, 여기서 알고 싶은 건
                     // "이게 그 챙기는 일이구나"뿐이다. 남은 날짜를 세는 일은
-                    // 날짜가 함께 보이는 화면(할 일 탭)에서만 한다.
+                    // 할 일 탭 맨 위의 디데이 카드가 맡는다 — 한 줄에 두 번
+                    // 말하면 태그 줄만 길어진다.
                     //
                     // 별이 아니라 깃발인 건, 별은 어느 앱에서나 "즐겨찾기/중요"라는
                     // 뜻으로 굳어 있어서다. 디데이는 중요도가 아니라 **날을 세는
                     // 표시**고, 깃발은 달력 위 한 지점을 찍는 말에 가깝다.
                     if todo.isDDay {
-                        // **날짜가 보이는 화면에서는 남은 날을 센다.** 할 일 탭은
-                        // 디데이 카드를 따로 두지 않고 이 한 조각으로 대신한다 —
-                        // 카드가 답하던 것이 "며칠 남았나" 하나뿐이었다.
-                        // 하루 페이지에서는 날짜가 이미 머리에 있어서 깃발만 둔다.
-                        if showsDate, let days = todo.dDayCount(from: .now) {
-                            Text(dDayLabel(days))
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(MoscoPalette.textSecondary)
-                        } else {
-                            Image(systemName: "flag.fill")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(MoscoPalette.textSecondary)
-                        }
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(MoscoPalette.textSecondary)
                     }
 
                     // 반복 일정은 한 번짜리와 겉모습이 같아서, 목록에서 이게
