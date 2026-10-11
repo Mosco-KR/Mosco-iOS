@@ -127,6 +127,9 @@ struct RootTabView: View {
 
         #if DEBUG
         ScreenshotDemo.seedIfNeeded(in: modelContext)
+        // 미리보기를 찍을 때는 장면이 탭을 정한다. 탭을 옮기는 일은 이 파일에서만
+        // 한다는 규칙을 그대로 지킨다 — 화면 쪽에서 건드리지 않는다.
+        if ScreenshotDemo.scene == .todos { selectedTab = .todos }
         #endif
 
         let existingCalendars = (try? modelContext.fetch(FetchDescriptor<TodoCalendar>())) ?? []

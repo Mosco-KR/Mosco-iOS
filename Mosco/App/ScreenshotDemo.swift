@@ -26,6 +26,8 @@ enum ScreenshotDemo {
         case compose
         /// 오늘 페이지. 목록이냐 시간표냐는 `-dayViewMode timeline`으로 고른다.
         case today
+        /// 할 일 탭. 디데이 카드와 묶음(지난·오늘·이번 주·날짜 없음)이 보인다.
+        case todos
     }
 
     static let scene: Scene? = {
@@ -46,7 +48,8 @@ enum ScreenshotDemo {
     }
 
     private struct Sample {
-        let offset: Int
+        /// 오늘로부터 며칠. 음수는 지난 할 일, nil은 날짜를 안 정한 것.
+        let offset: Int?
         var length = 1
         var hour: Int?
         var minute = 0
@@ -55,6 +58,8 @@ enum ScreenshotDemo {
         let en: String
         let ja: String
         var isCompleted = false
+        /// 할 일 탭 맨 위 디데이 카드에 설 것.
+        var isDDay = false
     }
 
     /// 0은 기본 카테고리, 1~3은 아래에서 만드는 일·운동·약속.
@@ -65,17 +70,23 @@ enum ScreenshotDemo {
         Sample(offset: 0, category: 0, ko: "장보기", en: "Groceries", ja: "買い物"),
         Sample(offset: 0, category: 0, ko: "세탁소 들르기", en: "Dry cleaning", ja: "クリーニング", isCompleted: true),
         Sample(offset: 1, category: 1, ko: "보고서 마감", en: "Report due", ja: "レポート締切"),
-        Sample(offset: 3, length: 3, category: 3, ko: "제주 여행", en: "Beach trip", ja: "京都旅行"),
+        Sample(offset: 3, length: 3, category: 3, ko: "제주 여행", en: "Beach trip", ja: "京都旅行", isDDay: true),
         Sample(offset: 7, hour: 19, category: 2, ko: "필라테스", en: "Pilates", ja: "ピラティス"),
         Sample(offset: 9, hour: 15, category: 0, ko: "치과", en: "Dentist", ja: "歯医者"),
         Sample(offset: 12, length: 2, category: 1, ko: "출장", en: "Business trip", ja: "出張"),
         Sample(offset: 14, hour: 7, category: 2, ko: "러닝", en: "Run", ja: "ランニング"),
-        Sample(offset: 16, category: 3, ko: "생일 파티", en: "Birthday", ja: "誕生日会"),
+        Sample(offset: 16, category: 3, ko: "생일 파티", en: "Birthday", ja: "誕生日会", isDDay: true),
         Sample(offset: 19, hour: 14, category: 1, ko: "분기 리뷰", en: "Review", ja: "レビュー"),
         Sample(offset: 21, category: 2, ko: "등산", en: "Hiking", ja: "登山"),
         Sample(offset: 24, hour: 18, category: 3, ko: "가족 모임", en: "Family", ja: "家族で食事"),
-        Sample(offset: 27, hour: 10, category: 1, ko: "발표", en: "Demo day", ja: "発表"),
+        Sample(offset: 27, hour: 10, category: 1, ko: "발표", en: "Demo day", ja: "発表", isDDay: true),
         Sample(offset: 29, category: 0, ko: "건강검진", en: "Checkup", ja: "健康診断"),
+        // 할 일 탭에서만 보이는 것들 — 지난 할 일 묶음과 '날짜 없음' 묶음이
+        // 비어 있으면 1.5.0에서 만든 화면이 절반만 찍힌다.
+        Sample(offset: -2, category: 1, ko: "제안서 검토", en: "Review proposal", ja: "提案書の確認"),
+        Sample(offset: -1, hour: 11, category: 0, ko: "약 받아오기", en: "Pick up meds", ja: "薬を受け取る"),
+        Sample(offset: nil, category: 2, ko: "자전거 정비", en: "Bike tune-up", ja: "自転車の整備"),
+        Sample(offset: nil, category: 0, ko: "책 반납", en: "Return library book", ja: "本を返す"),
     ]
 
     /// 기본 카테고리가 만들어진 뒤에 부른다. 할 일이 하나라도 있으면 아무것도 하지 않는다.
@@ -105,10 +116,14 @@ enum ScreenshotDemo {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         for sample in samples {
-            guard let day = calendar.date(byAdding: .day, value: sample.offset, to: today) else { continue }
-            let end = sample.length > 1 ? calendar.date(byAdding: .day, value: sample.length - 1, to: day) : nil
-            let start = sample.hour.flatMap {
-                calendar.date(bySettingHour: $0, minute: sample.minute, second: 0, of: day)
+            // offset이 nil이면 날짜를 안 정한 할 일이다 — 할 일 탭의 '날짜 없음' 칸에 선다.
+            let day = sample.offset.flatMap { calendar.date(byAdding: .day, value: $0, to: today) }
+            let end = (sample.length > 1 ? day : nil)
+                .flatMap { calendar.date(byAdding: .day, value: sample.length - 1, to: $0) }
+            let start = day.flatMap { day in
+                sample.hour.flatMap {
+                    calendar.date(bySettingHour: $0, minute: sample.minute, second: 0, of: day)
+                }
             }
             let todo = TodoItem(
                 title: pick(sample.ko, sample.en, sample.ja),
@@ -118,6 +133,7 @@ enum ScreenshotDemo {
                 category: categories[sample.category]
             )
             todo.isCompleted = sample.isCompleted
+            todo.isDDay = sample.isDDay
             context.insert(todo)
         }
     }
