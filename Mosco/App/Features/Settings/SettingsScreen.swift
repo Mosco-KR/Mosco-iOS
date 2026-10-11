@@ -77,7 +77,12 @@ struct SettingsScreen: View {
             // 설정 앱에서 권한을 바꾸고 돌아왔을 수 있다 — 이 화면이 뜰 때마다 맞춘다.
             .task { await notificationScheduler.refreshAuthorizationStatus() }
             // 고른 시각을 시·분으로 떼어 저장한다. 예약을 다시 거는 것은 앱 뿌리가
-            // 맡는다 — 이 화면을 닫으면 `rescheduleKey`가 바뀌어 통째로 다시 돈다.
+            // 맡는다 — 뿌리가 이 두 키(`dailySummaryHour`·`Minute`)를 `@AppStorage`로
+            // 같이 보고 있어서, 여기서 적는 즉시 재예약 키가 바뀐다.
+            //
+            // **"화면을 닫으면 다시 돈다"가 아니다.** 1.5.0 전에는 그렇게 적어뒀는데,
+            // 재예약 키에 이 값들이 없어서 실제로는 할 일을 하나 손대기 전까지
+            // 옛 시각 그대로 걸려 있었다.
             .onChange(of: dailySummaryTime) { _, picked in
                 DailySummarySettings.setTime(
                     Calendar.current.dateComponents([.hour, .minute], from: picked),
