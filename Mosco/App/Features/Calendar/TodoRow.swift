@@ -10,6 +10,14 @@ struct TodoRow: View {
     /// 어느 날짜의 인스턴스로 보고 있는지(하루치 리스트에서 전달). 반복 일정이면
     /// 완료 체크가 이 날짜의 인스턴스에만 적용된다 — 다른 날의 반복은 그대로.
     var occurrenceDate: Date? = nil
+
+    /// 날짜 태그에 원본 대신 찍을 날. 반복 일정의 다음 회차가 들어온다 —
+    /// 왜 그래야 하는지는 `TodoListPage.displayDate`에 적혀 있다.
+    ///
+    /// `occurrenceDate`와 역할이 다르다. 그쪽은 **어느 회차를 체크하느냐**고,
+    /// 이쪽은 **어느 날짜를 보여주느냐**다. 앞날 회차를 미리 체크할 일은 없지만
+    /// 날짜는 보여줘야 해서 둘이 갈린다.
+    var displayDate: Date? = nil
     /// 수정 — 채팅형 입력창을 다시 띄우거나 상세를 연다. 꾹 눌러 나오는 메뉴의
     /// "수정"에서 부른다. 예전엔 셀 몸통 탭이 이걸 맡았는데, 그러면 완료가
     /// 26pt 동그라미 안으로 밀려나 매번 정확히 겨눠야 했다 — 목록에서 제일 자주
@@ -287,13 +295,16 @@ struct TodoRow: View {
     /// - 하루짜리는, 날짜 컨텍스트가 필요한 화면(showsDate)에서는 상대 날짜(+시간)를,
     ///   이미 하루 안에 있는 화면에서는 시간만(있을 때만) 보여준다 — 날짜 중복 표기 방지.
     private var scheduleLabel: String? {
-        guard let date = todo.date else {
+        guard let originalDate = todo.date else {
             // 날짜 없는 백로그 항목 — 시간만 있는 건 의미가 없으니 태그 자체를 생략.
             return nil
         }
+        let date = displayDate ?? originalDate
 
         if todo.isMultiDay, let effectiveEnd = todo.effectiveEndDate {
-            let range = "\(date.localizedMonthDay) - \(effectiveEnd.localizedMonthDay)"
+            // 시작일을 옮겼으면 끝날도 같은 만큼 민다 — 기간 길이는 그대로여야 한다.
+            let end = Self.shifted(effectiveEnd, from: originalDate, to: date)
+            let range = "\(date.localizedMonthDay) - \(end.localizedMonthDay)"
             guard let startTime = todo.startTime else { return range }
             return "\(range) \(startTime.localizedTime)"
         }
@@ -312,5 +323,17 @@ struct TodoRow: View {
             return "\(startTime.localizedTime) - \(endTime.localizedTime)"
         }
         return startTime.localizedTime
+    }
+
+    /// 시작일을 옮긴 날수만큼 끝날도 민다.
+    private static func shifted(_ end: Date, from original: Date, to target: Date) -> Date {
+        let calendar = Calendar.current
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: original),
+            to: calendar.startOfDay(for: target)
+        ).day ?? 0
+        guard days != 0 else { return end }
+        return calendar.date(byAdding: .day, value: days, to: end) ?? end
     }
 }

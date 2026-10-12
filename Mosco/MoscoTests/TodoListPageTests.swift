@@ -231,4 +231,45 @@ struct TodoListPageTests {
 
         #expect(TodoListPage.dDays(in: todos, today: today, calendar: calendar).isEmpty)
     }
+
+    // MARK: - 목록에 찍히는 날짜
+    //
+    // 반복 일정은 원본 시작일이 아니라 다음 회차를 보여줘야 한다. 이게 틀리면
+    // "안 보인다"가 아니라 **엉뚱한 날짜가 보인다**로 나타나서, 쓰는 사람은
+    // 그것이 만든 날인지 할 날인지를 알 수 없다.
+
+    private func displayDate(_ todo: TodoItem, _ section: TodoListPage.Section) -> Date? {
+        TodoListPage.displayDate(for: todo, in: section, today: today, calendar: calendar)
+    }
+
+    @Test("반복이_아니면_원본을_그대로_쓴다")
+    func 반복_아님() {
+        let todo = make("한 번뿐", date: day("2026-10-20"))
+        #expect(displayDate(todo, .later) == nil)
+    }
+
+    @Test("앞날_반복은_다음_회차를_찍는다")
+    func 앞날_반복() {
+        // 오늘은 2026-10-09(금). 2년 전에 만든 매주 회의.
+        let todo = make("주간 회의", date: day("2024-03-05"), repeats: .weekly)
+        // 2024-03-05는 화요일이라 다음 화요일은 10-13.
+        #expect(displayDate(todo, .thisWeek) == day("2026-10-13"))
+    }
+
+    @Test("오늘_칸의_반복은_오늘을_찍는다")
+    func 오늘_반복() {
+        let todo = make("매일 운동", date: day("2025-01-01"), repeats: .daily)
+        #expect(displayDate(todo, .today) == today)
+    }
+
+    /// 지난 칸에서는 "언제였는지"가 요점이다. 다음 회차를 찍으면 '지난 할 일'
+    /// 칸에 앞날 날짜가 서는 꼴이 된다.
+    @Test("지난_칸과_날짜_없음_칸은_건드리지_않는다")
+    func 안_건드리는_칸() {
+        let overdue = make("놓친 반복", date: day("2026-10-01"), repeats: .weekly)
+        #expect(displayDate(overdue, .overdue) == nil)
+
+        let undated = make("언젠가", date: nil, repeats: .weekly)
+        #expect(displayDate(undated, .noDate) == nil)
+    }
 }
