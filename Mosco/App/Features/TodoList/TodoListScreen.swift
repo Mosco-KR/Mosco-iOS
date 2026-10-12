@@ -58,7 +58,10 @@ private struct TodoListContent: View {
 
     var body: some View {
         list
-            .ignoresSafeArea(.keyboard, edges: .bottom)
+            // **달력과 달리 키보드를 무시하지 않는다.** 달력은 격자가 고정이라
+            // 무시해야 칸이 안 찌그러지는데, 여기는 스크롤 목록이다. 무시하면
+            // 목록이 키보드 뒤로 그대로 깔려서, 가려진 행을 스크롤로도 꺼낼 수
+            // 없었다 — 적는 동안 방금 적은 것이 어디 갔는지 알 수가 없다.
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 // **날짜를 안 넘긴다.** 여기서 적은 것은 날짜 없는 할 일이 된다 —
                 // 이 화면이 날짜를 가로지르는 목록이라, 오늘로 밀어넣으면 오늘
@@ -99,6 +102,11 @@ private struct TodoListContent: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+            // 키보드를 내릴 길이 없었다. 달력에는 눌러서·쓸어내려서 내리는 처리가
+            // 있는데(`CalendarScreen`) 이 탭에는 아무것도 없어서, 한 번 올라오면
+            // 보내기를 누르거나 탭을 옮기는 수밖에 없었다. 목록에서는 시스템이
+            // 주는 쪽이 낫다 — 손가락을 따라 같이 내려간다.
+            .scrollDismissesKeyboard(.interactively)
             // **제목과 첫 묶음 사이가 비는 것을 막는다.** plain 리스트는 첫 섹션
             // 머리 위에 제 여백을 또 넣어서, 내비게이션 제목 아래로 손가락 두 마디쯤
             // 되는 빈 칸이 생긴다 — 화면을 열자마자 보이는 것이 빈 공간이면
@@ -180,6 +188,10 @@ private struct TodoListContent: View {
                 // 오늘 칸의 반복 일정은 오늘 회차를 체크해야 한다. 다른 칸은
                 // 원본을 그대로 뒤집는다 — 앞날 회차를 미리 체크할 일은 없다.
                 occurrenceDate: section == .today ? today : nil,
+                // **체크할 회차와 보여줄 날짜는 다르다.** 반복 일정에 원본 시작일을
+                // 찍으면 2년 전에 만든 매주 회의가 "3월 5일"로 보인다 — 정렬은 이미
+                // 다음 회차 기준이라 순서와 날짜가 서로 어긋났다.
+                displayDate: TodoListPage.displayDate(for: todo, in: section, today: today),
                 onTap: { editingTodo = todo },
                 onDelete: { modelContext.delete(todo) },
                 showsCalendarTag: showsCalendarTag,

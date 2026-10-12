@@ -178,6 +178,32 @@ nonisolated enum TodoListPage {
         }
     }
 
+    /// 목록의 날짜 태그에 원본 대신 찍을 날. nil이면 화면이 원본을 그대로 쓴다.
+    ///
+    /// **반복 일정은 원본 시작일을 보여주면 안 된다.** 2년 전에 만든 매주 회의가
+    /// "3월 5일"로 찍히면 그게 언제 할 일인지가 아니라 언제 만든 일인지를 읽게 된다.
+    /// 정렬은 이미 다음 회차를 보고 있는데(`keyDate`) 글자만 원본이라, 목록의 순서와
+    /// 날짜가 서로 어긋나 보였다 — 맨 위에 선 것이 가장 오래된 날짜를 달고 있으니.
+    ///
+    /// **지난 할 일은 바꾸지 않는다.** 거기서는 "언제였는지"가 요점이고, 다음 회차를
+    /// 찍으면 '지난 할 일' 칸에 앞날 날짜가 서는 꼴이 된다.
+    static func displayDate(
+        for todo: TodoItem,
+        in section: Section,
+        today: Date,
+        calendar: Calendar = .current
+    ) -> Date? {
+        guard todo.repeatRule != .none else { return nil }
+        switch section {
+        case .today:
+            return calendar.startOfDay(for: today)
+        case .thisWeek, .later:
+            return nextOccurrence(of: todo, onOrAfter: today, calendar: calendar)
+        case .overdue, .noDate:
+            return nil
+        }
+    }
+
     /// 맨 위 카드에 설 것 — 디데이로 표시한 것 중 오늘이거나 앞으로 올 것, 가까운 순.
     ///
     /// **지난 디데이는 빼지 않는다.** 날짜가 지났어도 안 끝냈으면 '지난 할 일' 칸에
