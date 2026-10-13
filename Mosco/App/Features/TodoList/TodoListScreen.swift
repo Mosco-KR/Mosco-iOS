@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 
 /// '할 일' 탭 — 날짜를 가로지르는 목록.
 ///
@@ -102,11 +103,22 @@ private struct TodoListContent: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            // 키보드를 내릴 길이 없었다. 달력에는 눌러서·쓸어내려서 내리는 처리가
-            // 있는데(`CalendarScreen`) 이 탭에는 아무것도 없어서, 한 번 올라오면
-            // 보내기를 누르거나 탭을 옮기는 수밖에 없었다. 목록에서는 시스템이
-            // 주는 쪽이 낫다 — 손가락을 따라 같이 내려간다.
-            .scrollDismissesKeyboard(.interactively)
+            // 키보드를 내릴 길이 없었다. 쓸어내리는 것과 **바탕을 누르는 것** 둘 다
+            // 내려가야 한다 — 1.5.1에서는 쓸어내리기만 넣고 탭을 뺐는데, "목록은
+            // 누르는 자리마다 할 일이 있다"고 본 게 틀렸다. 행 사이와 마지막 행
+            // 아래는 바탕이고, 거기를 누르는 것이 키보드를 내리는 가장 자연스러운
+            // 손짓이다.
+            //
+            // **`.background`에 올린 `onTapGesture`는 안 불린다.** List가 제 스크롤·탭
+            // 제스처를 먼저 가져간다 — 하루 페이지에서 똑같이 당하고 적어둔 함정이다
+            // (`DayTodosContentView`). `simultaneousGesture`로 List의 제스처를 막지
+            // 않으면서 같이 받는다.
+            //
+            // 쓸어내리기는 하루 페이지와 같은 `.immediately`로 맞춘다. 목록 화면이
+            // 둘인데 하나는 손가락을 따라오고 하나는 즉시 내려가면, 같은 동작에
+            // 다른 반응이 돌아온다.
+            .scrollDismissesKeyboard(.immediately)
+            .simultaneousGesture(TapGesture().onEnded { dismissKeyboard() })
             // **제목과 첫 묶음 사이가 비는 것을 막는다.** plain 리스트는 첫 섹션
             // 머리 위에 제 여백을 또 넣어서, 내비게이션 제목 아래로 손가락 두 마디쯤
             // 되는 빈 칸이 생긴다 — 화면을 열자마자 보이는 것이 빈 공간이면
@@ -238,6 +250,13 @@ private struct TodoListContent: View {
         .buttonStyle(.plain)
         .accessibilityLabel("오늘로 가져오기")
         .accessibilityHint("날짜를 오늘로 바꿉니다")
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil, from: nil, for: nil
+        )
     }
 
     /// 화면에 두 개 이상의 캘린더가 섞여 있을 때만 소속을 밝힌다.
