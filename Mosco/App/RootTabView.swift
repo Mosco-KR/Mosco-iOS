@@ -209,21 +209,63 @@ struct RootTabView: View {
         TodayPage.progress(in: todos, today: Date()).remaining
     }
 
+    /// 리뷰창을 부탁하고, **실제로 떴는지까지 보고 온다.**
+    ///
+    /// `requestReview()`는 아무것도 돌려주지 않고, 조건이 안 맞으면 조용히 아무 일도
+    /// 안 한다. 그래서 요청 직전·직후의 창 목록을 비교해서 떴는지를 어림한다
+    /// (`ReviewPromptWindows`). 그 판정이 다음에 언제 다시 물을지를 가른다 — 안 뜬
+    /// 요청에 90일을 태우면 아무것도 보여주지 않고 그 사람을 분기째 잃는다.
+    ///
+    /// **접을 때도 남긴다.** 예전엔 앱이 뒤에 있거나 안내 중이면 말없이 돌아왔는데,
+    /// 그러면 "요청이 적다"가 조건이 빡빡해서인지 순간을 잘못 골라서인지 알 수 없다.
     private func askForReview() {
         Task {
             try? await Task.sleep(for: .seconds(1.2))
             // 기다리는 사이 다른 길(앞으로 나오기)로 이미 냈을 수 있다 — 두 번 내지 않는다.
             guard reviewPrompt.isPending else { return }
             // 뷰가 붙든 `scenePhase`는 지난 값일 수 있어서 앱의 지금 상태를 직접 본다.
-            // 뒤에 가 있는데 내면 시스템이 버리고, 기회만 쓴 것으로 적힌다.
-            guard UIApplication.shared.applicationState == .active else { return }
+            // 뒤에 가 있는데 내면 시스템이 버린다.
+            guard UIApplication.shared.applicationState == .active else {
+                Analytics.log(.reviewPromptSkipped(reason: "background"))
+                return
+            }
             // 안내를 따라가는 중에는 묻지 않는다 — 시스템 시트가 마스크 위로 덮치면
             // 지금 눌러야 할 것이 가려지고, 그 순간은 부탁하기에도 나쁜 자리다.
-            guard !tutorial.isRunning else { return }
+            guard !tutorial.isRunning else {
+                Analytics.log(.reviewPromptSkipped(reason: "tutorial"))
+                return
+            }
+            guard let scene = activeWindowScene else {
+                Analytics.log(.reviewPromptSkipped(reason: "no_scene"))
+                return
+            }
+
+            // 깃발은 요청을 내기 전에 내린다. 결과를 기다리는 1.5초 사이에
+            // 앱이 앞으로 나오면 그쪽이 같은 요청을 한 번 더 낼 수 있다.
+            reviewPrompt.willRequest()
+            let before = Set(scene.windows.map(ObjectIdentifier.init))
             requestReview()
-            reviewPrompt.didRequest()
             Analytics.log(.reviewPromptRequested)
+
+            // 창은 요청하자마자 올라오지 않는다. 한 박자 기다렸다가 센다.
+            try? await Task.sleep(for: .seconds(1.5))
+            let shown = ReviewPromptWindows.didPresentReviewWindow(
+                before: before,
+                after: scene.windows.map {
+                    (id: ObjectIdentifier($0), className: String(describing: type(of: $0)))
+                }
+            )
+            reviewPrompt.didRequest(outcome: shown ? .shown : .unseen)
+            Analytics.log(shown ? .reviewPromptShown : .reviewPromptUnseen)
         }
+    }
+
+    /// 지금 앞에 나와 있는 창 무대. 시스템 리뷰창이 여기 얹히므로, 떴는지를
+    /// 보려면 이 무대의 창 목록을 봐야 한다.
+    private var activeWindowScene: UIWindowScene? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
     }
 
     /// 안내를 따라가다 막힌 사람을 위해 연습용 할 일을 대신 하나 만든다.
@@ -470,6 +512,10 @@ struct RootTabView: View {
         // 위젯·라이브 액티비티에서 쌓인 이벤트는 앞으로 나올 때마다 비운다 — 처음
         // 켤 때만 비우면 며칠치가 한날에 몰려 날짜별 추이를 못 본다.
         Analytics.flushPendingFromExtensions()
+        // **"쓴 날"도 여기서 센다.** 시작 작업(`runStartup`)은 프로세스가 새로 뜰 때만
+        // 도는데, iOS는 앱을 며칠씩 메모리에 들고 있다 — 매일 여는 사람도 앱이 안
+        // 죽으면 쓴 날이 하루에서 안 올라갔다. 같은 날 여러 번 불러도 한 번만 센다.
+        reviewPrompt.registerLaunch()
         // 앱을 벗어나 있는 사이 부탁할 때가 됐다면 지금 묻는다.
         if reviewPrompt.isPending { askForReview() }
         Task { await refreshAfterForeground() }

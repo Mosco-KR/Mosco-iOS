@@ -104,10 +104,21 @@ enum AnalyticsEvent {
     /// 재설치를 건너온 비율이 이 값으로 보인다. **설치마다 한 번만** 남긴다 —
     /// 1.3.1 전에는 실행마다 남겨서 세션 수와 같은 숫자가 됐다.
     case analyticsIdentity(origin: String)
-    /// 앱스토어 리뷰창을 띄워달라고 시스템에 요청했다. **실제로 떴는지는 알 수
-    /// 없다** — 이건 "부탁할 조건이 얼마나 자주 차는가"를 재는 값이고, 조건을
-    /// 다시 조일지 풀지 정하는 데 쓴다.
+    /// 앱스토어 리뷰창을 띄워달라고 시스템에 요청했다. "부탁할 조건이 얼마나 자주
+    /// 차는가"를 재는 값이고, 조건을 다시 조일지 풀지 정하는 데 쓴다.
     case reviewPromptRequested
+    /// 요청한 뒤 시스템 창이 **실제로 올라왔다**(`ReviewPromptWindows`의 어림 판정).
+    /// 평점이 안 느는 이유가 "안 뜬다"인지 "떠도 다들 닫는다"인지는 이 값과
+    /// `review_prompt_requested`의 차이로만 갈린다.
+    case reviewPromptShown
+    /// 요청했는데 창이 안 올라왔다. 연 3회를 다 썼거나 시스템이 제 사정으로
+    /// 누르고 있는 경우다. 이게 요청 수에 가까우면 조건을 고칠 게 아니라
+    /// **요청 자체를 아껴야** 한다.
+    case reviewPromptUnseen
+    /// 부탁할 때가 됐는데 요청을 **내지 않고 접었다** — 그 순간 앱이 뒤에 있었거나
+    /// 안내를 따라가는 중이었거나. 순간을 잘못 고르고 있는지가 여기 보인다.
+    /// `reason`은 튜토리얼 쪽과 같은 측정기준을 쓴다.
+    case reviewPromptSkipped(reason: String)
 
     // MARK: - 1.4.0 구조(탭 없음, 달력이 홈)가 맞았는지
 
@@ -150,6 +161,9 @@ enum AnalyticsEvent {
         case .storeLocalFallback: "store_local_fallback"
         case .analyticsIdentity: "analytics_identity"
         case .reviewPromptRequested: "review_prompt_requested"
+        case .reviewPromptShown: "review_prompt_shown"
+        case .reviewPromptUnseen: "review_prompt_unseen"
+        case .reviewPromptSkipped: "review_prompt_skipped"
         case .dayOpened: "day_opened"
         case .searchClosed: "search_closed"
         case .screenViewed: "screen_view"
@@ -200,8 +214,10 @@ enum AnalyticsEvent {
             ["origin": origin]
         case .storeLocalFallback:
             [:]
-        case .reviewPromptRequested:
+        case .reviewPromptRequested, .reviewPromptShown, .reviewPromptUnseen:
             [:]
+        case let .reviewPromptSkipped(reason):
+            ["reason": reason]
         case let .dayOpened(from, isToday):
             ["from": from, "is_today": String(isToday)]
         case let .searchClosed(openedResult):
