@@ -16,6 +16,12 @@ struct TodoDetailSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var memo: String
+    /// 열자마자 커서를 여기 둔다. 예전엔 시트가 떠도 커서가 없어서, 적으려면
+    /// 입력 칸을 한 번 더 눌러야 했다 — 이 화면은 메모를 쓰려고 들어오는 자리라
+    /// 그 한 번이 늘 군더더기다.
+    @FocusState private var isMemoFocused: Bool
+    /// '취소'로 닫혔는가. 쓸어내려 닫는 것은 취소가 아니다(아래 `onDisappear`).
+    @State private var isCancelled = false
     /// 키보드가 화면 아래에서 덮는 높이. 안전영역 아래 여백은 빼둔다 — 그만큼은
     /// 원래도 내용이 들어가지 않는 자리라 두 번 빼면 편집기가 필요 이상으로 짧아진다.
     @State private var keyboardHeight: CGFloat = 0
@@ -58,6 +64,7 @@ struct TodoDetailSheet: View {
                     TextEditor(text: $memo)
                         .font(.moscoBody())
                         .scrollContentBackground(.hidden)
+                        .focused($isMemoFocused)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(Metrics.spacingSM)
@@ -72,6 +79,10 @@ struct TodoDetailSheet: View {
                 )
             }
             .padding(Metrics.spacingMD)
+            // **위를 한 칸 더 띄운다.** iOS 26의 툴바는 제 유리 캡슐을 띄워 그리는데,
+            // 이 화면은 스크롤뷰가 아니라 그 아래로 자리를 비워주는 쪽이 없다 —
+            // 그래서 '취소' 캡슐과 할 일 제목이 겹쳐 보였다.
+            .padding(.top, Metrics.spacingLG)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             // 키보드가 가리는 만큼 **입력 영역을 줄인다**.
             //
@@ -102,9 +113,23 @@ struct TodoDetailSheet: View {
             }
             .navigationTitle("메모")
             .navigationBarTitleDisplayMode(.inline)
+            // 들어온 순간 커서가 와 있어야 한다. `onAppear`로는 시트가 올라오는
+            // 애니메이션과 겹쳐 포커스가 씹히는 때가 있어서 한 박자 뒤에 준다.
+            .task {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                isMemoFocused = true
+            }
+            // **쓸어내려 닫아도 저장한다.** 예전엔 '완료'를 누르지 않고 닫으면 적은
+            // 것이 사라졌다 — 시트를 쓸어내리는 것은 이 앱에서 "닫기"라서, 그걸
+            // 취소로 받으면 방금 쓴 메모를 잃는다. 메모는 되돌릴 거리가 거의 없는
+            // 글이고, 잃는 쪽이 훨씬 비싸다. 되돌리는 길은 '취소'에 그대로 있다.
+            .onDisappear { if !isCancelled { save() } }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { dismiss() }
+                    Button("취소") {
+                        isCancelled = true
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("완료") {

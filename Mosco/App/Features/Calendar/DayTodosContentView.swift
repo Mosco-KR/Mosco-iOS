@@ -30,6 +30,12 @@ struct DayTodosContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(TodoClipboard.self) private var clipboard
     @Environment(WeatherStore.self) private var weatherStore
+    /// 주간 스트립의 점을 찍는 데만 쓴다 — 목록은 아래 `DayTodoList`가 제 질의로
+    /// 그린다. 이 줄이 일곱 날을 한꺼번에 봐야 해서 하루치만으로는 모자란다.
+    @Query private var allTodos: [TodoItem]
+    /// 달력에서 꺼둔 캘린더는 점도 안 찍는다 — 안 보이는 일정이 점으로만 남으면
+    /// 눌러 들어갔을 때 빈 날이 된다.
+    @AppStorage(CalendarSelection.storageKey) private var hiddenCalendarIDs = ""
     @Environment(TutorialCoordinator.self) private var tutorial: TutorialCoordinator?
     /// 기존 항목을 누르면 여기 채워지고, 하단 QuickAddView가 새로 만들기 대신
     /// 이 항목을 고치는 채팅형 입력창으로 바뀐다.
@@ -151,15 +157,14 @@ struct DayTodosContentView: View {
     /// 스트립은 떠 있는 요소가 아니므로 불투명한 캔버스 위에 그리고 아래에
     /// 경계선 한 줄만 둔다(글라스는 쓰지 않는다).
     private var weekStrip: some View {
-        GeometryReader { proxy in
-            WeekPagerView(
-                width: proxy.size.width,
-                today: calendar.startOfDay(for: Date()),
-                selectedDate: shownDate,
-                weatherSymbol: { weatherStore.weather(for: $0)?.symbolName },
-                onSelect: select
-            )
-        }
+        WeekPagerView(
+            today: calendar.startOfDay(for: Date()),
+            selectedDate: shownDate,
+            weatherSymbol: { weatherStore.weather(for: $0)?.symbolName },
+            // 그날 일정이 있는지. 이 줄만 보고 어느 날로 갈지 알 수 있어야 한다.
+            dayMark: { DayTodoMark.mark(for: $0, in: markTodos) },
+            onSelect: select
+        )
         .frame(height: WeekPagerView.height)
         .background(MoscoPalette.canvas)
         .overlay(alignment: .bottom) {
@@ -167,6 +172,12 @@ struct DayTodosContentView: View {
                 .fill(MoscoPalette.border)
                 .frame(height: 0.5)
         }
+    }
+
+    /// 점을 찍을 때 보는 할 일들 — 지금 보이는 캘린더의 것만.
+    private var markTodos: [TodoItem] {
+        let hidden = CalendarSelection.hidden(from: hiddenCalendarIDs)
+        return allTodos.filter { CalendarSelection.matches($0, hidden: hidden) }
     }
 
     /// 스트립에서 다른 날을 고른다.

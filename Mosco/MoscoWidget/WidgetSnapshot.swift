@@ -47,6 +47,18 @@ enum WidgetStore {
         return all
     }
 
+    /// 가장 가까운 디데이 하나. 없으면 nil.
+    ///
+    /// 무엇이 디데이로 서는지는 **앱과 같은 판단**을 쓴다(`TodoListPage.dDays`) —
+    /// 위젯이 제 규칙을 들면 앱 카드와 다른 것이 서는 날이 온다.
+    @MainActor
+    static func nearestDDay(today: Date) -> (title: String, day: Date)? {
+        guard let todo = TodoListPage.dDays(in: allItems(), today: today).first,
+              let day = todo.date
+        else { return nil }
+        return (todo.title, Calendar.current.startOfDay(for: day))
+    }
+
     /// 그날에 걸치는(반복 포함) 할 일을, 미완료 먼저 시간순으로.
     @MainActor
     static func todos(on day: Date, limit: Int) -> [WidgetTodo] {

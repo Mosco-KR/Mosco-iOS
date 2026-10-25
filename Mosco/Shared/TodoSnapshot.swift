@@ -26,6 +26,9 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
     let repeatInterval: Int?
     let completedDayKeys: [String]
     let isCompleted: Bool
+    /// 손꼽아 기다리는 일로 표시해 둔 것. 달력이 날짜 옆에 깃발을 찍는 데 쓴다 —
+    /// **이 줄이 없어서 디데이가 달력에 닿을 방법이 아예 없었다.**
+    let isDDay: Bool
     let createdAt: Date
     /// 하루 안의 시작 시각(분). 시간이 없으면 -1 — 하루 목록이 쓰는
     /// `TodoItem.sortableMinutes`와 같은 값이다.
@@ -47,6 +50,7 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
         repeatInterval: Int? = nil,
         completedDayKeys: [String] = [],
         isCompleted: Bool = false,
+        isDDay: Bool = false,
         createdAt: Date = .now
     ) {
         self.id = id
@@ -61,6 +65,7 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
         self.repeatInterval = repeatInterval
         self.completedDayKeys = completedDayKeys
         self.isCompleted = isCompleted
+        self.isDDay = isDDay
         self.createdAt = createdAt
     }
 
@@ -80,6 +85,7 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
         self.repeatInterval = todo.repeatInterval
         self.completedDayKeys = todo.completedDayKeys ?? []
         self.isCompleted = todo.isCompleted
+        self.isDDay = todo.isDDay
         self.createdAt = todo.createdAt
         self.startMinutes = todo.sortableMinutes
     }

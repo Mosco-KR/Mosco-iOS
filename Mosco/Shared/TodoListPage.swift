@@ -79,6 +79,9 @@ nonisolated enum TodoListPage {
         guard todo.date != nil else {
             // 날짜 없는 것은 끝내면 목록에서 내려간다. 되살릴 길은 검색이다 —
             // 끝낸 백로그가 계속 쌓이면 이 묶음이 무덤이 된다.
+            //
+            // **메모 탭과 겹치지 않는다.** 그쪽은 할 일이 아니라 글을 적는 자리라
+            // (`MemoNote`) 아예 다른 것을 담는다 — 날짜 안 정한 할 일은 여기 그대로다.
             return todo.isCompleted ? nil : .noDate
         }
 
@@ -178,6 +181,25 @@ nonisolated enum TodoListPage {
         }
     }
 
+    /// **그 줄을 눌렀을 때 완료될 회차.** 화면이 아니라 여기서 정한다.
+    ///
+    /// 반복 일정의 완료는 날짜별로 기록되는데(`completedDayKeys`), 그 날짜를 안 넘기면
+    /// 전체 완료 깃발(`isCompleted`)이 뒤집힌다. 반복 일정에서 그 깃발은 **아무도 읽지
+    /// 않는 값**이라(`TodoItem.isCompleted(on:)`가 반복이면 안 본다), 할 일 탭에서는
+    /// 체크가 된 것처럼 보이는데 달력·하루 페이지·위젯은 그대로 안 끝난 상태로 남았다.
+    ///
+    /// 규칙은 하나다 — **줄에 적힌 날짜를 체크한다**(`displayDate`와 같은 날). 그래야
+    /// 보이는 것과 기록되는 것이 어긋나지 않는다. 반복이 아니면 nil이고, 그때는
+    /// 전체 완료를 그대로 뒤집는다.
+    static func occurrenceDate(
+        for todo: TodoItem,
+        in section: Section,
+        today: Date,
+        calendar: Calendar = .current
+    ) -> Date? {
+        displayDate(for: todo, in: section, today: today, calendar: calendar)
+    }
+
     /// 목록의 날짜 태그에 원본 대신 찍을 날. nil이면 화면이 원본을 그대로 쓴다.
     ///
     /// **반복 일정은 원본 시작일을 보여주면 안 된다.** 2년 전에 만든 매주 회의가
@@ -211,7 +233,9 @@ nonisolated enum TodoListPage {
     /// "며칠 남았나"를 세는 자리라, 지난 것은 `D+3`으로 센다.
     static func dDays(in todos: [TodoItem], today: Date, calendar: Calendar = .current) -> [TodoItem] {
         todos
-            .filter { $0.isDDay && $0.date != nil && !$0.isCompleted }
+            // 반복 일정은 전체 완료 깃발을 안 본다 — 그 값은 반복에서 아무도 읽지
+            // 않으므로, 그것으로 거르면 달력에선 멀쩡한 일정이 카드에서만 사라진다.
+            .filter { $0.isDDay && $0.date != nil && !isCompleted($0, on: today, calendar: calendar) }
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
 

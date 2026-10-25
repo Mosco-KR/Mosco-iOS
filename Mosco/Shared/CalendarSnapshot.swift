@@ -11,8 +11,14 @@ nonisolated struct CalendarSnapshot: Equatable, Sendable {
     let version: Int
     /// 계산해둔 범위 안의 달들. 범위 밖 달은 키가 없다(= 일정 없음으로 그린다).
     let months: [CalendarMonth: MonthEventLayout]
+    /// 디데이로 표시해 둔 날들(startOfDay). 날짜 숫자 옆에 깃발을 찍는 데 쓴다.
+    ///
+    /// **막대가 아니라 날짜 칸에 찍는다.** 14pt 막대에 아이콘을 하나 더 붙이면
+    /// 그만큼 제목 자리가 준다 — 캘린더 색 점을 그 이유로 이미 걷어냈다.
+    /// 반복은 펼치지 않는다. 디데이는 "그 하루를 센다"는 뜻이라 회차가 없다.
+    let dDayDates: Set<Date>
 
-    static let empty = CalendarSnapshot(version: 0, months: [:])
+    static let empty = CalendarSnapshot(version: 0, months: [:], dDayDates: [])
 
     static func == (lhs: CalendarSnapshot, rhs: CalendarSnapshot) -> Bool {
         lhs.version == rhs.version
@@ -60,7 +66,8 @@ nonisolated enum CalendarSnapshotBuilder {
             months[month] = layout(for: grid, positioned: positioned)
         }
 
-        return CalendarSnapshot(version: version, months: months)
+        let dDayDates = Set(todos.filter(\.isDDay).map(\.start))
+        return CalendarSnapshot(version: version, months: months, dDayDates: dDayDates)
     }
 
     /// 한 달만 필요한 곳(위젯)을 위한 진입점. 앱은 ±8개월을 미리 펼쳐두지만,

@@ -71,7 +71,9 @@ struct TodoRow: View {
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        // **22 → 16.** 알약에 가깝던 모서리를 줄였다. 둥글수록 친근해 보이는 건
+        // 맞지만, 목록 가득 알약이 쌓이면 그 자체가 "어디서 본 앱" 인상을 만든다.
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 
         HStack(alignment: .center, spacing: 10) {
             // 막대와 체크는 한 덩어리로 붙여둔다 — 둘 사이가 벌어지면 왼쪽 끝에
@@ -100,18 +102,18 @@ struct TodoRow: View {
                 // 한 줄에 다 못 들어가면 다음 줄로 넘어간다. 예전엔 HStack이라
                 // 칩이 서넛만 붙어도 뒤쪽이 잘려 나갔는데, 잘린 게 캘린더인지
                 // 시간인지는 열어봐야 알 수 있었다 — 보여줄 거면 다 보여준다.
-                WrappingHStack(spacing: 6, lineSpacing: 6) {
+                WrappingHStack(spacing: 10, lineSpacing: 6) {
                     // 색 점은 끈다 — 왼쪽 막대가 이미 같은 말을 하고 있다.
-                    CategoryTag(category: todo.category, showsColorDot: false)
+                    CategoryTag(category: todo.category, showsColorDot: false, filled: false)
 
                     if showsCalendarTag, let calendar = todo.calendar {
                         // 캘린더 색은 위쪽 선택기에서만 쓴다(설정 화면이 그렇게
                         // 안내하고 있다). 여기서 또 칠하면 카테고리 색과 경쟁한다.
-                        TagChip(label: calendar.name, tint: MoscoPalette.textSecondary)
+                        TagChip(label: calendar.name, tint: MoscoPalette.textSecondary, filled: false)
                     }
 
                     if let scheduleLabel {
-                        TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary)
+                        TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary, filled: false)
                     }
 
                     // 디데이로 표시해둔 항목. 남은 날짜는 적지 않는다 — 옆의 날짜
@@ -149,7 +151,7 @@ struct TodoRow: View {
 
             // 수정할 방법이 없는 화면(onTap이 없는 곳)에서는 자리도 만들지 않는다.
             if onTap != nil {
-                editButton
+                memoButton
             }
         }
         .padding(.vertical, 13)
@@ -173,9 +175,12 @@ struct TodoRow: View {
         // 깔았는데, 목록이 길어지면 카드마다 바탕색이 달라 화면 전체가 알록달록해
         // 눈이 피로했다. 색은 왼쪽 막대 하나에만 — 찾을 때 필요한 자리에만 찍는다.
         .background(MoscoPalette.surface, in: shape)
-        .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.4), lineWidth: 0.5))
-        .shadow(color: .black.opacity(isDone ? 0.02 : 0.06), radius: 12, y: 5)
-        .scaleEffect(isDone ? 0.985 : 1)
+        // **그림자를 걷어냈다.** 목록의 카드마다 그림자를 깔면 전부 떠 있는 것처럼
+        // 보여서, 정작 떠 있어야 하는 것(입력창·떠오르는 단추)과 구분이 사라진다 —
+        // 규범의 "플랫이 기본, 글라스는 예외"가 원래 말하던 바다. 구분은 선 하나로
+        // 충분하고, 선을 조금 또렷하게 해서 그 몫을 받는다.
+        .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.7), lineWidth: 0.5))
+        .scaleEffect(isDone ? 0.99 : 1)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isDone)
         // 꾹 눌러 나오는 메뉴와 그 뒤에 열리는 것들. 시간표 블록도 같은 것을 쓴다 —
         // 같은 동작이 화면마다 다르면 다른 기능처럼 읽힌다.
@@ -225,27 +230,25 @@ struct TodoRow: View {
         .padding(.top, 2)
     }
 
-    /// 수정으로 바로 가는 지름길.
+    /// **메모로 가는 단추.** 한동안 이 자리가 '수정'이었는데, 목록에서 행 하나에
+    /// 두 번째로 자주 하는 일은 제목을 고치는 게 아니라 **거기 뭔가를 적어두는
+    /// 것**이었다. 제목·날짜·반복을 고치는 일은 꾹 눌러 나오는 메뉴의 '수정'에
+    /// 그대로 있다(거기서 입력창으로 올라오면 메모까지 같이 실린다).
     ///
-    /// 몸통 탭이 완료로 넘어가면서 수정은 꾹 눌러야만 닿는 곳이 됐는데, 꾹 누르기는
-    /// 알고 있어야 쓸 수 있는 조작이다. 목록에 보이는 버튼 하나가 같은 곳으로
-    /// 데려가면 처음 쓰는 사람도 길을 찾는다.
-    ///
-    /// 예전엔 이 자리가 메모 버튼이었다. 메모 유무는 아이콘 진하기로 알렸는데,
-    /// 그건 두 상태를 나란히 놓고 봐야 알아채는 구분이었다 — 이제 태그 줄에서
-    /// 이름으로 말한다.
-    private var editButton: some View {
+    /// 메모가 있으면 채운 아이콘, 없으면 빈 아이콘이다. **두 상태를 나란히 놓고
+    /// 봐야 알아채는 구분(진하기)은 쓰지 않는다** — 그건 예전에 한 번 걷어낸 방식이다.
+    private var memoButton: some View {
         Button {
-            onTap?()
+            showsMemoEditor = true
         } label: {
-            Image(systemName: "square.and.pencil")
-                .font(.system(size: 13, weight: .semibold))
+            Image(systemName: hasMemo ? "note.text" : "square.and.pencil")
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(MoscoPalette.textSecondary)
-                .frame(width: 28, height: 28)
-                .background(MoscoPalette.textSecondary.opacity(0.1), in: Circle())
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .contentShape(Circle())
+        .accessibilityLabel(hasMemo ? String(localized: "메모 보기") : String(localized: "메모 추가"))
     }
 
     /// 셀 왼쪽 끝의 카테고리 색 막대 — 달력 격자의 일정 블록과 같은 표기다.
