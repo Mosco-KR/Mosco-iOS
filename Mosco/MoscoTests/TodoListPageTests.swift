@@ -280,8 +280,10 @@ struct TodoListPageTests {
     func 체크_회차() {
         let weekly = make("매주 회의", date: day("2026-10-21"), repeats: .weekly)
         for section in [TodoListPage.Section.today, .thisWeek, .later] {
+            // **달력을 꼭 넘긴다.** 안 넘기면 `.current`를 쓰는데, CI는 UTC로 돌아서
+            // 로컬(KST)에서만 통과하는 테스트가 된다 — 실제로 한 번 그랬다.
             #expect(
-                TodoListPage.occurrenceDate(for: weekly, in: section, today: today)
+                TodoListPage.occurrenceDate(for: weekly, in: section, today: today, calendar: calendar)
                     == displayDate(weekly, section)
             )
         }
@@ -291,6 +293,6 @@ struct TodoListPageTests {
     @Test("한_번짜리는_회차가_없다")
     func 한_번짜리_회차() {
         let once = make("치과", date: day("2026-10-28"))
-        #expect(TodoListPage.occurrenceDate(for: once, in: .thisWeek, today: today) == nil)
+        #expect(TodoListPage.occurrenceDate(for: once, in: .thisWeek, today: today, calendar: calendar) == nil)
     }
 }
