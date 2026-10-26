@@ -87,6 +87,8 @@ enum ScreenshotDemo {
         var isCompleted = false
         /// 할 일 탭 맨 위 디데이 카드에 설 것.
         var isDDay = false
+        /// 완료라는 개념이 없는 일(생일·월급날). 체크 자리에 점만 선다.
+        var isCheckable = true
         /// 셀 안에 펼쳐 보이는 메모. 몇 개만 붙인다 — 전부 붙이면 메모가 없는 줄의
         /// '메모 추가' 입구가 한 장에도 안 찍힌다.
         var memo: (ko: String, en: String, ja: String)?
@@ -113,7 +115,10 @@ enum ScreenshotDemo {
         Sample(offset: 9, hour: 15, category: 0, ko: "치과", en: "Dentist", ja: "歯医者"),
         Sample(offset: 12, length: 2, category: 1, ko: "출장", en: "Business trip", ja: "出張"),
         Sample(offset: 14, hour: 7, category: 2, ko: "러닝", en: "Run", ja: "ランニング"),
-        Sample(offset: 16, category: 3, ko: "생일 파티", en: "Birthday", ja: "誕生日会", isDDay: true),
+        Sample(offset: 16, category: 3, ko: "생일 파티", en: "Birthday", ja: "誕生日会", isDDay: true, isCheckable: false),
+        // 체크가 없는 일이 하루 페이지에서 어떻게 서는지 한 장에 담으려면 오늘에도
+        // 하나 있어야 한다.
+        Sample(offset: 0, category: 0, ko: "월급날", en: "Payday", ja: "給料日", isCheckable: false),
         Sample(offset: 19, hour: 14, category: 1, ko: "분기 리뷰", en: "Review", ja: "レビュー"),
         Sample(offset: 21, category: 2, ko: "등산", en: "Hiking", ja: "登山"),
         Sample(offset: 24, hour: 18, category: 3, ko: "가족 모임", en: "Family", ja: "家族で食事"),
@@ -192,6 +197,7 @@ enum ScreenshotDemo {
             )
             todo.isCompleted = sample.isCompleted
             todo.isDDay = sample.isDDay
+            todo.isCheckable = sample.isCheckable
             todo.memo = sample.memo.map { pick($0.ko, $0.en, $0.ja) }
             context.insert(todo)
         }

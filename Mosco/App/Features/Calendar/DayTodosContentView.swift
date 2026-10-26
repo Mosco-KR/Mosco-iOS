@@ -344,7 +344,7 @@ private struct DayTodoList: View {
     }
 
     private var remainingCount: Int {
-        todosForDay.filter { !$0.isCompleted(on: date) }.count
+        todosForDay.count { $0.countsAsRemaining(on: date) }
     }
 
     var body: some View {

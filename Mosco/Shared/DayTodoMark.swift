@@ -19,7 +19,9 @@ nonisolated enum DayTodoMark: Equatable, Sendable {
         var sawAny = false
         for todo in todos where todo.occurs(on: day) {
             sawAny = true
-            if !todo.isCompleted(on: day) { return .open }
+            // 체크가 없는 일(생일·월급날)은 '남은 일'이 아니다 — 그날 뭔가 있다는
+            // 것만 옅은 점으로 말한다.
+            if todo.countsAsRemaining(on: day) { return .open }
         }
         return sawAny ? .done : nil
     }

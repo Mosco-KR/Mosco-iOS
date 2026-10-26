@@ -13,6 +13,9 @@ struct WidgetTodo: Identifiable, Hashable {
     let id: UUID
     let title: String
     let isCompleted: Bool
+    /// 완료라는 개념이 있는 일인가(`TodoItem.isCheckable`). false면 체크 버튼
+    /// 대신 점이 서고, 눌러도 아무 일이 없다 — 생일을 완료할 수는 없다.
+    var isCheckable: Bool = true
     let categoryColorHex: String?
     /// 시작 시각 표기("오후 3시"). 종일 일정이면 nil.
     let timeLabel: String?
@@ -76,6 +79,7 @@ enum WidgetStore {
                     id: todo.id,
                     title: todo.title,
                     isCompleted: todo.isCompleted(on: day),
+                    isCheckable: todo.isCheckable,
                     categoryColorHex: todo.category?.colorHex,
                     timeLabel: todo.startTime?.localizedTime
                 )

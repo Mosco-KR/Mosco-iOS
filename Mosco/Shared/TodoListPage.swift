@@ -76,6 +76,10 @@ nonisolated enum TodoListPage {
         today: Date,
         calendar: Calendar = .current
     ) -> Section? {
+        // **체크가 없는 일은 이 탭에 안 선다.** 여기는 "무엇부터"에 답하는 화면인데
+        // 할 게 없는 항목이 설 자리가 없다 — 생일을 완료할 수는 없으니, 두면
+        // '지난 할 일' 칸에 영영 쌓인다. 그런 것은 달력이 맡는다.
+        guard todo.isCheckable else { return nil }
         guard todo.date != nil else {
             // 날짜 없는 것은 끝내면 목록에서 내려간다. 되살릴 길은 검색이다 —
             // 끝낸 백로그가 계속 쌓이면 이 묶음이 무덤이 된다.

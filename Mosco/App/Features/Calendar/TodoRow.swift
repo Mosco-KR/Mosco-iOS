@@ -162,7 +162,11 @@ struct TodoRow: View {
         // **셀 전체가 완료 버튼이다.** 목록에서 제일 자주 하는 일이라 제일 넓은
         // 히트 영역을 준다. 수정은 꾹 눌러 나오는 메뉴로 옮겼다 — 자주 하는
         // 조작일수록 겨누기 쉬워야 한다.
-        .onTapGesture(perform: toggleCompletion)
+        //
+        // **체크가 없는 일은 몸통을 눌러도 아무 일이 없다.** 누를 것이 없다는 건
+        // 체크 자리의 점이 말한다 — 거기에 다른 동작(수정·메모)을 얹으면 같은
+        // 손짓이 줄마다 다른 일을 하게 된다.
+        .onTapGesture { if todo.isCheckable { toggleCompletion() } }
         // 완료된 항목은 내용만 흐려진다. 배경보다 뒤에 놓아서 카드 자체는
         // 불투명하게 남는다 — 카드까지 반투명해지면 뒤가 비쳐 얼룩져 보인다.
         .opacity(isDone ? 0.55 : 1)
@@ -270,8 +274,19 @@ struct TodoRow: View {
     ///
     /// 원이 아니라 둥근 사각형인 건 셀·카드·태그가 전부 둥근 사각형/캡슐이기
     /// 때문이다. 한 행에서 혼자만 정원이면 다른 데서 가져다 놓은 것처럼 보인다.
+    @ViewBuilder
     private var checkMark: some View {
-        TodoCheckMark(isDone: isDone)
+        if todo.isCheckable {
+            TodoCheckMark(isDone: isDone)
+        } else {
+            // **체크 자리를 비우지 않는다.** 비우면 그 줄만 제목이 왼쪽으로 당겨져
+            // 목록의 세로줄이 어긋난다. 점 하나를 두면 자리도 지키고 "여긴 체크가
+            // 없다"는 말도 된다 — 생일을 완료할 수는 없으니까.
+            Circle()
+                .fill(MoscoPalette.textSecondary.opacity(0.35))
+                .frame(width: 5, height: 5)
+                .frame(width: 26, height: 26)
+        }
     }
 
     // MARK: - 잠금화면에 띄우기

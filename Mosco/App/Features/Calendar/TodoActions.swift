@@ -118,6 +118,25 @@ struct TodoActions: ViewModifier {
             Label(hasMemo ? String(localized: "메모 보기") : String(localized: "메모 추가"), systemImage: "note.text")
         }
 
+        // **완료라는 개념이 없는 일**로 돌린다 — 생일·월급날처럼 "하는" 게 아니라
+        // "오는" 것. 그러면 할 일 탭·남은 개수·하루 마무리 알림에서 빠지고
+        // 달력에만 남는다(`TodoItem.isCheckable`).
+        //
+        // 입력창에 칩을 더하지 않고 여기 둔 건, 적는 순간보다 **적고 나서** 정하게
+        // 되는 일이라서다 — 생일을 적을 때 그 성격까지 같이 고르게 하면 적는 길이
+        // 길어진다.
+        Button {
+            todo.isCheckable.toggle()
+            if !todo.isCheckable { todo.isCompleted = false }
+        } label: {
+            Label(
+                todo.isCheckable
+                    ? String(localized: "완료 체크 없애기")
+                    : String(localized: "완료 체크 켜기"),
+                systemImage: todo.isCheckable ? "circle.slash" : "checkmark.circle"
+            )
+        }
+
         Button {
             if !todo.isDDay { Analytics.log(.dDaySet) }
             todo.isDDay.toggle()

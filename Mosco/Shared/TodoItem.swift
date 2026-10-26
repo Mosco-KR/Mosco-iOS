@@ -57,6 +57,17 @@ final class TodoItem {
         set { completedDayKeysRaw = (newValue ?? []).joined(separator: ",") }
     }
     var isCompleted: Bool = false
+    /// 완료라는 개념이 있는 일인가.
+    ///
+    /// **생일·월급날처럼 "하는" 것이 아니라 "오는" 것**에는 체크가 없다. 그냥 그날
+    /// 일어나고, 내가 할 일은 없다. 그런데 앱은 모든 항목에 완료를 요구했고, 안
+    /// 하면 '지난 할 일' 칸에 영영 쌓였다 — 할 수 없는 것들이 거기 모여서 그 칸이
+    /// 무거워지는 가장 큰 이유였다.
+    ///
+    /// **새 종류를 만들지 않고 깃발 하나로 둔 건** 반복·알림·카테고리·캘린더·검색·
+    /// 위젯을 그대로 물려받기 위해서다. 생일은 매년 반복이고 월급날은 매월 반복이라,
+    /// 그 코드를 두 벌 들면 한쪽만 고쳐지는 날이 온다.
+    var isCheckable: Bool = true
     var createdAt: Date = Date.now
     /// 제목만으로 부족할 때 덧붙이는 자유 메모. 앞으로 알림·첨부처럼 "할 일에
     /// 붙는 부가 정보"가 더 생길 자리의 첫 번째다(TodoDetailSheet 참고).
@@ -125,6 +136,13 @@ final class TodoItem {
     var isMultiDay: Bool {
         guard let date, let endDate else { return false }
         return !Calendar.current.isDate(endDate, inSameDayAs: date)
+    }
+
+    /// '남은 일'로 셀 것인가. **"안 끝냈다"와 "셀 필요가 없다"는 다른 말이다** —
+    /// 체크가 없는 일은 영원히 안 끝난 상태지만, 오늘 몇 개 남았는지를 셀 때
+    /// 거기 들어가면 월급날 때문에 오늘이 바빠 보인다.
+    func countsAsRemaining(on day: Date) -> Bool {
+        isCheckable && !isCompleted(on: day)
     }
 
     /// 정렬용 키: 시작 시간 없는(종일) 항목은 -1로 취급해 항상 먼저 오고,

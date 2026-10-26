@@ -26,6 +26,8 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
     let repeatInterval: Int?
     let completedDayKeys: [String]
     let isCompleted: Bool
+    /// 완료라는 개념이 있는 일인가(`TodoItem.isCheckable`). 생일·월급날은 false다.
+    let isCheckable: Bool
     /// 손꼽아 기다리는 일로 표시해 둔 것. 달력이 날짜 옆에 깃발을 찍는 데 쓴다 —
     /// **이 줄이 없어서 디데이가 달력에 닿을 방법이 아예 없었다.**
     let isDDay: Bool
@@ -50,6 +52,7 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
         repeatInterval: Int? = nil,
         completedDayKeys: [String] = [],
         isCompleted: Bool = false,
+        isCheckable: Bool = true,
         isDDay: Bool = false,
         createdAt: Date = .now
     ) {
@@ -65,6 +68,7 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
         self.repeatInterval = repeatInterval
         self.completedDayKeys = completedDayKeys
         self.isCompleted = isCompleted
+        self.isCheckable = isCheckable
         self.isDDay = isDDay
         self.createdAt = createdAt
     }
@@ -85,6 +89,7 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
         self.repeatInterval = todo.repeatInterval
         self.completedDayKeys = todo.completedDayKeys ?? []
         self.isCompleted = todo.isCompleted
+        self.isCheckable = todo.isCheckable
         self.isDDay = todo.isDDay
         self.createdAt = todo.createdAt
         self.startMinutes = todo.sortableMinutes
@@ -137,6 +142,11 @@ nonisolated struct TodoSnapshot: Equatable, Sendable {
             if isRepeatStart(candidate, calendar: calendar) { return candidate }
         }
         return nil
+    }
+
+    /// '남은 일'로 셀 것인가(`TodoItem.countsAsRemaining`와 같은 판단).
+    func countsAsRemaining(on day: Date, calendar: Calendar) -> Bool {
+        isCheckable && !isCompleted(on: day, calendar: calendar)
     }
 
     /// 그날(이 걸친 인스턴스)이 완료됐는지 — 반복이면 날짜별 기록으로, 아니면 전체 완료로.
