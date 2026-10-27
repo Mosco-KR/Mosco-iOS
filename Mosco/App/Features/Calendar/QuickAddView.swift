@@ -35,6 +35,9 @@ struct QuickAddView: View {
     @State private var categoryBeingEdited: TodoCategory?
     @State private var showNewCategorySheet = false
     @State private var showScheduleSheet = false
+    /// 사람이 일정 시트에서 직접 날짜를 정했는가. 정했으면 **그 뒤로는 제목에서
+    /// 날짜를 읽지 않는다** — 직접 고른 것을 글자가 덮으면 고를 이유가 없어진다.
+    @State private var didPickDateManually = false
     @State private var startDate: Date?
     @State private var endDate: Date?
     @State private var startTime: Date?
@@ -82,12 +85,26 @@ struct QuickAddView: View {
 
             dateButton
 
+            // **엔터는 줄바꿈이고, 둘째 줄부터는 메모다**(`QuickAddText`).
+            // 예전엔 엔터가 보내기였다 — 그래서 적는 순간에 메모를 붙일 길이
+            // 아예 없었고, 메모 하나를 남기려면 저장한 뒤 그 줄을 꾹 눌러 메뉴를
+            // 열어야 했다. 보내기는 오른쪽 버튼이 맡는다(원래도 거기 있었다).
             TextField("할 일을 적어보세요", text: $title, axis: .vertical)
                 .font(.moscoBody())
                 .lineLimit(1...4)
                 .focused($isTitleFocused)
-                .submitLabel(.send)
-                .onSubmit(save)
+
+            // **메모 단추는 입력창 안에 있다.** 적는 중에만 보이고, 목록의 행에는
+            // 아무것도 붙지 않는다 — 행의 태그 줄에 칩을 하나 더 두는 것은
+            // 2026-10-25에 해봤다가 되돌렸다(태그가 너무 많아 보였다).
+            //
+            // 입력창은 이미 [날짜][입력][카테고리][보내기]가 선 줄이라, 여기
+            // 하나가 더 서는 것은 새 표면이 아니다. 누르면 줄을 바꿔 커서를
+            // 아래로 내려준다 — 엔터를 눌러도 똑같지만, **엔터가 줄바꿈이라는 걸
+            // 모르는 사람에게 보이는 길**이 하나는 있어야 한다.
+            if isTitleFocused || isEditing {
+                memoButton
+            }
 
             categoryButton
             sendButton
@@ -112,14 +129,23 @@ struct QuickAddView: View {
             // 바뀌는 순간 이 뷰는 아직 만들어지기 전이라 그 변화를 못 본다.
             if tutorial.currentStep == .typeTitle { isTitleFocused = true }
             #if DEBUG
-            if ScreenshotDemo.scene == .compose, title.isEmpty {
+            if ScreenshotDemo.scene == .compose || ScreenshotDemo.scene == .composeMemo, title.isEmpty {
                 title = ScreenshotDemo.composeText
                 isTitleFocused = true
             }
+            // 반복을 걸어 둔 채 일정 시트를 열어 둔다 — 반복 일정의 '첫 날'을
+            // 고칠 수 있는지를 한 장으로 보여주는 자리다.
+            if ScreenshotDemo.scene == .scheduleRepeat, title.isEmpty {
+                title = ScreenshotDemo.composeText
+                repeatRule = .monthly
+                showScheduleSheet = true
+            }
             #endif
         }
+        // 제목 줄만 넘긴다 — 메모 본문이 카테고리 판정에 섞이면, 메모를 길게 적을수록
+        // 제목과 상관없는 카테고리로 끌려간다.
         .onChange(of: title) { _, newValue in
-            scheduleClassification(for: newValue)
+            scheduleClassification(for: QuickAddText.titleLine(newValue))
         }
         // startDate는 @State 초기값으로만 date를 받으므로, 이 뷰가 그대로 살아있는
         // 채 날짜만 바뀌면(리스트를 좌우로 밀어 날짜 이동) 초기값이 다시 평가되지
@@ -156,7 +182,10 @@ struct QuickAddView: View {
         }
         .onChange(of: editingTodo?.id) { _, _ in
             guard let todo = editingTodo else { return }
-            title = todo.title
+            // **메모까지 같이 싣는다.** 제목만 채우면, 메모가 있는 할 일을 고쳐
+            // 보내는 순간 둘째 줄이 비어 있다는 이유로 메모가 날아간다.
+            // 덤으로 수정 입력창이 메모를 고치는 자리도 된다.
+            title = QuickAddText.joined(title: todo.title, memo: todo.memo)
             category = todo.category
             startDate = todo.date
             endDate = todo.effectiveEndDate
@@ -216,6 +245,7 @@ struct QuickAddView: View {
                 repeatWeekdays: $repeatWeekdays,
                 repeatInterval: $repeatInterval,
                 onSave: {
+                    didPickDateManually = true
                     // 기존 항목을 고치는 중이면 그 자리에서 반영한다. 새로 만드는
                     // 중이라면 아직 모델이 없으니 입력창 상태로만 남고, 보내기를
                     // 누를 때 함께 저장된다.
@@ -258,6 +288,28 @@ struct QuickAddView: View {
     }
 
     /// 탭하면 시간/종료일/반복을 설정하는 시트가 뜬다.
+    /// 메모 줄을 여는 단추. 이미 메모를 쓰는 중이면 **지금 그 상태라고 말하는**
+    /// 표시가 되고(눌러도 줄이 더 생기지 않는다), 아직이면 줄을 바꿔 커서를 내린다.
+    ///
+    /// 색은 안 쓴다 — 입력창의 날짜 칩과 같은 중립색이다(색은 한 행에 한 번).
+    private var memoButton: some View {
+        let isWritingMemo = title.contains(where: \.isNewline)
+        return Button {
+            guard !isWritingMemo else { return }
+            title += "\n"
+            isTitleFocused = true
+        } label: {
+            TagChip(
+                label: String(localized: "메모"),
+                tint: isWritingMemo ? MoscoPalette.accent : MoscoPalette.textSecondary
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isWritingMemo)
+        .accessibilityLabel(isWritingMemo ? String(localized: "메모 쓰는 중") : String(localized: "메모 추가"))
+        .accessibilityHint("다음 줄부터 적은 것은 메모가 됩니다")
+    }
+
     private var dateButton: some View {
         Button {
             showScheduleSheet = true
@@ -271,6 +323,10 @@ struct QuickAddView: View {
     }
 
     private var dateLabel: String {
+        // 제목에서 날짜를 읽었으면 그것이 저장될 날이다 — 칩이 그걸 말한다.
+        if let dateSuggestion, repeatLabel == nil {
+            return localizedScheduleLabel(date: dateSuggestion.date, time: startTime)
+        }
         guard let startDate else { return String(localized: "날짜 없음") }
 
         // 반복이 설정돼 있으면 날짜 대신 반복 규칙이 한눈에 보이게 — 시트를 닫은
@@ -442,8 +498,22 @@ struct QuickAddView: View {
 
     /// 파싱 자체는 `TimeExpressionParser`에 있다. 화면 없이 부를 수 있어야
     /// 테스트가 닿는다 — 여기 남은 것은 "지금 입력창에 든 제목"을 넘기는 일뿐이다.
+    /// 제목 줄에서 읽어낸 날짜. 수정 중이거나 사람이 직접 고른 뒤에는 안 읽는다.
+    ///
+    /// **칩에 바로 비친다.** 보내기 전에 어느 날로 갈지가 보여야, 잘못 읽었을 때
+    /// 칩을 눌러 고칠 수 있다 — 저장하고 나서 "어디 갔지"를 찾게 하지 않는다.
+    private var dateSuggestion: DateSuggestion? {
+        guard !isEditing, !didPickDateManually else { return nil }
+        return DateExpressionParser.suggestion(
+            in: QuickAddText.titleLine(title),
+            today: calendar.startOfDay(for: Date())
+        )
+    }
+
     private var timeSuggestion: TimeSuggestion? {
-        TimeExpressionParser.suggestion(in: title)
+        // 제목 줄만 본다 — 메모에 적은 "7시에 자료 보내기"가 일정 시각으로
+        // 잡히면, 적어둔 메모가 일정을 바꿔버린다.
+        TimeExpressionParser.suggestion(in: QuickAddText.titleLine(title))
     }
 
     /// 입력창(TagChip/dateButton)과 같은 언어로 — 캡슐 안에 톤온톤 칩이 나열되는
@@ -613,8 +683,24 @@ struct QuickAddView: View {
 
     /// 인자 이름을 `calendar`로 두면 이 뷰의 `Calendar.current` 프로퍼티를 가린다.
     private func commitSave(assigning targetCalendar: TodoCalendar?) {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 제목에서 읽은 날짜를 먼저 걷어낸다 — "내일 장보기"는 **내일의 '장보기'**가
+        // 되어야 한다. 말을 그대로 두면 모레가 돼도 제목이 "내일"이라고 말한다.
+        var raw = title
+        var parsedDate: Date?
+        if let dateSuggestion {
+            parsedDate = dateSuggestion.date
+            if let range = raw.range(of: dateSuggestion.matched) {
+                raw.removeSubrange(range)
+            }
+        }
+
+        // 첫 줄은 제목, 그 아래는 메모(`QuickAddText`).
+        let (trimmed, memo) = QuickAddText.split(raw)
         guard !trimmed.isEmpty else { return }
+        if let parsedDate {
+            startDate = parsedDate
+            endDate = parsedDate
+        }
         let resolvedEndDate: Date? = {
             guard let startDate, let endDate, !calendar.isDate(startDate, inSameDayAs: endDate) else { return nil }
             return endDate
@@ -622,6 +708,7 @@ struct QuickAddView: View {
 
         if let todo = editingTodo {
             todo.title = trimmed
+            todo.memo = memo
             todo.category = category
             applySchedule(to: todo)
         } else {
@@ -640,6 +727,7 @@ struct QuickAddView: View {
             // 어디에도 안 넣으면 캘린더를 하나 끄는 순간 방금 만든 일정이
             // 사라진 것처럼 보인다 — 항상 소속을 준다.
             todo.calendar = targetCalendar ?? calendars.first(where: \.isDefault)
+            todo.memo = memo
             modelContext.insert(todo)
             // 날짜가 있으면 달력에 자리를 갖는 "일정", 없으면 목록에만 있는
             // 백로그 — 그 구분은 `has_date`가 하고, 어느 화면에서 적었는지는

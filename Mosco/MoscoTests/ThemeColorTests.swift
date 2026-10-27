@@ -72,9 +72,11 @@ struct ThemeColorTests {
 
     @Test("기본색인지_알려준다")
     func 기본색_판정() {
+        // 기본색 자체를 테스트가 다시 적지 않는다 — 1.5.3에서 바이올렛에서
+        // 청록으로 바꿨을 때, 값을 박아둔 이 테스트만 깨졌다(동작은 멀쩡했다).
         #expect(ThemeColor.isDefault(nil) == true)
-        #expect(ThemeColor.isDefault("8B5CF6") == true)
-        #expect(ThemeColor.isDefault("#8b5cf6") == true, "표기가 달라도 같은 색이다")
+        #expect(ThemeColor.isDefault(ThemeColor.defaultHex) == true)
+        #expect(ThemeColor.isDefault("#" + ThemeColor.defaultHex.lowercased()) == true, "표기가 달라도 같은 색이다")
         #expect(ThemeColor.isDefault("1D4ED8") == false)
     }
 

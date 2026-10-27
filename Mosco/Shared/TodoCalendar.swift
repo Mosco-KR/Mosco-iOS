@@ -21,7 +21,7 @@ import SwiftData
 final class TodoCalendar {
     var id: UUID = UUID()
     var name: String = ""
-    var colorHex: String = "8B5CF6"
+    var colorHex: String = ThemeColor.defaultHex
     /// 사용자가 만든 순서 — 선택기와 설정 목록에서 이 순서 그대로 보여준다.
     var sortOrder: Int = 0
     /// 앱이 처음 켜질 때 seed되는 단 하나. 이름·색은 바꿀 수 있지만 지울 수 없다 —

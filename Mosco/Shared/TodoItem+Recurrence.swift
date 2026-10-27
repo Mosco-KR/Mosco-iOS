@@ -45,7 +45,12 @@ extension TodoItem {
     }
 
     /// 그날의 인스턴스만 완료/해제한다 — 다른 날의 반복에는 영향이 없다.
+    ///
+    /// **체크가 없는 일에는 아무것도 기록하지 않는다.** 위젯 버튼이나 라이브
+    /// 액티비티처럼 화면 밖에서 들어오는 길이 여럿이라, 막는 자리는 화면이 아니라
+    /// 여기여야 한다.
     func setCompleted(_ done: Bool, on day: Date) {
+        guard isCheckable else { return }
         guard repeatRule != .none else {
             isCompleted = done
             return

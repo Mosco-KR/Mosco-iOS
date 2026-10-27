@@ -13,6 +13,12 @@ struct TodoActions: ViewModifier {
     let todo: TodoItem
     /// 반복 인스턴스라면 그 날짜. 원본이면 nil.
     var occurrenceDate: Date? = nil
+    /// 메뉴에 '메모' 항목을 둘지.
+    ///
+    /// **목록 행에는 메모 단추가 따로 있어서 끈다**(`TodoRow`). 같은 곳으로 가는
+    /// 길이 둘이면 메뉴만 길어진다. 반대로 시간표 블록에는 단추가 없으므로
+    /// 거기서는 이 항목이 메모로 가는 유일한 길이다 — 기본값이 true인 이유다.
+    var showsMemoItem: Bool = true
     /// 수정 화면으로 보낸다. nil이면 '수정' 항목을 감춘다.
     var onTap: (() -> Void)? = nil
     /// 이 할 일을 지운다. nil이면 삭제 항목을 감춘다.
@@ -112,10 +118,17 @@ struct TodoActions: ViewModifier {
             }
         }
 
-        Button {
-            showsMemoEditor = true
-        } label: {
-            Label(hasMemo ? String(localized: "메모 보기") : String(localized: "메모 추가"), systemImage: "note.text")
+        if showsMemoItem {
+            Button {
+                showsMemoEditor = true
+            } label: {
+                // 기호는 앱 전체에서 하나다 — 탭 바의 메모 탭과 같은 `note.text`,
+                // 없을 때는 플러스가 붙는다.
+                Label(
+                    hasMemo ? String(localized: "메모 보기") : String(localized: "메모 추가"),
+                    systemImage: hasMemo ? "note.text" : "note.text.badge.plus"
+                )
+            }
         }
 
         Button {
@@ -125,6 +138,25 @@ struct TodoActions: ViewModifier {
             Label(
                 todo.isDDay ? String(localized: "디데이 해제") : String(localized: "디데이로 표시"),
                 systemImage: todo.isDDay ? "flag.slash" : "flag"
+            )
+        }
+
+        // **완료라는 개념이 없는 일**로 돌린다 — 생일·월급날처럼 "하는" 게 아니라
+        // "오는" 것. 그러면 할 일 탭·남은 개수·하루 마무리 알림에서 빠지고
+        // 달력에만 남는다(`TodoItem.isCheckable`).
+        //
+        // 디데이 바로 아래 둔다 — 둘 다 **이 할 일이 어떤 성격인가**를 정하는 것이고,
+        // 복사·옮기기·삭제처럼 "지금 무엇을 한다"와는 다른 줄이다.
+        //
+        // 이름은 **화면에서 사라지는 것**을 그대로 말한다. '완료 체크 없음' 같은
+        // 상태 이름보다, 누르면 체크가 없어진다는 결과가 바로 읽힌다.
+        Button {
+            todo.isCheckable.toggle()
+            if !todo.isCheckable { todo.isCompleted = false }
+        } label: {
+            Label(
+                todo.isCheckable ? String(localized: "체크 없애기") : String(localized: "체크 되살리기"),
+                systemImage: todo.isCheckable ? "circle.slash" : "checkmark.circle"
             )
         }
 

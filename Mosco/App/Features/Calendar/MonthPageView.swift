@@ -14,6 +14,9 @@ import SwiftUI
 struct MonthPageView: View, Equatable {
     let month: CalendarMonth
     let bars: MonthEventLayout
+    /// 디데이로 표시해 둔 날들. 숫자 옆에 깃발 하나를 찍는다 — 달력에서 "그날"이
+    /// 눈에 들어와야 디데이가 할 일 탭 밖에서도 뜻을 갖는다.
+    let dDayDates: Set<Date>
     /// 스냅샷 버전 — 막대 배열 대신 이 정수만 비교한다.
     let snapshotVersion: Int
     /// 페이지 한 장의 크기. 주 수는 달마다 다르므로 행 높이는 여기서 나눠 구한다.
@@ -76,7 +79,8 @@ struct MonthPageView: View, Equatable {
             isToday: isToday,
             isDimmed: !week.inMonth[column],
             weekendKind: Self.weekendKind(column: column),
-            holidayName: KoreanHoliday.name(for: date)
+            holidayName: KoreanHoliday.name(for: date),
+            isDDay: dDayDates.contains(date)
         )
         .frame(maxWidth: .infinity)
         .modifier(TodayCellTutorialTarget(isActive: isTutorialTarget))

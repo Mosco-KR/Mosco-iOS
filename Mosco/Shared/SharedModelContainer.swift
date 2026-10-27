@@ -16,7 +16,7 @@ enum SharedModelContainer {
     /// 이 이름의 컨테이너가 있어야 하고, 앱·위젯 양쪽 entitlements에도 들어가야 한다.
     static let cloudKitContainerID = "iCloud.com.Mosco.App"
 
-    static let schema = Schema([TodoItem.self, TodoCategory.self, TodoCalendar.self])
+    static let schema = Schema([TodoItem.self, TodoCategory.self, TodoCalendar.self, MemoNote.self])
 
     /// 실행 인자로 명시할 때만 저장소를 버린다(개발용).
     static let resetLaunchArgument = "-MoscoResetStore"

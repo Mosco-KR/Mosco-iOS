@@ -106,7 +106,7 @@ nonisolated enum DailySummaryPlan {
         let dayStart = calendar.startOfDay(for: day)
         let onDay = todos.filter {
             $0.occurrenceStart(covering: dayStart, calendar: calendar) != nil
-                && !$0.isCompleted(on: dayStart, calendar: calendar)
+                && $0.countsAsRemaining(on: dayStart, calendar: calendar)
         }
         return onDay.count + overdueCount(in: todos, on: dayStart, calendar: calendar) + backlogCount
     }
@@ -116,7 +116,8 @@ nonisolated enum DailySummaryPlan {
     private static func overdueCount(in todos: [TodoSnapshot], on day: Date, calendar: Calendar) -> Int {
         let dayStart = calendar.startOfDay(for: day)
         return todos.count {
-            $0.repeatRule == .none && !$0.isCompleted && calendar.startOfDay(for: $0.end) < dayStart
+            $0.isCheckable && $0.repeatRule == .none && !$0.isCompleted
+                && calendar.startOfDay(for: $0.end) < dayStart
         }
     }
 }

@@ -77,6 +77,7 @@ struct MonthPagerView: View {
         MonthPageView(
             month: month,
             bars: snapshot.layout(for: month),
+            dDayDates: snapshot.dDayDates,
             snapshotVersion: snapshot.version,
             pageSize: pageSize,
             today: today,

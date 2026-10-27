@@ -71,7 +71,9 @@ struct TodoRow: View {
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        // **22 → 16.** 알약에 가깝던 모서리를 줄였다. 둥글수록 친근해 보이는 건
+        // 맞지만, 목록 가득 알약이 쌓이면 그 자체가 "어디서 본 앱" 인상을 만든다.
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 
         HStack(alignment: .center, spacing: 10) {
             // 막대와 체크는 한 덩어리로 붙여둔다 — 둘 사이가 벌어지면 왼쪽 끝에
@@ -100,18 +102,28 @@ struct TodoRow: View {
                 // 한 줄에 다 못 들어가면 다음 줄로 넘어간다. 예전엔 HStack이라
                 // 칩이 서넛만 붙어도 뒤쪽이 잘려 나갔는데, 잘린 게 캘린더인지
                 // 시간인지는 열어봐야 알 수 있었다 — 보여줄 거면 다 보여준다.
-                WrappingHStack(spacing: 6, lineSpacing: 6) {
+                // **보여줄 것이 없으면 줄을 만들지 않는다.** 빈 줄이 서면 제목
+                // 아래에 설명 없는 여백만 남는다.
+                if hasTagLine {
+                    WrappingHStack(spacing: 10, lineSpacing: 6) {
+                    // **기본 카테고리는 적지 않는다.** 사람이 따로 만들지 않은
+                    // 분류라 거의 모든 줄에 같은 글자가 반복됐다 — 목록을 훑을 때
+                    // 그건 정보가 아니라 소음이다. 왼쪽 색 막대는 그대로 있으니
+                    // 분류가 사라지는 것도 아니다. 사람이 만든 카테고리만 이름을 쓴다.
+                    //
                     // 색 점은 끈다 — 왼쪽 막대가 이미 같은 말을 하고 있다.
-                    CategoryTag(category: todo.category, showsColorDot: false)
+                    if showsCategoryName {
+                        CategoryTag(category: todo.category, showsColorDot: false, filled: false)
+                    }
 
                     if showsCalendarTag, let calendar = todo.calendar {
                         // 캘린더 색은 위쪽 선택기에서만 쓴다(설정 화면이 그렇게
                         // 안내하고 있다). 여기서 또 칠하면 카테고리 색과 경쟁한다.
-                        TagChip(label: calendar.name, tint: MoscoPalette.textSecondary)
+                        TagChip(label: calendar.name, tint: MoscoPalette.textSecondary, filled: false)
                     }
 
                     if let scheduleLabel {
-                        TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary)
+                        TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary, filled: false)
                     }
 
                     // 디데이로 표시해둔 항목. 남은 날짜는 적지 않는다 — 옆의 날짜
@@ -141,6 +153,7 @@ struct TodoRow: View {
                 // Layout 안에 Spacer를 넣으면 폭을 무한히 요구하는 칩이 하나 낀
                 // 셈이라 줄바꿈 계산이 통째로 깨진다 — 왼쪽 정렬은 프레임으로 준다.
                 .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 if let memo = todo.memo, !memo.isEmpty {
                     memoPreview(memo)
@@ -149,7 +162,7 @@ struct TodoRow: View {
 
             // 수정할 방법이 없는 화면(onTap이 없는 곳)에서는 자리도 만들지 않는다.
             if onTap != nil {
-                editButton
+                memoButton
             }
         }
         .padding(.vertical, 13)
@@ -160,7 +173,11 @@ struct TodoRow: View {
         // **셀 전체가 완료 버튼이다.** 목록에서 제일 자주 하는 일이라 제일 넓은
         // 히트 영역을 준다. 수정은 꾹 눌러 나오는 메뉴로 옮겼다 — 자주 하는
         // 조작일수록 겨누기 쉬워야 한다.
-        .onTapGesture(perform: toggleCompletion)
+        //
+        // **체크가 없는 일은 몸통을 눌러도 아무 일이 없다.** 누를 것이 없다는 건
+        // 체크 자리의 점이 말한다 — 거기에 다른 동작(수정·메모)을 얹으면 같은
+        // 손짓이 줄마다 다른 일을 하게 된다.
+        .onTapGesture { if todo.isCheckable { toggleCompletion() } }
         // 완료된 항목은 내용만 흐려진다. 배경보다 뒤에 놓아서 카드 자체는
         // 불투명하게 남는다 — 카드까지 반투명해지면 뒤가 비쳐 얼룩져 보인다.
         .opacity(isDone ? 0.55 : 1)
@@ -173,9 +190,12 @@ struct TodoRow: View {
         // 깔았는데, 목록이 길어지면 카드마다 바탕색이 달라 화면 전체가 알록달록해
         // 눈이 피로했다. 색은 왼쪽 막대 하나에만 — 찾을 때 필요한 자리에만 찍는다.
         .background(MoscoPalette.surface, in: shape)
-        .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.4), lineWidth: 0.5))
-        .shadow(color: .black.opacity(isDone ? 0.02 : 0.06), radius: 12, y: 5)
-        .scaleEffect(isDone ? 0.985 : 1)
+        // **그림자를 걷어냈다.** 목록의 카드마다 그림자를 깔면 전부 떠 있는 것처럼
+        // 보여서, 정작 떠 있어야 하는 것(입력창·떠오르는 단추)과 구분이 사라진다 —
+        // 규범의 "플랫이 기본, 글라스는 예외"가 원래 말하던 바다. 구분은 선 하나로
+        // 충분하고, 선을 조금 또렷하게 해서 그 몫을 받는다.
+        .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.7), lineWidth: 0.5))
+        .scaleEffect(isDone ? 0.99 : 1)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isDone)
         // 꾹 눌러 나오는 메뉴와 그 뒤에 열리는 것들. 시간표 블록도 같은 것을 쓴다 —
         // 같은 동작이 화면마다 다르면 다른 기능처럼 읽힌다.
@@ -185,6 +205,10 @@ struct TodoRow: View {
         .modifier(TodoActions(
             todo: todo,
             occurrenceDate: occurrenceDate,
+            // 이 행에는 메모 단추가 이미 있다 — 메뉴에 또 두면 같은 곳으로 가는
+            // 길이 둘이 되고, 메뉴만 길어진다. 단추가 없는 곳(시간표 블록)에서는
+            // 메뉴가 그 길을 맡는다.
+            showsMemoItem: false,
             onTap: onTap,
             onDelete: onDelete
         ))
@@ -193,6 +217,21 @@ struct TodoRow: View {
     }
 
     private var hasMemo: Bool { todo.memo != nil }
+
+    /// 카테고리 이름을 적을 것인가 — **사람이 직접 만든 분류일 때만.**
+    private var showsCategoryName: Bool {
+        guard let category = todo.category else { return false }
+        return !category.isDefault
+    }
+
+    /// 태그 줄에 세울 것이 하나라도 있나.
+    private var hasTagLine: Bool {
+        showsCategoryName
+            || (showsCalendarTag && todo.calendar != nil)
+            || scheduleLabel != nil
+            || todo.isDDay
+            || todo.repeatRule != .none
+    }
 
     /// 셀 안에 펼쳐 보여주는 메모 본문. 누르면 메모 화면으로 간다.
     ///
@@ -225,27 +264,32 @@ struct TodoRow: View {
         .padding(.top, 2)
     }
 
-    /// 수정으로 바로 가는 지름길.
+    /// **메모로 가는 단추.** 한동안 이 자리가 '수정'이었는데, 목록에서 행 하나에
+    /// 두 번째로 자주 하는 일은 제목을 고치는 게 아니라 **거기 뭔가를 적어두는
+    /// 것**이었다. 제목·날짜·반복을 고치는 일은 꾹 눌러 나오는 메뉴의 '수정'에
+    /// 그대로 있다(거기서 입력창으로 올라오면 메모까지 같이 실린다).
     ///
-    /// 몸통 탭이 완료로 넘어가면서 수정은 꾹 눌러야만 닿는 곳이 됐는데, 꾹 누르기는
-    /// 알고 있어야 쓸 수 있는 조작이다. 목록에 보이는 버튼 하나가 같은 곳으로
-    /// 데려가면 처음 쓰는 사람도 길을 찾는다.
-    ///
-    /// 예전엔 이 자리가 메모 버튼이었다. 메모 유무는 아이콘 진하기로 알렸는데,
-    /// 그건 두 상태를 나란히 놓고 봐야 알아채는 구분이었다 — 이제 태그 줄에서
-    /// 이름으로 말한다.
-    private var editButton: some View {
+    /// 메모가 있으면 채운 아이콘, 없으면 빈 아이콘이다. **두 상태를 나란히 놓고
+    /// 봐야 알아채는 구분(진하기)은 쓰지 않는다** — 그건 예전에 한 번 걷어낸 방식이다.
+    private var memoButton: some View {
         Button {
-            onTap?()
+            showsMemoEditor = true
         } label: {
-            Image(systemName: "square.and.pencil")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(MoscoPalette.textSecondary)
-                .frame(width: 28, height: 28)
-                .background(MoscoPalette.textSecondary.opacity(0.1), in: Circle())
+            // **메모를 뜻하는 기호는 앱에서 하나다** — 탭 바의 메모 탭과 같은
+            // `note.text`. 없을 때는 거기에 플러스가 붙는다(`note.text.badge.plus`):
+            // 모양이 갈리니 진하기로 구분할 필요가 없다 — 그건 두 상태를 나란히
+            // 놓고 봐야 알아채는 방식이라 예전에 한 번 걷어낸 자리다.
+            //
+            // 예전엔 없을 때 `square.and.pencil`을 썼는데, 그건 시스템이
+            // "새로 쓰기/편집"에 쓰는 기호라 **메모 단추가 수정 단추로 읽혔다.**
+            Image(systemName: hasMemo ? "note.text" : "note.text.badge.plus")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(hasMemo ? MoscoPalette.textPrimary : MoscoPalette.textSecondary.opacity(0.55))
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .contentShape(Circle())
+        .accessibilityLabel(hasMemo ? String(localized: "메모 보기") : String(localized: "메모 추가"))
     }
 
     /// 셀 왼쪽 끝의 카테고리 색 막대 — 달력 격자의 일정 블록과 같은 표기다.
@@ -267,8 +311,19 @@ struct TodoRow: View {
     ///
     /// 원이 아니라 둥근 사각형인 건 셀·카드·태그가 전부 둥근 사각형/캡슐이기
     /// 때문이다. 한 행에서 혼자만 정원이면 다른 데서 가져다 놓은 것처럼 보인다.
+    @ViewBuilder
     private var checkMark: some View {
-        TodoCheckMark(isDone: isDone)
+        if todo.isCheckable {
+            TodoCheckMark(isDone: isDone)
+        } else {
+            // **체크 자리를 비우지 않는다.** 비우면 그 줄만 제목이 왼쪽으로 당겨져
+            // 목록의 세로줄이 어긋난다. 점 하나를 두면 자리도 지키고 "여긴 체크가
+            // 없다"는 말도 된다 — 생일을 완료할 수는 없으니까.
+            Circle()
+                .fill(MoscoPalette.textSecondary.opacity(0.35))
+                .frame(width: 5, height: 5)
+                .frame(width: 26, height: 26)
+        }
     }
 
     // MARK: - 잠금화면에 띄우기

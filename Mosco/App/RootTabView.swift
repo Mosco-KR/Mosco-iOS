@@ -52,7 +52,7 @@ struct RootTabView: View {
 
     /// 앱 테마(액센트) 색과 통일된 기본 카테고리. "미분류"로 남겨두는 대신,
     /// 카테고리를 하나도 안 만든 사용자도 첫 할 일부터 뭔가에는 속하게 한다.
-    private static let defaultCategoryColorHex = "8B5CF6"
+    private static let defaultCategoryColorHex = ThemeColor.defaultHex
 
     /// 알림에 영향을 주는 값들만 추린 키 — 이게 바뀔 때만 재예약한다.
     ///
@@ -130,6 +130,7 @@ struct RootTabView: View {
         // 미리보기를 찍을 때는 장면이 탭을 정한다. 탭을 옮기는 일은 이 파일에서만
         // 한다는 규칙을 그대로 지킨다 — 화면 쪽에서 건드리지 않는다.
         if ScreenshotDemo.scene == .todos { selectedTab = .todos }
+        if ScreenshotDemo.scene == .memos { selectedTab = .memos }
         #endif
 
         let existingCalendars = (try? modelContext.fetch(FetchDescriptor<TodoCalendar>())) ?? []
@@ -317,7 +318,8 @@ struct RootTabView: View {
     /// **달력이 먼저다.** 1.4.0에서 달력을 홈으로 올린 판단은 그대로 둔다 —
     /// 열자마자 일정을 확인하는 게 이 앱을 여는 이유다.
     ///
-    /// 둘째 자리가 '할 일'이다. 둘이 **언제 · 무엇부터**로 읽힌다.
+    /// 둘째가 '할 일', 셋째가 '메모'다. 셋이 **언제 · 무엇부터 · 아직 안 정한 것**으로
+    /// 읽힌다. 아이콘은 달력 · 체크리스트 · 메모라서 라벨 없이도 갈린다.
     private var tabs: some View {
         TabView(selection: $selectedTab) {
             CalendarScreen()
@@ -329,6 +331,11 @@ struct RootTabView: View {
                 .tabItem { Image(systemName: "checklist") }
                 .accessibilityLabel("할 일")
                 .tag(AppTab.todos)
+
+            MemoScreen()
+                .tabItem { Image(systemName: "note.text") }
+                .accessibilityLabel("메모")
+                .tag(AppTab.memos)
         }
     }
 

@@ -11,7 +11,7 @@ import SwiftData
 final class TodoCategory {
     var id: UUID = UUID()
     var name: String = ""
-    var colorHex: String = "8B5CF6"
+    var colorHex: String = ThemeColor.defaultHex
     /// 사용자가 만든 순서 — 목록/선택 팝업에서 이 순서 그대로 보여준다.
     var sortOrder: Int = 0
     var createdAt: Date = Date.now

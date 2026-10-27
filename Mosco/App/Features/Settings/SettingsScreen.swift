@@ -580,7 +580,7 @@ struct SettingsScreen: View {
     }
 
     /// RootTabView의 시드와 같은 색 — 앱 액센트.
-    private static let seedColorHex = "8B5CF6"
+    private static let seedColorHex = ThemeColor.defaultHex
 
     /// 시스템 설정의 어느 창을 열지. **맥에서만 의미가 있다** — iOS는 어느
     /// 경우든 이 앱의 설정 화면 하나로 간다.

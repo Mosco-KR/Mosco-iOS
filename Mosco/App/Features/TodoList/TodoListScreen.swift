@@ -47,10 +47,21 @@ private struct TodoListContent: View {
     /// 같은 이유).
     @State private var today = Calendar.current.startOfDay(for: .now)
     @Environment(\.scenePhase) private var scenePhase
+    /// 머리에 붙는 검색. 제목과 메모를 함께 훑는다(`TodayPage.search`).
+    ///
+    /// 달력 머리의 돋보기와 **같은 것을 찾는데 입구가 거기 하나뿐이었다** — 할 일을
+    /// 적는 자리는 이 탭인데, 찾으려면 탭을 옮겨야 했다.
+    @State private var query = ""
 
     private var visibleTodos: [TodoItem] {
         let hidden = CalendarSelection.hidden(from: hiddenCalendarIDs)
-        return allTodos.filter { CalendarSelection.matches($0, hidden: hidden) }
+        let visible = allTodos.filter { CalendarSelection.matches($0, hidden: hidden) }
+        // **빈 검색어면 거르지 않는다.** `TodayPage.search`는 검색 시트를 위해 만든
+        // 것이라 빈 말에는 **빈 결과**를 돌려준다(그 화면은 그때 "찾기" 안내를
+        // 띄운다). 여기선 그게 목록을 통째로 지워서, 검색을 붙이자마자 할 일 탭이
+        // 늘 "할 일이 없어요"가 됐다.
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return visible }
+        return TodayPage.search(query, in: visible)
     }
 
     private var sections: [(section: TodoListPage.Section, todos: [TodoItem])] {
@@ -64,14 +75,19 @@ private struct TodoListContent: View {
             // 목록이 키보드 뒤로 그대로 깔려서, 가려진 행을 스크롤로도 꺼낼 수
             // 없었다 — 적는 동안 방금 적은 것이 어디 갔는지 알 수가 없다.
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                // **날짜를 안 넘긴다.** 여기서 적은 것은 날짜 없는 할 일이 된다 —
-                // 이 화면이 날짜를 가로지르는 목록이라, 오늘로 밀어넣으면 오늘
-                // 할 일이 적지도 않은 것으로 늘어난다.
+                // **날짜를 안 넘긴다.** 여기서 적은 것은 날짜 없는 할 일이 되어
+                // 맨 아래 '날짜 없음' 칸에 선다 — 이 화면이 날짜를 가로지르는
+                // 목록이라, 오늘로 밀어넣으면 오늘 할 일이 적지도 않은 것으로 늘어난다.
                 QuickAddView(date: nil, editingTodo: $editingTodo, analyticsSource: "todo_list")
             }
             .background(MoscoPalette.canvas.ignoresSafeArea())
             .navigationTitle("할 일")
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .automatic),
+                prompt: "할 일과 메모에서 찾기"
+            )
             .onChange(of: scenePhase) { _, phase in
                 guard phase == .active else { return }
                 let now = Calendar.current.startOfDay(for: .now)
@@ -197,9 +213,11 @@ private struct TodoListContent: View {
                 // 날짜를 가로지르는 목록이라 **날짜가 보여야 한다.** 하루 페이지는
                 // 날짜가 이미 머리에 있어서 끄고 쓴다.
                 showsDate: true,
-                // 오늘 칸의 반복 일정은 오늘 회차를 체크해야 한다. 다른 칸은
-                // 원본을 그대로 뒤집는다 — 앞날 회차를 미리 체크할 일은 없다.
-                occurrenceDate: section == .today ? today : nil,
+                // **줄에 적힌 날짜를 체크한다**(`TodoListPage.occurrenceDate`).
+                // 예전엔 오늘 칸이 아니면 nil을 넘겼는데, 그러면 반복 일정의 체크가
+                // 아무도 안 읽는 값(`isCompleted`)에 들어가서 — 할 일 탭에서는
+                // 체크된 것처럼 보이고 달력·위젯은 그대로 안 끝난 상태로 남았다.
+                occurrenceDate: TodoListPage.occurrenceDate(for: todo, in: section, today: today),
                 // **체크할 회차와 보여줄 날짜는 다르다.** 반복 일정에 원본 시작일을
                 // 찍으면 2년 전에 만든 매주 회의가 "3월 5일"로 보인다 — 정렬은 이미
                 // 다음 회차 기준이라 순서와 날짜가 서로 어긋났다.

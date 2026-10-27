@@ -57,6 +57,9 @@ nonisolated enum AnalyticsScreen: String, CaseIterable, Sendable {
     case categoryEditor = "category_editor"
     /// 캘린더 만들기·고치기 시트.
     case calendarEditor = "calendar_editor"
+    /// 메모 탭. 날짜를 안 정한 것만 모이는 자리라 `todos`와 **다른 화면**이다 —
+    /// 탭을 셋으로 나눈 판단을 채점하려면 이름이 따로 있어야 한다.
+    case memos
     /// 메모 시트.
     case memo
     /// 날짜와 시간 고르기 시트.

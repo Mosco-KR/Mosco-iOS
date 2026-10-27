@@ -49,20 +49,3 @@ enum WeekStripPaging {
         return calendar.date(byAdding: .day, value: offset, to: start) ?? start
     }
 }
-
-/// 스트립이 올려둘 주들. 고정 배열인 이유는 `MonthWindow`와 같다 — 창을 옮기며
-/// 오프셋을 되돌리는 방식은 그 순간이 튀기 쉽다.
-///
-/// 주 단위라 날 단위로 들고 있던 때(7,301개)보다 항목이 1/7로 준다.
-enum WeekStripWindow {
-    /// 앞뒤 10년.
-    static let radius = 520
-
-    static let weeks: [Date] = {
-        let calendar = Calendar.current
-        let anchor = WeekStripPaging.weekStart(containing: Date(), calendar: calendar)
-        return (-radius...radius).compactMap {
-            calendar.date(byAdding: .day, value: $0 * WeekStripPaging.daysPerPage, to: anchor)
-        }
-    }()
-}
