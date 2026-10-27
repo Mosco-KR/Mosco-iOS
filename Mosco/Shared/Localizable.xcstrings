@@ -4472,29 +4472,6 @@
         }
       }
     },
-    "아래에 적으면 날짜 없이 여기 쌓여요" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jot one below and it stays here, with no date"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下に書くと日付なしでここにたまります"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "아래에 적으면 날짜 없이 여기 쌓여요"
-          }
-        }
-      }
-    },
     "적어둔 메모가 없어요" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4583,29 +4560,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "할 일을 꾹 눌러 디데이로 표시해요"
-          }
-        }
-      }
-    },
-    "메모를 적어보세요" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jot a note"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "メモを書く"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "메모를 적어보세요"
           }
         }
       }
@@ -4702,13 +4656,13 @@
         }
       }
     },
-    "완료 체크 없애기" : {
+    "체크 없애기" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Turn off the checkbox"
+            "value" : "Remove the checkbox"
           }
         },
         "ja" : {
@@ -4720,30 +4674,30 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "완료 체크 없애기"
+            "value" : "체크 없애기"
           }
         }
       }
     },
-    "완료 체크 켜기" : {
+    "체크 되살리기" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Turn on the checkbox"
+            "value" : "Bring the checkbox back"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "チェックを使う"
+            "value" : "チェックを戻す"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "완료 체크 켜기"
+            "value" : "체크 되살리기"
           }
         }
       }

@@ -102,9 +102,19 @@ struct TodoRow: View {
                 // 한 줄에 다 못 들어가면 다음 줄로 넘어간다. 예전엔 HStack이라
                 // 칩이 서넛만 붙어도 뒤쪽이 잘려 나갔는데, 잘린 게 캘린더인지
                 // 시간인지는 열어봐야 알 수 있었다 — 보여줄 거면 다 보여준다.
-                WrappingHStack(spacing: 10, lineSpacing: 6) {
+                // **보여줄 것이 없으면 줄을 만들지 않는다.** 빈 줄이 서면 제목
+                // 아래에 설명 없는 여백만 남는다.
+                if hasTagLine {
+                    WrappingHStack(spacing: 10, lineSpacing: 6) {
+                    // **기본 카테고리는 적지 않는다.** 사람이 따로 만들지 않은
+                    // 분류라 거의 모든 줄에 같은 글자가 반복됐다 — 목록을 훑을 때
+                    // 그건 정보가 아니라 소음이다. 왼쪽 색 막대는 그대로 있으니
+                    // 분류가 사라지는 것도 아니다. 사람이 만든 카테고리만 이름을 쓴다.
+                    //
                     // 색 점은 끈다 — 왼쪽 막대가 이미 같은 말을 하고 있다.
-                    CategoryTag(category: todo.category, showsColorDot: false, filled: false)
+                    if showsCategoryName {
+                        CategoryTag(category: todo.category, showsColorDot: false, filled: false)
+                    }
 
                     if showsCalendarTag, let calendar = todo.calendar {
                         // 캘린더 색은 위쪽 선택기에서만 쓴다(설정 화면이 그렇게
@@ -143,6 +153,7 @@ struct TodoRow: View {
                 // Layout 안에 Spacer를 넣으면 폭을 무한히 요구하는 칩이 하나 낀
                 // 셈이라 줄바꿈 계산이 통째로 깨진다 — 왼쪽 정렬은 프레임으로 준다.
                 .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 if let memo = todo.memo, !memo.isEmpty {
                     memoPreview(memo)
@@ -194,6 +205,10 @@ struct TodoRow: View {
         .modifier(TodoActions(
             todo: todo,
             occurrenceDate: occurrenceDate,
+            // 이 행에는 메모 단추가 이미 있다 — 메뉴에 또 두면 같은 곳으로 가는
+            // 길이 둘이 되고, 메뉴만 길어진다. 단추가 없는 곳(시간표 블록)에서는
+            // 메뉴가 그 길을 맡는다.
+            showsMemoItem: false,
             onTap: onTap,
             onDelete: onDelete
         ))
@@ -202,6 +217,21 @@ struct TodoRow: View {
     }
 
     private var hasMemo: Bool { todo.memo != nil }
+
+    /// 카테고리 이름을 적을 것인가 — **사람이 직접 만든 분류일 때만.**
+    private var showsCategoryName: Bool {
+        guard let category = todo.category else { return false }
+        return !category.isDefault
+    }
+
+    /// 태그 줄에 세울 것이 하나라도 있나.
+    private var hasTagLine: Bool {
+        showsCategoryName
+            || (showsCalendarTag && todo.calendar != nil)
+            || scheduleLabel != nil
+            || todo.isDDay
+            || todo.repeatRule != .none
+    }
 
     /// 셀 안에 펼쳐 보여주는 메모 본문. 누르면 메모 화면으로 간다.
     ///
@@ -245,9 +275,16 @@ struct TodoRow: View {
         Button {
             showsMemoEditor = true
         } label: {
-            Image(systemName: hasMemo ? "note.text" : "square.and.pencil")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(MoscoPalette.textSecondary)
+            // **메모를 뜻하는 기호는 앱에서 하나다** — 탭 바의 메모 탭과 같은
+            // `note.text`. 없을 때는 거기에 플러스가 붙는다(`note.text.badge.plus`):
+            // 모양이 갈리니 진하기로 구분할 필요가 없다 — 그건 두 상태를 나란히
+            // 놓고 봐야 알아채는 방식이라 예전에 한 번 걷어낸 자리다.
+            //
+            // 예전엔 없을 때 `square.and.pencil`을 썼는데, 그건 시스템이
+            // "새로 쓰기/편집"에 쓰는 기호라 **메모 단추가 수정 단추로 읽혔다.**
+            Image(systemName: hasMemo ? "note.text" : "note.text.badge.plus")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(hasMemo ? MoscoPalette.textPrimary : MoscoPalette.textSecondary.opacity(0.55))
                 .frame(width: 30, height: 30)
                 .contentShape(Rectangle())
         }

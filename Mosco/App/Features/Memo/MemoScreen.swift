@@ -29,7 +29,10 @@ struct MemoScreen: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(action: newNote) {
-                            Image(systemName: "square.and.pencil")
+                            // 행의 '메모 추가'와 **같은 기호**다 — 둘 다 "여기에
+                            // 메모를 하나 만든다"는 같은 일이라, 다른 그림을 쓰면
+                            // 다른 기능처럼 읽힌다.
+                            Image(systemName: "note.text.badge.plus")
                         }
                         .accessibilityLabel("새 메모")
                     }
