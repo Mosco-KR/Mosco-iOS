@@ -61,6 +61,12 @@ struct CategoryListScreen: View {
                         editing.colorHex = draft.colorHex
                         editing.notifiesBeforeStart = draft.notifiesBeforeStart
                         editing.notificationLeadMinutes = draft.notificationLeadMinutes
+                        // **이 카테고리에 이미 들어 있는 할 일에도 지금 적용한다.**
+                        // 안 하면 "기념일은 체크 없음"으로 바꿔놓고도 어제 넣은
+                        // 생일에는 체크가 그대로 남아, 같은 카테고리인데 줄마다
+                        // 다르게 보인다. 읽는 쪽은 할 일 하나의 값만 보므로
+                        // (`TodoItem.isCheckable`) 바꿀 거면 여기서 바꿔야 한다.
+                        TodoCategory.applyCompletionCheck(of: editing, in: modelContext)
                     } else {
                         let category = TodoCategory(
                             name: draft.name,
@@ -69,6 +75,7 @@ struct CategoryListScreen: View {
                         )
                         category.notifiesBeforeStart = draft.notifiesBeforeStart
                         category.notificationLeadMinutes = draft.notificationLeadMinutes
+                        category.givesCompletionCheck = draft.givesCompletionCheck
                         modelContext.insert(category)
                     }
                 },

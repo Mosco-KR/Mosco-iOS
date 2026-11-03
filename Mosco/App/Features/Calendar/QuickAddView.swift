@@ -181,7 +181,14 @@ struct QuickAddView: View {
             tutorial?.noteComposeTitle(isEmpty: !hasTitle)
         }
         .onChange(of: editingTodo?.id) { _, _ in
-            guard let todo = editingTodo else { return }
+            // **수정 대상이 밖에서 사라지면 입력창도 비운다.** 하루 페이지는 보고
+            // 있는 날이 바뀌면 `editingTodo`를 nil로 돌리는데(그 할 일은 더 이상
+            // 이 화면 것이 아니다), 그때 글자가 그대로 남아 있었다. 버튼만 조용히
+            // '체크'에서 '보내기'로 바뀌어서, 누르면 **같은 할 일이 하나 더 생겼다.**
+            guard let todo = editingTodo else {
+                resetFields()
+                return
+            }
             // **메모까지 같이 싣는다.** 제목만 채우면, 메모가 있는 할 일을 고쳐
             // 보내는 순간 둘째 줄이 비어 있다는 이유로 메모가 날아간다.
             // 덤으로 수정 입력창이 메모를 고치는 자리도 된다.
@@ -250,7 +257,24 @@ struct QuickAddView: View {
                     // 중이라면 아직 모델이 없으니 입력창 상태로만 남고, 보내기를
                     // 누를 때 함께 저장된다.
                     guard let todo = editingTodo else { return }
+
+                    // 시트를 열기 전에 고쳐둔 제목·메모도 함께 저장한다 — 날짜만
+                    // 반영하고 글자를 버리면, 둘을 같이 고치던 사람은 고친 줄 알고 나간다.
+                    let (editedTitle, editedMemo) = QuickAddText.split(title)
+                    if !editedTitle.isEmpty {
+                        todo.title = editedTitle
+                        todo.memo = editedMemo
+                    }
                     applySchedule(to: todo)
+
+                    // **이 날에서 벗어났으면 수정을 여기서 끝낸다.** 날짜를 옮기면
+                    // 그 할 일은 이 화면 목록에서 사라지는데, 입력창만 계속 그걸
+                    // 들고 있으면 "사라진 것을 고치는 중"이라는 이상한 상태가 된다.
+                    // 날짜 없는 목록(할 일 탭)에서는 옮겨도 그 화면에 남으므로 닫지 않는다.
+                    if let initialDate, let moved = todo.date,
+                       !calendar.isDate(moved, inSameDayAs: initialDate) {
+                        resetFields()
+                    }
                 }
             )
         }
@@ -262,6 +286,7 @@ struct QuickAddView: View {
                     let newCategory = TodoCategory(name: draft.name, colorHex: draft.colorHex, sortOrder: categories.count)
                     newCategory.notifiesBeforeStart = draft.notifiesBeforeStart
                     newCategory.notificationLeadMinutes = draft.notificationLeadMinutes
+                    newCategory.givesCompletionCheck = draft.givesCompletionCheck
                     modelContext.insert(newCategory)
                     suggestionLog.didPickManually(changed: true)
                     category = newCategory
@@ -709,6 +734,11 @@ struct QuickAddView: View {
         if let todo = editingTodo {
             todo.title = trimmed
             todo.memo = memo
+            // 카테고리가 바뀌면 체크 여부도 그 카테고리를 따라간다 — '기념일'로
+            // 옮긴 것에 체크가 남아 있으면 옮긴 보람이 없다.
+            if todo.category?.id != category?.id {
+                todo.isCheckable = category?.givesCompletionCheck ?? true
+            }
             todo.category = category
             applySchedule(to: todo)
         } else {
@@ -728,6 +758,10 @@ struct QuickAddView: View {
             // 사라진 것처럼 보인다 — 항상 소속을 준다.
             todo.calendar = targetCalendar ?? calendars.first(where: \.isDefault)
             todo.memo = memo
+            // **카테고리가 체크 여부를 정한다.** 제목을 보고 분류기가 '기념일'을
+            // 고르면, 적는 사람은 아무것도 더 안 해도 체크가 빠진다 —
+            // 이 설정을 할 일마다가 아니라 카테고리에 둔 값어치가 여기 있다.
+            todo.isCheckable = category?.givesCompletionCheck ?? true
             modelContext.insert(todo)
             // 날짜가 있으면 달력에 자리를 갖는 "일정", 없으면 목록에만 있는
             // 백로그 — 그 구분은 `has_date`가 하고, 어느 화면에서 적었는지는

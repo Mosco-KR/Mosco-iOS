@@ -4702,6 +4702,75 @@
         }
       }
     },
+    "완료 체크" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checkbox"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完了チェック"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료 체크"
+          }
+        }
+      }
+    },
+    "할 일에 체크 상자가 생겨요." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To-dos in this category get a checkbox."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカテゴリのToDoにチェックが付きます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "할 일에 체크 상자가 생겨요."
+          }
+        }
+      }
+    },
+    "생일·월급날처럼 \"하는\" 게 아니라 \"오는\" 일에 쓰면 좋아요. 달력에는 그대로 보이고, 할 일 목록과 남은 개수에서는 빠져요." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Good for things that just happen — birthdays, payday. They stay on the calendar but leave the to-do list and the remaining count."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "誕生日や給料日のように「する」ことではなく「来る」ことに向いています。カレンダーには残り、ToDoリストと残りの数からは外れます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "생일·월급날처럼 \"하는\" 게 아니라 \"오는\" 일에 쓰면 좋아요. 달력에는 그대로 보이고, 할 일 목록과 남은 개수에서는 빠져요."
+          }
+        }
+      }
+    },
     "첫 날" : {
       "extractionState" : "manual",
       "localizations" : {

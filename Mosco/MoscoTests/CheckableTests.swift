@@ -131,4 +131,64 @@ struct CheckableTests {
         todo.isCheckable = true
         #expect(todo.isCompleted(on: today), "완료 기록은 지우지 않고 무시만 한다")
     }
+
+    // MARK: 카테고리가 정한다
+
+    /// **적는 순간에 아무것도 더 안 해도 되는 것**이 이 설정을 카테고리에 둔
+    /// 값어치다 — 제목을 보고 분류기가 '기념일'을 고르면 체크도 같이 빠진다.
+    @Test("카테고리에_넣으면_그_설정을_따라간다")
+    func 카테고리_기본값() {
+        let 기념일 = TodoCategory(name: "기념일", colorHex: "EF4444", sortOrder: 1)
+        기념일.givesCompletionCheck = false
+        context.insert(기념일)
+
+        let todo = TodoItem(title: "어머니 생신", date: today)
+        todo.category = 기념일
+        todo.isCheckable = 기념일.givesCompletionCheck
+        context.insert(todo)
+
+        #expect(!todo.isCheckable)
+        #expect(TodoListPage.section(for: todo, today: today, calendar: calendar) == nil)
+    }
+
+    /// 카테고리 설정을 바꾸면 **이미 들어 있는 할 일에도 지금 적용된다.** 안 하면
+    /// 같은 카테고리인데 줄마다 체크가 있고 없고 해서 규칙이 안 읽힌다.
+    @Test("카테고리_설정을_바꾸면_이미_든_할_일도_따라온다")
+    func 카테고리_소급() {
+        let 기념일 = TodoCategory(name: "기념일", colorHex: "EF4444", sortOrder: 1)
+        context.insert(기념일)
+        let 생일 = TodoItem(title: "생일", date: today)
+        생일.category = 기념일
+        context.insert(생일)
+        #expect(생일.isCheckable)
+
+        기념일.givesCompletionCheck = false
+        TodoCategory.applyCompletionCheck(of: 기념일, in: context)
+        #expect(!생일.isCheckable)
+
+        // 다시 켜면 돌아온다 — 완료 기록도 지우지 않았다.
+        기념일.givesCompletionCheck = true
+        TodoCategory.applyCompletionCheck(of: 기념일, in: context)
+        #expect(생일.isCheckable)
+    }
+
+    /// 다른 카테고리의 할 일까지 바꾸면 안 된다.
+    @Test("다른_카테고리는_건드리지_않는다")
+    func 카테고리_범위() {
+        let 기념일 = TodoCategory(name: "기념일", colorHex: "EF4444", sortOrder: 1)
+        let 일 = TodoCategory(name: "일", colorHex: "3B82F6", sortOrder: 2)
+        context.insert(기념일)
+        context.insert(일)
+        let 생일 = TodoItem(title: "생일", date: today)
+        생일.category = 기념일
+        let 회의 = TodoItem(title: "회의", date: today)
+        회의.category = 일
+        context.insert(생일)
+        context.insert(회의)
+
+        기념일.givesCompletionCheck = false
+        TodoCategory.applyCompletionCheck(of: 기념일, in: context)
+        #expect(!생일.isCheckable)
+        #expect(회의.isCheckable, "다른 카테고리의 할 일은 그대로다")
+    }
 }
