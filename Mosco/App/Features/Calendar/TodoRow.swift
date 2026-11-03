@@ -113,17 +113,17 @@ struct TodoRow: View {
                     //
                     // 색 점은 끈다 — 왼쪽 막대가 이미 같은 말을 하고 있다.
                     if showsCategoryName {
-                        CategoryTag(category: todo.category, showsColorDot: false, filled: false)
+                        CategoryTag(category: todo.category, showsColorDot: false)
                     }
 
                     if showsCalendarTag, let calendar = todo.calendar {
                         // 캘린더 색은 위쪽 선택기에서만 쓴다(설정 화면이 그렇게
                         // 안내하고 있다). 여기서 또 칠하면 카테고리 색과 경쟁한다.
-                        TagChip(label: calendar.name, tint: MoscoPalette.textSecondary, filled: false)
+                        TagChip(label: calendar.name, tint: MoscoPalette.textSecondary)
                     }
 
                     if let scheduleLabel {
-                        TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary, filled: false)
+                        TagChip(label: scheduleLabel, tint: MoscoPalette.textSecondary)
                     }
 
                     // 디데이로 표시해둔 항목. 남은 날짜는 적지 않는다 — 옆의 날짜
@@ -136,18 +136,14 @@ struct TodoRow: View {
                     // 뜻으로 굳어 있어서다. 디데이는 중요도가 아니라 **날을 세는
                     // 표시**고, 깃발은 달력 위 한 지점을 찍는 말에 가깝다.
                     if todo.isDDay {
-                        Image(systemName: "flag.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(MoscoPalette.textSecondary)
+                        iconTag("flag.fill")
                     }
 
                     // 반복 일정은 한 번짜리와 겉모습이 같아서, 목록에서 이게
                     // "매주 오는 그 일정"인지 이번 한 번인지 구분이 안 됐다.
                     // 규칙까지 적어주면 태그 줄이 길어지니 반복 아이콘만 붙인다.
                     if todo.repeatRule != .none {
-                        Image(systemName: "repeat")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(MoscoPalette.textSecondary)
+                        iconTag("repeat")
                     }
                 }
                 // Layout 안에 Spacer를 넣으면 폭을 무한히 요구하는 칩이 하나 낀
@@ -214,6 +210,17 @@ struct TodoRow: View {
         ))
         // 몸통 탭이 완료로 가면서, 나머지 조작은 전부 이 메뉴가 맡는다. 평소엔
         // 안 보이니 행도 복잡해지지 않는다.
+    }
+
+    /// 글자가 아니라 기호로 말하는 태그. 옆에 서는 글자 태그와 **같은 캡슐**을 쓴다 —
+    /// 하나만 맨몸으로 두면 같은 줄에서 혼자 떠 보이고, 태그 줄이라는 것도 흐려진다.
+    private func iconTag(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(MoscoPalette.textSecondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background { Capsule().fill(MoscoPalette.textSecondary.opacity(0.12)) }
     }
 
     private var hasMemo: Bool { todo.memo != nil }
@@ -359,7 +366,15 @@ struct TodoRow: View {
         if todo.isMultiDay, let effectiveEnd = todo.effectiveEndDate {
             // 시작일을 옮겼으면 끝날도 같은 만큼 민다 — 기간 길이는 그대로여야 한다.
             let end = Self.shifted(effectiveEnd, from: originalDate, to: date)
-            let range = "\(date.localizedMonthDay) - \(end.localizedMonthDay)"
+            // **하루 화면에서는 시작일을 다시 적지 않는다.** 머리에 "11월 8일"이라고
+            // 쓰여 있는 화면에서 "11월 8일 - 11월 9일"이라고 또 적으면, 앞의 날짜는
+            // 이미 아는 말이라 옆의 카테고리 이름과 한 덩어리로 읽힌다 —
+            // '일' 카테고리가 "일 11월 8일"이 되어 요일처럼 보였다. 이 자리에서
+            // 새로운 사실은 **언제 끝나나** 하나뿐이다. 여러 날짜가 섞이는
+            // 할 일 탭에서는 기간을 통째로 적어야 어느 구간인지 알 수 있다.
+            let range = showsDate
+                ? "\(date.localizedMonthDay) - \(end.localizedMonthDay)"
+                : String(localized: "\(end.localizedMonthDay)까지")
             guard let startTime = todo.startTime else { return range }
             return "\(range) \(startTime.localizedTime)"
         }

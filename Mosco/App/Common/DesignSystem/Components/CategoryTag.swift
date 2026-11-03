@@ -7,7 +7,8 @@ struct CategoryTag: View {
     /// 끈다(할 일 셀은 왼쪽 막대가 그 역할을 한다) — 색이 두 군데면 어느 쪽이
     /// 무슨 뜻인지 알 수 없게 된다. 점이 없어도 이름은 그대로 남는다.
     var showsColorDot: Bool = true
-    /// 누르는 칩인가. 목록 행에서는 읽기만 하므로 채우지 않는다(`TagChip`과 같은 규칙).
+    /// 캡슐을 채울 것인가. 기본은 채운다 — 배경을 걷으면 옆 칩과 한 덩어리로 읽힌다
+    /// (`TagChip`에 왜 되돌렸는지 적어뒀다).
     var filled: Bool = true
 
     private var color: Color {
