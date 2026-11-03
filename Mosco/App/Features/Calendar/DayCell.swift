@@ -23,11 +23,20 @@ struct DayCell: View {
     var weekendKind: WeekendKind? = nil
     /// 공휴일이면 이름(예: "광복절")이 들어온다 — 숫자 색도 빨강 톤으로 맞춘다.
     var holidayName: String? = nil
+    /// 디데이로 표시해 둔 날인가. 숫자 왼쪽 위에 작은 깃발을 찍는다.
+    ///
+    /// **막대가 아니라 여기 찍는다** — 14pt 막대에 아이콘을 붙이면 그만큼 제목
+    /// 자리가 준다(캘린더 색 점을 같은 이유로 걷어냈다). 깃발 모양은 목록 셀과
+    /// 같은 것이다: 별은 어느 앱에서나 "즐겨찾기"로 굳어 있어서 안 쓴다.
+    var isDDay: Bool = false
     /// 압축된 한 줄(주간 스트립)일 땐 자리가 없어 공휴일 이름을 생략한다.
     var showsHolidayLabel: Bool = true
     /// 그날 날씨 아이콘(SF Symbol). 압축된 주간 스트립에서만 쓴다 — 예보 범위
     /// 밖이거나 날씨를 못 받아왔으면 nil이고, 그때는 아무것도 안 그린다.
     var weatherSymbol: String? = nil
+    /// 그날 일정이 있는지. 압축된 주간 스트립에서만 쓴다 — 달 격자는 막대가
+    /// 이미 같은 말을 한다. nil이면 아무것도 안 그린다.
+    var mark: DayTodoMark? = nil
 
     private var dayNumber: String {
         String(Calendar.current.component(.day, from: date))
@@ -35,7 +44,9 @@ struct DayCell: View {
 
     private var numberColor: Color {
         if isToday { return .white }
-        if isSelected { return MoscoPalette.accent }
+        // **고른 날이라고 숫자 색을 덮지 않는다.** 덮었더니 압축 스트립에서는
+        // 보고 있는 날이 늘 고른 날이라, 일요일이나 공휴일을 보는 동안 그 칸만
+        // 빨강을 잃었다. 고른 것은 칸을 감싸는 테두리가 이미 말한다.
         // 색 규칙 자체는 Shared에 있다 — 위젯 달력도 같은 판단을 써야 한다.
         let base = CalendarDayTone(
             isSaturday: weekendKind == .saturday,
@@ -64,6 +75,28 @@ struct DayCell: View {
                 // 바깥으로 밀어내지 않고 원 위에 살짝 걸치게 둔다. 예전엔 오른쪽
                 // 위로 밀어놨더니 선택 표시(칸을 감싸는 사각형)의 모서리에 거의
                 // 붙어서 답답해 보였다 — 아래 padding과 함께 여백을 만든다.
+                // 일정 점은 날씨 배지의 반대쪽 모서리에 둔다 — 둘이 같은 자리에
+                // 겹치지 않으면서 숫자도 안 가린다.
+                .overlay(alignment: .topLeading) {
+                    if isDDay {
+                        Image(systemName: "flag.fill")
+                            .font(.system(size: 7, weight: .semibold))
+                            .foregroundStyle(MoscoPalette.accent)
+                            .offset(x: -1, y: -1)
+                    }
+                }
+                .overlay(alignment: .bottomLeading) {
+                    if let mark {
+                        Circle()
+                            .fill(
+                                mark == .open
+                                    ? MoscoPalette.accent
+                                    : MoscoPalette.textSecondary.opacity(0.45)
+                            )
+                            .frame(width: 4, height: 4)
+                            .offset(x: 1, y: 1)
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
                     if let weatherSymbol {
                         Image(systemName: weatherSymbol)

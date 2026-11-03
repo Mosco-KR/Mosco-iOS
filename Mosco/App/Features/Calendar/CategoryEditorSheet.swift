@@ -7,6 +7,8 @@ struct CategoryDraft {
     let colorHex: String
     let notifiesBeforeStart: Bool
     let notificationLeadMinutes: Int
+    /// 이 카테고리의 할 일에 완료 체크를 줄지.
+    let givesCompletionCheck: Bool
 }
 
 /// 카테고리를 새로 만들거나(existing == nil) 기존 걸 고치는 시트. 이름 +
@@ -22,6 +24,7 @@ struct CategoryEditorSheet: View {
     @State private var colorHex: String
     @State private var notifies: Bool
     @State private var leadMinutes: Int
+    @State private var givesCheck: Bool
 
     /// 흔히 쓰는 리드타임만 추린다 — 분 단위 자유 입력은 고를 게 너무 많아진다.
     private static let leadOptions = [0, 5, 10, 15, 30, 60, 120]
@@ -41,6 +44,7 @@ struct CategoryEditorSheet: View {
         _colorHex = State(initialValue: existing?.colorHex ?? CategoryColorPalette.nextDefault(avoiding: usedColorHexValues))
         _notifies = State(initialValue: existing?.notifiesBeforeStart ?? true)
         _leadMinutes = State(initialValue: existing?.notificationLeadMinutes ?? 10)
+        _givesCheck = State(initialValue: existing?.givesCompletionCheck ?? true)
     }
 
     private var canSave: Bool {
@@ -105,6 +109,16 @@ struct CategoryEditorSheet: View {
                     }
                 }
 
+                // 알림 아래 둔다 — 둘 다 "이 카테고리의 할 일은 어떻게 다뤄지나"를
+                // 정하는 것이고, 이름·색처럼 생김새를 정하는 것과는 다른 줄이다.
+                Section {
+                    Toggle("완료 체크", isOn: $givesCheck)
+                } footer: {
+                    Text(givesCheck
+                         ? String(localized: "할 일에 체크 상자가 생겨요.")
+                         : String(localized: "생일·월급날처럼 \"하는\" 게 아니라 \"오는\" 일에 쓰면 좋아요. 달력에는 그대로 보이고, 할 일 목록과 남은 개수에서는 빠져요."))
+                }
+
                 if existing?.isDefault == true {
                     Section {
                         Text("기본 카테고리는 삭제할 수 없어요. 이름과 색은 바꿀 수 있어요.")
@@ -133,7 +147,8 @@ struct CategoryEditorSheet: View {
                                 name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                                 colorHex: colorHex,
                                 notifiesBeforeStart: notifies,
-                                notificationLeadMinutes: leadMinutes
+                                notificationLeadMinutes: leadMinutes,
+                                givesCompletionCheck: givesCheck
                             )
                         )
                         dismiss()

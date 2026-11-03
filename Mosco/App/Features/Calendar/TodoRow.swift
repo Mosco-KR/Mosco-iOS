@@ -71,7 +71,9 @@ struct TodoRow: View {
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        // **22 → 16.** 알약에 가깝던 모서리를 줄였다. 둥글수록 친근해 보이는 건
+        // 맞지만, 목록 가득 알약이 쌓이면 그 자체가 "어디서 본 앱" 인상을 만든다.
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
 
         HStack(alignment: .center, spacing: 10) {
             // 막대와 체크는 한 덩어리로 붙여둔다 — 둘 사이가 벌어지면 왼쪽 끝에
@@ -81,7 +83,7 @@ struct TodoRow: View {
 
             checkMark
 
-            // 1행: 제목 그대로, 2행: 카테고리(항상 맨 앞) + 날짜/시간을 하나로 합친 태그.
+            // 1행: 제목 그대로, 2행: 날짜·시간·캘린더와 상태 표시를 묶은 태그 줄.
             VStack(alignment: .leading, spacing: 6) {
                 Text(todo.title)
                     .font(.moscoBody().weight(.semibold))
@@ -90,8 +92,8 @@ struct TodoRow: View {
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // **한 행에서 카테고리 색이 쓰이는 자리는 체크 동그라미 하나뿐이다.**
-                // 왼쪽 한 열에 모여 있어 목록을 훑을 때 색이 세로로 정렬돼 읽히고,
+                // **한 행에서 카테고리를 말하는 자리는 왼쪽 막대 하나뿐이다.**
+                // 왼쪽 끝 한 열에 있어 목록을 훑을 때 색이 세로로 정렬돼 읽히고,
                 // 나머지는 전부 중립색이라 눈이 쉰다. 예전엔 칩·아이콘·메모 버튼까지
                 // 전부 색을 따라가서 한 행에 색이 여섯 군데씩 흩어졌다.
                 //
@@ -100,10 +102,16 @@ struct TodoRow: View {
                 // 한 줄에 다 못 들어가면 다음 줄로 넘어간다. 예전엔 HStack이라
                 // 칩이 서넛만 붙어도 뒤쪽이 잘려 나갔는데, 잘린 게 캘린더인지
                 // 시간인지는 열어봐야 알 수 있었다 — 보여줄 거면 다 보여준다.
-                WrappingHStack(spacing: 6, lineSpacing: 6) {
-                    // 색 점은 끈다 — 왼쪽 막대가 이미 같은 말을 하고 있다.
-                    CategoryTag(category: todo.category, showsColorDot: false)
-
+                // **보여줄 것이 없으면 줄을 만들지 않는다.** 빈 줄이 서면 제목
+                // 아래에 설명 없는 여백만 남는다.
+                if hasTagLine {
+                    WrappingHStack(spacing: 10, lineSpacing: 6) {
+                    // **카테고리 이름은 적지 않는다.** 왼쪽 막대가 이미 그 말을
+                    // 하고 있어서, 이름까지 쓰면 한 줄에서 같은 사실을 두 번
+                    // 말하는 셈이었다. 게다가 짧은 이름이 날짜 앞에 서면 둘이
+                    // 한 덩어리로 읽혔다 — '일' 카테고리가 `일 11월 8일`이 되어
+                    // 요일처럼 보였다. 이름이 꼭 필요한 자리(상세 시트)에는
+                    // `CategoryTag`가 그대로 있다.
                     if showsCalendarTag, let calendar = todo.calendar {
                         // 캘린더 색은 위쪽 선택기에서만 쓴다(설정 화면이 그렇게
                         // 안내하고 있다). 여기서 또 칠하면 카테고리 색과 경쟁한다.
@@ -124,23 +132,20 @@ struct TodoRow: View {
                     // 뜻으로 굳어 있어서다. 디데이는 중요도가 아니라 **날을 세는
                     // 표시**고, 깃발은 달력 위 한 지점을 찍는 말에 가깝다.
                     if todo.isDDay {
-                        Image(systemName: "flag.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(MoscoPalette.textSecondary)
+                        iconTag("flag.fill")
                     }
 
                     // 반복 일정은 한 번짜리와 겉모습이 같아서, 목록에서 이게
                     // "매주 오는 그 일정"인지 이번 한 번인지 구분이 안 됐다.
                     // 규칙까지 적어주면 태그 줄이 길어지니 반복 아이콘만 붙인다.
                     if todo.repeatRule != .none {
-                        Image(systemName: "repeat")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(MoscoPalette.textSecondary)
+                        iconTag("repeat")
                     }
                 }
                 // Layout 안에 Spacer를 넣으면 폭을 무한히 요구하는 칩이 하나 낀
                 // 셈이라 줄바꿈 계산이 통째로 깨진다 — 왼쪽 정렬은 프레임으로 준다.
                 .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 if let memo = todo.memo, !memo.isEmpty {
                     memoPreview(memo)
@@ -149,7 +154,7 @@ struct TodoRow: View {
 
             // 수정할 방법이 없는 화면(onTap이 없는 곳)에서는 자리도 만들지 않는다.
             if onTap != nil {
-                editButton
+                memoButton
             }
         }
         .padding(.vertical, 13)
@@ -160,7 +165,11 @@ struct TodoRow: View {
         // **셀 전체가 완료 버튼이다.** 목록에서 제일 자주 하는 일이라 제일 넓은
         // 히트 영역을 준다. 수정은 꾹 눌러 나오는 메뉴로 옮겼다 — 자주 하는
         // 조작일수록 겨누기 쉬워야 한다.
-        .onTapGesture(perform: toggleCompletion)
+        //
+        // **체크가 없는 일은 몸통을 눌러도 아무 일이 없다.** 누를 것이 없다는 건
+        // 체크 자리의 점이 말한다 — 거기에 다른 동작(수정·메모)을 얹으면 같은
+        // 손짓이 줄마다 다른 일을 하게 된다.
+        .onTapGesture { if todo.isCheckable { toggleCompletion() } }
         // 완료된 항목은 내용만 흐려진다. 배경보다 뒤에 놓아서 카드 자체는
         // 불투명하게 남는다 — 카드까지 반투명해지면 뒤가 비쳐 얼룩져 보인다.
         .opacity(isDone ? 0.55 : 1)
@@ -173,9 +182,12 @@ struct TodoRow: View {
         // 깔았는데, 목록이 길어지면 카드마다 바탕색이 달라 화면 전체가 알록달록해
         // 눈이 피로했다. 색은 왼쪽 막대 하나에만 — 찾을 때 필요한 자리에만 찍는다.
         .background(MoscoPalette.surface, in: shape)
-        .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.4), lineWidth: 0.5))
-        .shadow(color: .black.opacity(isDone ? 0.02 : 0.06), radius: 12, y: 5)
-        .scaleEffect(isDone ? 0.985 : 1)
+        // **그림자를 걷어냈다.** 목록의 카드마다 그림자를 깔면 전부 떠 있는 것처럼
+        // 보여서, 정작 떠 있어야 하는 것(입력창·떠오르는 단추)과 구분이 사라진다 —
+        // 규범의 "플랫이 기본, 글라스는 예외"가 원래 말하던 바다. 구분은 선 하나로
+        // 충분하고, 선을 조금 또렷하게 해서 그 몫을 받는다.
+        .overlay(shape.strokeBorder(MoscoPalette.border.opacity(0.7), lineWidth: 0.5))
+        .scaleEffect(isDone ? 0.99 : 1)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isDone)
         // 꾹 눌러 나오는 메뉴와 그 뒤에 열리는 것들. 시간표 블록도 같은 것을 쓴다 —
         // 같은 동작이 화면마다 다르면 다른 기능처럼 읽힌다.
@@ -185,6 +197,10 @@ struct TodoRow: View {
         .modifier(TodoActions(
             todo: todo,
             occurrenceDate: occurrenceDate,
+            // 이 행에는 메모 단추가 이미 있다 — 메뉴에 또 두면 같은 곳으로 가는
+            // 길이 둘이 되고, 메뉴만 길어진다. 단추가 없는 곳(시간표 블록)에서는
+            // 메뉴가 그 길을 맡는다.
+            showsMemoItem: false,
             onTap: onTap,
             onDelete: onDelete
         ))
@@ -192,7 +208,26 @@ struct TodoRow: View {
         // 안 보이니 행도 복잡해지지 않는다.
     }
 
+    /// 글자가 아니라 기호로 말하는 태그. 옆에 서는 글자 태그와 **같은 캡슐**을 쓴다 —
+    /// 하나만 맨몸으로 두면 같은 줄에서 혼자 떠 보이고, 태그 줄이라는 것도 흐려진다.
+    private func iconTag(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(MoscoPalette.textSecondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background { Capsule().fill(MoscoPalette.textSecondary.opacity(0.12)) }
+    }
+
     private var hasMemo: Bool { todo.memo != nil }
+
+    /// 태그 줄에 세울 것이 하나라도 있나.
+    private var hasTagLine: Bool {
+        (showsCalendarTag && todo.calendar != nil)
+            || scheduleLabel != nil
+            || todo.isDDay
+            || todo.repeatRule != .none
+    }
 
     /// 셀 안에 펼쳐 보여주는 메모 본문. 누르면 메모 화면으로 간다.
     ///
@@ -225,27 +260,32 @@ struct TodoRow: View {
         .padding(.top, 2)
     }
 
-    /// 수정으로 바로 가는 지름길.
+    /// **메모로 가는 단추.** 한동안 이 자리가 '수정'이었는데, 목록에서 행 하나에
+    /// 두 번째로 자주 하는 일은 제목을 고치는 게 아니라 **거기 뭔가를 적어두는
+    /// 것**이었다. 제목·날짜·반복을 고치는 일은 꾹 눌러 나오는 메뉴의 '수정'에
+    /// 그대로 있다(거기서 입력창으로 올라오면 메모까지 같이 실린다).
     ///
-    /// 몸통 탭이 완료로 넘어가면서 수정은 꾹 눌러야만 닿는 곳이 됐는데, 꾹 누르기는
-    /// 알고 있어야 쓸 수 있는 조작이다. 목록에 보이는 버튼 하나가 같은 곳으로
-    /// 데려가면 처음 쓰는 사람도 길을 찾는다.
-    ///
-    /// 예전엔 이 자리가 메모 버튼이었다. 메모 유무는 아이콘 진하기로 알렸는데,
-    /// 그건 두 상태를 나란히 놓고 봐야 알아채는 구분이었다 — 이제 태그 줄에서
-    /// 이름으로 말한다.
-    private var editButton: some View {
+    /// 메모가 있으면 채운 아이콘, 없으면 빈 아이콘이다. **두 상태를 나란히 놓고
+    /// 봐야 알아채는 구분(진하기)은 쓰지 않는다** — 그건 예전에 한 번 걷어낸 방식이다.
+    private var memoButton: some View {
         Button {
-            onTap?()
+            showsMemoEditor = true
         } label: {
-            Image(systemName: "square.and.pencil")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(MoscoPalette.textSecondary)
-                .frame(width: 28, height: 28)
-                .background(MoscoPalette.textSecondary.opacity(0.1), in: Circle())
+            // **메모를 뜻하는 기호는 앱에서 하나다** — 탭 바의 메모 탭과 같은
+            // `note.text`. 없을 때는 거기에 플러스가 붙는다(`note.text.badge.plus`):
+            // 모양이 갈리니 진하기로 구분할 필요가 없다 — 그건 두 상태를 나란히
+            // 놓고 봐야 알아채는 방식이라 예전에 한 번 걷어낸 자리다.
+            //
+            // 예전엔 없을 때 `square.and.pencil`을 썼는데, 그건 시스템이
+            // "새로 쓰기/편집"에 쓰는 기호라 **메모 단추가 수정 단추로 읽혔다.**
+            Image(systemName: hasMemo ? "note.text" : "note.text.badge.plus")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(hasMemo ? MoscoPalette.textPrimary : MoscoPalette.textSecondary.opacity(0.55))
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .contentShape(Circle())
+        .accessibilityLabel(hasMemo ? String(localized: "메모 보기") : String(localized: "메모 추가"))
     }
 
     /// 셀 왼쪽 끝의 카테고리 색 막대 — 달력 격자의 일정 블록과 같은 표기다.
@@ -267,8 +307,19 @@ struct TodoRow: View {
     ///
     /// 원이 아니라 둥근 사각형인 건 셀·카드·태그가 전부 둥근 사각형/캡슐이기
     /// 때문이다. 한 행에서 혼자만 정원이면 다른 데서 가져다 놓은 것처럼 보인다.
+    @ViewBuilder
     private var checkMark: some View {
-        TodoCheckMark(isDone: isDone)
+        if todo.isCheckable {
+            TodoCheckMark(isDone: isDone)
+        } else {
+            // **체크 자리를 비우지 않는다.** 비우면 그 줄만 제목이 왼쪽으로 당겨져
+            // 목록의 세로줄이 어긋난다. 점 하나를 두면 자리도 지키고 "여긴 체크가
+            // 없다"는 말도 된다 — 생일을 완료할 수는 없으니까.
+            Circle()
+                .fill(MoscoPalette.textSecondary.opacity(0.35))
+                .frame(width: 5, height: 5)
+                .frame(width: 26, height: 26)
+        }
     }
 
     // MARK: - 잠금화면에 띄우기
@@ -304,7 +355,15 @@ struct TodoRow: View {
         if todo.isMultiDay, let effectiveEnd = todo.effectiveEndDate {
             // 시작일을 옮겼으면 끝날도 같은 만큼 민다 — 기간 길이는 그대로여야 한다.
             let end = Self.shifted(effectiveEnd, from: originalDate, to: date)
-            let range = "\(date.localizedMonthDay) - \(end.localizedMonthDay)"
+            // **하루 화면에서는 시작일을 다시 적지 않는다.** 머리에 "11월 8일"이라고
+            // 쓰여 있는 화면에서 "11월 8일 - 11월 9일"이라고 또 적으면, 앞의 날짜는
+            // 이미 아는 말이라 옆의 카테고리 이름과 한 덩어리로 읽힌다 —
+            // '일' 카테고리가 "일 11월 8일"이 되어 요일처럼 보였다. 이 자리에서
+            // 새로운 사실은 **언제 끝나나** 하나뿐이다. 여러 날짜가 섞이는
+            // 할 일 탭에서는 기간을 통째로 적어야 어느 구간인지 알 수 있다.
+            let range = showsDate
+                ? "\(date.localizedMonthDay) - \(end.localizedMonthDay)"
+                : String(localized: "\(end.localizedMonthDay)까지")
             guard let startTime = todo.startTime else { return range }
             return "\(range) \(startTime.localizedTime)"
         }

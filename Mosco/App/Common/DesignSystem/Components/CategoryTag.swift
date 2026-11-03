@@ -7,6 +7,9 @@ struct CategoryTag: View {
     /// 끈다(할 일 셀은 왼쪽 막대가 그 역할을 한다) — 색이 두 군데면 어느 쪽이
     /// 무슨 뜻인지 알 수 없게 된다. 점이 없어도 이름은 그대로 남는다.
     var showsColorDot: Bool = true
+    /// 캡슐을 채울 것인가. 기본은 채운다 — 배경을 걷으면 옆 칩과 한 덩어리로 읽힌다
+    /// (`TagChip`에 왜 되돌렸는지 적어뒀다).
+    var filled: Bool = true
 
     private var color: Color {
         category?.color ?? MoscoPalette.textSecondary
@@ -29,12 +32,16 @@ struct CategoryTag: View {
             }
             Text(label)
                 .font(.moscoCaption())
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .foregroundStyle(MoscoPalette.textSecondary)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        // TagChip과 같은 알파를 쓴다 — 한 줄에 나란히 서는 칩끼리 배경 농도가
-        // 다르면 같은 종류로 안 읽힌다.
-        .background(MoscoPalette.textSecondary.opacity(0.12), in: Capsule())
+        .padding(.horizontal, filled ? 12 : 0)
+        .padding(.vertical, filled ? 6 : 0)
+        // TagChip과 같은 규칙을 쓴다 — 한 줄에 나란히 서는 칩끼리 모양이 다르면
+        // 같은 종류로 안 읽힌다.
+        .background {
+            if filled { Capsule().fill(MoscoPalette.textSecondary.opacity(0.12)) }
+        }
     }
 }

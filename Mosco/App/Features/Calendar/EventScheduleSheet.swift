@@ -62,13 +62,22 @@ struct EventScheduleSheet: View {
         _workingRepeatEndDate = State(initialValue: repeatEndDate.wrappedValue ?? resolvedStart)
     }
 
-    /// 반복 일정은 날짜가 규칙을 따르므로 날짜 피커를 숨기고 시간만 고르게 한다 —
-    /// "반복인데 날짜는 왜 고르지?" 하는 모호함을 없앤다. nil이면 피커 자체를 숨긴다.
-    private var dateComponents: DatePickerComponents? {
-        if repeatRule != .none {
-            return isAllDay ? nil : .hourAndMinute
-        }
-        return isAllDay ? .date : [.date, .hourAndMinute]
+    /// 시작(반복이면 '첫 날') 피커가 보여줄 것.
+    ///
+    /// **반복이어도 날짜를 보여준다.** 한동안 숨겼었다 — "반복인데 날짜는 왜 고르지?"
+    /// 하는 모호함을 없애려던 것이었는데, 종일 반복이면 피커가 통째로 사라져서
+    /// **그 일정의 날짜를 바꿀 길이 앱에 하나도 남지 않았다.** 반복을 '없음'으로
+    /// 돌렸다가 날짜를 고치고 다시 거는 수밖에 없었다. 모호함은 이름과 설명으로
+    /// 푼다 — 이 날이 규칙의 기준점이라고 말해주면 된다.
+    private var startComponents: DatePickerComponents {
+        isAllDay ? .date : [.date, .hourAndMinute]
+    }
+
+    /// 종료 피커. **반복은 하루짜리 인스턴스라 끝나는 '날짜'가 없다** — 시각만 고른다.
+    /// 종일 반복이면 고를 것이 아예 없으니 줄 자체를 안 만든다.
+    private var endComponents: DatePickerComponents? {
+        guard repeatRule != .none else { return startComponents }
+        return isAllDay ? nil : .hourAndMinute
     }
 
     var body: some View {
@@ -84,22 +93,26 @@ struct EventScheduleSheet: View {
                     Section {
                         Toggle("종일", isOn: $isAllDay.animation())
 
-                        if let components = dateComponents {
-                            DatePicker("시작", selection: $workingStart, displayedComponents: components)
+                        DatePicker(
+                            repeatRule != .none ? String(localized: "첫 날") : String(localized: "시작"),
+                            selection: $workingStart,
+                            displayedComponents: startComponents
+                        )
 
+                        if let endComponents {
                             Toggle("종료", isOn: $hasEnd.animation())
 
                             if hasEnd {
                                 if repeatRule != .none {
-                                    DatePicker("종료", selection: $workingEnd, displayedComponents: components)
+                                    DatePicker("종료", selection: $workingEnd, displayedComponents: endComponents)
                                 } else {
-                                    DatePicker("종료", selection: $workingEnd, in: workingStart..., displayedComponents: components)
+                                    DatePicker("종료", selection: $workingEnd, in: workingStart..., displayedComponents: endComponents)
                                 }
                             }
                         }
                     } footer: {
                         if repeatRule != .none {
-                            Text(isAllDay ? String(localized: "정한 규칙에 맞는 날마다 종일로 생겨요.") : String(localized: "정한 규칙에 맞는 날마다 이 시간에 생겨요."))
+                            Text(isAllDay ? String(localized: "첫 날부터, 정한 규칙에 맞는 날마다 종일로 생겨요.") : String(localized: "첫 날부터, 정한 규칙에 맞는 날마다 이 시간에 생겨요."))
                         } else {
                             Text("종료를 끄면 하루짜리가 돼요.")
                         }

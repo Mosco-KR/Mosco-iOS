@@ -94,13 +94,20 @@ struct WeekStripPagingTests {
 
     // MARK: - 올려두는 창
 
-    @Test("앞뒤_십_년치_주가_주_간격으로_놓인다")
+    /// **창을 고정 배열로 들던 것은 걷어냈다 (1.5.3).** 앞뒤 십 년치 1,041개 주를
+    /// 지연 로딩하면서 스크롤 자리를 값으로 잡았는데, 그게 페이지 경계에 못 서서
+    /// 요일 머리글과 숫자가 어긋나 보였다. 지금은 **세 페이지만** 든다
+    /// (`WeekPagerView`) — 그 셋은 아래 `days(of:)`와 `weekStart(containing:)`로
+    /// 그때그때 만든다. 그래서 창을 재는 테스트도 함께 없앴다.
+    @Test("세_페이지는_한_주씩_떨어져_있다")
     func 창() {
-        let weeks = WeekStripWindow.weeks
+        let calendar = TestCalendar.korea
+        let center = WeekStripPaging.weekStart(containing: day("2026-10-27", calendar: calendar), calendar: calendar)
+        let 지난주 = calendar.date(byAdding: .day, value: -7, to: center)!
+        let 다음주 = calendar.date(byAdding: .day, value: 7, to: center)!
 
-        #expect(weeks.count == WeekStripWindow.radius * 2 + 1)
-        #expect(Set(weeks).count == weeks.count, "같은 주가 두 번 들어가면 스크롤이 제자리에서 튄다")
-        let gap = Calendar.current.dateComponents([.day], from: weeks[0], to: weeks[1]).day
-        #expect(gap == 7)
+        #expect(label(지난주, calendar: calendar) == "2026-10-18")
+        #expect(label(center, calendar: calendar) == "2026-10-25")
+        #expect(label(다음주, calendar: calendar) == "2026-11-01")
     }
 }

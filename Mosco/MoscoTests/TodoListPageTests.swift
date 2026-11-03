@@ -272,4 +272,27 @@ struct TodoListPageTests {
         let undated = make("언젠가", date: nil, repeats: .weekly)
         #expect(displayDate(undated, .noDate) == nil)
     }
+
+    /// **줄에 적힌 날짜가 곧 체크되는 회차다**(`occurrenceDate`). 둘이 어긋나면
+    /// 할 일 탭에서는 체크된 것처럼 보이는데 달력·위젯은 안 끝난 상태로 남는다 —
+    /// 반복 일정의 완료는 전체 깃발이 아니라 날짜별 기록으로만 읽히기 때문이다.
+    @Test("체크되는_회차는_줄에_적힌_날짜와_같다")
+    func 체크_회차() {
+        let weekly = make("매주 회의", date: day("2026-10-21"), repeats: .weekly)
+        for section in [TodoListPage.Section.today, .thisWeek, .later] {
+            // **달력을 꼭 넘긴다.** 안 넘기면 `.current`를 쓰는데, CI는 UTC로 돌아서
+            // 로컬(KST)에서만 통과하는 테스트가 된다 — 실제로 한 번 그랬다.
+            #expect(
+                TodoListPage.occurrenceDate(for: weekly, in: section, today: today, calendar: calendar)
+                    == displayDate(weekly, section)
+            )
+        }
+    }
+
+    /// 반복이 아니면 회차라는 게 없다 — nil을 돌려주어 전체 완료를 뒤집게 한다.
+    @Test("한_번짜리는_회차가_없다")
+    func 한_번짜리_회차() {
+        let once = make("치과", date: day("2026-10-28"))
+        #expect(TodoListPage.occurrenceDate(for: once, in: .thisWeek, today: today, calendar: calendar) == nil)
+    }
 }

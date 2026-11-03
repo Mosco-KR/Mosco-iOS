@@ -230,12 +230,21 @@ struct WidgetTodoRow: View {
         let color = todo.color
 
         HStack(spacing: 6) {
-            Button(intent: ToggleTodoCompletionIntent(todoID: todo.id, day: day, completed: !todo.isCompleted)) {
-                Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: fontSize, weight: .medium))
-                    .foregroundStyle(todo.isCompleted ? color.opacity(0.55) : color)
+            // 체크가 없는 일(생일·월급날)은 **버튼을 세우지 않는다.** 눌러도 아무
+            // 일이 안 일어나는 버튼은 고장으로 읽힌다 — 자리는 점으로 지킨다.
+            if todo.isCheckable {
+                Button(intent: ToggleTodoCompletionIntent(todoID: todo.id, day: day, completed: !todo.isCompleted)) {
+                    Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: fontSize, weight: .medium))
+                        .foregroundStyle(todo.isCompleted ? color.opacity(0.55) : color)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Circle()
+                    .fill(color.opacity(0.5))
+                    .frame(width: fontSize * 0.42, height: fontSize * 0.42)
+                    .frame(width: fontSize, height: fontSize)
             }
-            .buttonStyle(.plain)
 
             Text(todo.title)
                 .font(.system(size: fontSize))

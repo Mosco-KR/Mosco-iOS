@@ -1,52 +1,75 @@
 import SwiftUI
 
-/// 하루치 페이지 맨 위에 서는 주간 스트립.
+/// 하루치 페이지 맨 위에 서는 주간 스트립("압축 캘린더").
 ///
 /// 77d0649에서 한 번 걷어냈던 줄이다. 그때는 이게 **달력 화면이 접힌 모습**이었다 —
 /// 한 화면이 달 격자와 주간 스트립을 오가니 지금 보고 있는 게 달인지 하루인지
 /// 헷갈렸다. 지금은 접히는 화면이 아니라 하루치 페이지의 머리다. 달력은 뒤에
 /// 그대로 남아 있고, 이 줄은 "고른 날이 이번 주 어디쯤인지"만 말한다.
 ///
-/// ## 한 페이지가 한 주다
+/// ## 세 페이지만 든다
 ///
-/// 칸 하나하나를 늘어놓고 멈출 자리를 직접 계산하던 때가 있었다(`WeekStep`).
-/// 손짓은 7칸씩 넘어갔지만 두 가지가 어긋났다. **밀어도 보고 있는 날이 안 바뀌어서**
-/// 줄만 움직이고 아래 목록은 그대로였고, 스크롤 위치를 `@State`에 묶어둔 탓에
-/// 미는 내내 화면 전체가 다시 그려져 **손가락을 따라오는 느낌이 나지 않았다.**
+/// 전에는 앞뒤 10년치 1,041개 주를 지연 로딩하는 가로 스크롤뷰에 스크롤 자리를
+/// 값으로 묶어 두었다(`scrollPosition(id:)`). 그런데 **요일 머리글은 고정이고 숫자
+/// 줄만 스크롤하는 구조**라, 스크롤이 한 페이지 폭의 정수배에 서지 않으면 숫자
+/// 일곱 개가 통째로 몇 pt 밀려 머리글과 어긋나 보였다. 화면에 뜨는 순간 가운데로
+/// 점프해야 하는데 첫 레이아웃에서 폭이 0으로 들어오거나, 날짜가 바뀔 때 그 자리를
+/// 애니메이션으로 옮기다 손가락 스크롤과 겹치면 경계에 안 섰다.
 ///
-/// 이제 **페이지 하나의 너비가 화면 너비와 같다.** 그러면 시스템의 `.paging`이
-/// 그대로 맞아떨어져서 멈출 자리를 계산할 필요가 없고, 스크롤 위치도 주가 바뀔
-/// 때 **한 번만** 바뀐다. 미는 동안 다시 그려질 일이 없다.
+/// 지금은 **지난 주·이번 주·다음 주 세 장만** 들고, 넘길 때마다 가운데로 되돌린다.
+/// 페이지가 셋이면 점프할 거리가 아예 없고, 페이징은 `TabView`의 것이라 늘 페이지
+/// 경계에 선다. 달 격자가 안 어긋나는 이유와 같다 — 멈출 자리를 직접 계산하지 않는다.
 ///
-/// 주를 넘기면 **같은 요일의 그 주 날짜**로 간다 — 그래서 미는 손짓이 실제로
-/// 무언가를 한다(`WeekStripPaging.day(inWeek:keepingWeekdayOf:)`).
+/// ## 일정이 있는 날은 점으로 말한다
+///
+/// 달 격자는 일정을 막대로 보여주는데 그 막대는 칸 안이 아니라 주 단위 오버레이로
+/// 그려져서(`WeekBarsView`) 이 줄에는 들어오지 않았다. 그래서 이 줄만 보고는 어느
+/// 날에 뭐가 있는지 알 수가 없었다 — 하루 건너뛰려고 달력까지 안 나가게 만든 줄인데
+/// 정작 어디로 갈지를 말해주지 않았다. 숫자 원 왼쪽 아래에 점 하나를 찍는다. 높이를
+/// 안 건드리려고 날씨 배지와 같은 수를 쓴다(`DayCell`).
 ///
 /// **날짜를 넘기는 손짓은 이 줄 안에서만 받는다.** 페이지 본문까지 좌우 스와이프를
-/// 열면 목록 셀의 스와이프 삭제와 방향이 겹쳐 서로 먹힌다.
-///
-/// 칸마다 Button을 두지 않고 UIKit 탭 인식기를 얹는다 — 달 격자와 같은 방식이고,
-/// 이유는 `CellTouchBridge`에 적혀 있다(SwiftUI 제스처는 바깥 스크롤뷰의 pan을 채간다).
+/// 열면 목록 셀의 손짓과 방향이 겹친다.
 struct WeekPagerView: View {
-    let width: CGFloat
     let today: Date
     let selectedDate: Date?
-    /// 각 날짜의 날씨 심볼을 찾아주는 클로저. 한 번에 보이는 칸은 7개뿐이므로
-    /// 값으로 미리 뽑아 넘길 이유가 없다.
+    /// 각 날짜의 날씨 심볼. 한 번에 보이는 칸은 7개뿐이라 미리 뽑아 넘길 이유가 없다.
     let weatherSymbol: (Date) -> String?
+    /// 그날 안 끝낸 일이 있는지 / 일정이 아예 없는지. 점을 찍을지 정한다.
+    let dayMark: (Date) -> DayTodoMark?
     let onSelect: (Date) -> Void
 
     /// 요일 머리글 + 숫자 원(30) + 위아래 여백.
     ///
     /// **요일 머리글이 이 줄을 읽히게 하는 것이다.** 숫자만 일곱 개 떠 있으면
-    /// 그게 무슨 요일인지 세어봐야 하고, 달 격자는 바로 위에서 일~토로 서 있는데
-    /// 이 줄만 다른 규칙이면 두 화면이 어긋나 보인다.
+    /// 그게 무슨 요일인지 세어봐야 하고, 달 격자는 일~토로 서 있는데 이 줄만
+    /// 다른 규칙이면 두 화면이 어긋나 보인다.
     static let height: CGFloat = 64
     private static let weekdayRowHeight: CGFloat = 16
 
-    /// 지금 보이는 주의 일요일. 주가 바뀔 때만 값이 바뀐다.
-    @State private var visibleWeek: Date?
+    /// 가운데 페이지가 보여주는 주의 일요일.
+    @State private var centerWeek: Date
+    /// 지금 선 페이지(0=지난 주, 1=가운데, 2=다음 주). 넘기면 곧바로 1로 되돌린다.
+    @State private var page = 1
 
     private let calendar = Calendar.current
+
+    init(
+        today: Date,
+        selectedDate: Date?,
+        weatherSymbol: @escaping (Date) -> String?,
+        dayMark: @escaping (Date) -> DayTodoMark?,
+        onSelect: @escaping (Date) -> Void
+    ) {
+        self.today = today
+        self.selectedDate = selectedDate
+        self.weatherSymbol = weatherSymbol
+        self.dayMark = dayMark
+        self.onSelect = onSelect
+        _centerWeek = State(
+            initialValue: WeekStripPaging.weekStart(containing: selectedDate ?? today)
+        )
+    }
 
     var body: some View {
         VStack(spacing: 2) {
@@ -54,19 +77,26 @@ struct WeekPagerView: View {
             pages
         }
         .frame(height: Self.height)
-        .onAppear { visibleWeek = weekStart(of: selectedDate ?? today) }
         // 줄에서 다른 날을 눌렀거나 '오늘'로 돌아왔다 — 그 날이 든 주로 옮긴다.
         .onChange(of: selectedDate) { _, date in
             guard let date else { return }
             let week = weekStart(of: date)
-            guard week != visibleWeek else { return }
-            withAnimation(.easeInOut(duration: 0.25)) { visibleWeek = week }
+            guard week != centerWeek else { return }
+            withAnimation(.easeInOut(duration: 0.25)) { centerWeek = week }
         }
-        // 주를 밀었다 — 보던 요일을 지킨 채 그 주로 간다. **고른 날이 이미 그 주에
-        // 있으면 아무것도 하지 않는다**(위 `onChange`가 옮겨 놓은 경우가 그렇다).
-        .onChange(of: visibleWeek) { _, week in
-            guard let week, let selectedDate, weekStart(of: selectedDate) != week else { return }
-            onSelect(WeekStripPaging.day(inWeek: week, keepingWeekdayOf: selectedDate))
+        // 주를 넘겼다 — 보던 요일을 지킨 채 그 주로 가고, **가운데로 되돌린다.**
+        // 되돌리는 것을 애니메이션 없이 해야 넘긴 자리에서 멈춘 것처럼 보인다.
+        .onChange(of: page) { _, newValue in
+            guard newValue != 1 else { return }
+            let moved = week(at: newValue)
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                centerWeek = moved
+                page = 1
+            }
+            guard let selectedDate else { return }
+            onSelect(WeekStripPaging.day(inWeek: moved, keepingWeekdayOf: selectedDate))
         }
     }
 
@@ -93,30 +123,33 @@ struct WeekPagerView: View {
         }
     }
 
-    /// **페이지 하나의 너비가 화면 너비와 같다.** 그래야 시스템 페이징이 그대로
-    /// 맞아떨어진다.
+    /// 세 장짜리 페이저. 폭을 재지도, 멈출 자리를 계산하지도 않는다 —
+    /// `TabView`의 페이징은 늘 페이지 경계에 선다.
     private var pages: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(WeekStripWindow.weeks, id: \.self) { week in
-                    weekRow(week)
-                        .frame(width: width)
-                }
+        TabView(selection: $page) {
+            ForEach(0..<3, id: \.self) { index in
+                weekRow(week(at: index))
+                    .tag(index)
             }
-            .scrollTargetLayout()
         }
-        .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $visibleWeek)
-        .scrollIndicators(.hidden)
+        .tabViewStyle(.page(indexDisplayMode: .never))
+    }
+
+    private func week(at index: Int) -> Date {
+        calendar.date(byAdding: .day, value: (index - 1) * WeekStripPaging.daysPerPage, to: centerWeek)
+            ?? centerWeek
     }
 
     private func weekRow(_ week: Date) -> some View {
-        // 흐림 처리는 "고른 날짜가 속한 달"을 기준으로 한다 — 주가 달 경계를
-        // 걸칠 때 어느 쪽이 이번 달인지 알려주려는 것이다.
-        let referenceMonth = selectedDate.map { CalendarMonth.containing($0) }
+        // 흐림은 **그 주 자신**을 기준으로 한다 — 주의 가운데(수요일)가 속한 달이
+        // 이번 달이다. 예전엔 "고른 날짜의 달"을 봤는데, 주를 넘기면 보이는 주가
+        // 먼저 바뀌고 고른 날짜가 한 걸음 뒤에 따라와서 **일곱 칸이 한 프레임
+        // 통째로 흐려졌다가 돌아왔다**(달을 넘길 때마다 줄 전체가 깜빡였다).
+        let reference = calendar.date(byAdding: .day, value: 3, to: week) ?? week
+        let referenceMonth = CalendarMonth.containing(reference)
         return HStack(spacing: 0) {
             ForEach(WeekStripPaging.days(of: week, calendar: calendar), id: \.self) { day in
-                dayCell(day, isDimmed: referenceMonth.map { CalendarMonth.containing(day) != $0 } ?? false)
+                dayCell(day, isDimmed: CalendarMonth.containing(day) != referenceMonth)
                     .frame(maxWidth: .infinity)
             }
         }
@@ -133,16 +166,13 @@ struct WeekPagerView: View {
             // 한 줄엔 공휴일 이름을 둘 자리가 없다 — 대신 그 자리에 날씨를
             // 숫자 원 모서리에 얹는다(DayCell 쪽에서 처리).
             showsHolidayLabel: false,
-            weatherSymbol: weatherSymbol(day)
+            weatherSymbol: weatherSymbol(day),
+            mark: dayMark(day)
         )
-        .allowsHitTesting(false)
-        .background {
-            CellTouchBridge(
-                onPressChanged: { _ in },
-                onTap: { _ in onSelect(day) },
-                isEnabled: true
-            )
-        }
+        .contentShape(Rectangle())
+        // 칸을 누르면 그날로. 페이저 안이라 UIKit 인식기를 따로 얹지 않는다 —
+        // `TabView`의 스와이프와 탭은 시스템이 이미 갈라 준다.
+        .onTapGesture { onSelect(day) }
     }
 
     private func weekStart(of date: Date) -> Date {

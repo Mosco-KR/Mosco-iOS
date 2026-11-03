@@ -126,6 +126,14 @@ nonisolated enum DateText {
         case .ja: "明日"
         }
     }
+
+    static func yesterday(_ language: AppLanguage = .current) -> String {
+        switch language {
+        case .ko: "어제"
+        case .en: "Yesterday"
+        case .ja: "昨日"
+        }
+    }
 }
 
 extension Date {
@@ -163,6 +171,24 @@ extension Date {
         if calendar.isDateInToday(self) { return DateText.today() }
         if calendar.isDateInTomorrow(self) { return DateText.tomorrow() }
         return localizedMonthDay
+    }
+
+    /// 메모 목록에 붙는 때. **오늘이면 시각, 어제면 '어제', 그 전이면 날짜**다 —
+    /// 메모장은 방금 만진 것이 위에 오는 화면이라, 맨 위 몇 장은 "몇 시에 적었나"가
+    /// 궁금하고 아래로 갈수록 "며칠에 적었나"가 궁금해진다.
+    var memoListLabel: String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(self) { return localizedTime }
+        if calendar.isDateInYesterday(self) { return DateText.yesterday() }
+        return localizedMonthDay
+    }
+
+    /// 편집기 머리에 붙는 때. 목록보다 조금 더 자세히 — 그 장을 보고 있는 동안은
+    /// "언제 고친 것"이 그 화면의 유일한 메타 정보다.
+    var memoEditorLabel: String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(self) { return localizedTime }
+        return "\(localizedMonthDay) \(localizedTime)"
     }
 
     /// 하루 단위로 안정적인 딕셔너리 키(같은 날이면 항상 같은 문자열) — 그리드 셀

@@ -33,6 +33,10 @@ struct CalendarScreen: View {
     /// 압축 애니메이션과 무관하게 안정적이어야 한다 — 페이저 자신의 프레임을 재서
     /// 되먹이면 접히는 매 프레임마다 페이지가 다시 그려진다.
     @State private var topChromeHeight: CGFloat = 0
+    #if DEBUG
+    /// 미리보기 장면에서 하루 페이지를 이미 한 번 열었는가.
+    @State private var didOpenDemoDay = false
+    #endif
 
     private let calendar = Calendar.current
 
@@ -136,8 +140,12 @@ struct CalendarScreen: View {
                 DayTodosContentView(date: day)
             }
             #if DEBUG
+            // **한 번만 연다.** `task`는 뒤로 나올 때마다 다시 도는데, 그때마다 날짜를
+            // 다시 넣으면 하루 페이지가 또 밀려 들어온다 — 뒤로 가기를 눌러도 달력이
+            // 잠깐 보였다가 상세로 되돌아오는 것이 끝나지 않는다.
             .task {
-                guard ScreenshotDemo.scene == .today else { return }
+                guard ScreenshotDemo.scene == .today, !didOpenDemoDay else { return }
+                didOpenDemoDay = true
                 selectedDate = Calendar.current.startOfDay(for: .now)
             }
             #endif

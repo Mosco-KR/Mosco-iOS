@@ -25,7 +25,7 @@ enum TodayPage {
     /// 날짜를 안 정한, 아직 안 끝낸 일. 사용자가 끌어서 정한 순서를 먼저 본다.
     static func backlog(in todos: [TodoItem]) -> [TodoItem] {
         todos
-            .filter { $0.date == nil && !$0.isCompleted }
+            .filter { $0.date == nil && $0.isCheckable && !$0.isCompleted }
             .sorted { lhs, rhs in
                 if lhs.sortIndex != rhs.sortIndex { return lhs.sortIndex < rhs.sortIndex }
                 return lhs.createdAt < rhs.createdAt
@@ -35,8 +35,11 @@ enum TodayPage {
     /// 오늘 할 일 몇 개 중 몇 개가 남았나. 리뷰 부탁의 "오늘을 다 끝낸 순간"을 잡는 데
     /// 쓴다 — 화면이 아니라 앱 뿌리에서 지켜봐야 보기 모드·위젯·검색 어디서 끝내도 잡힌다.
     static func progress(in todos: [TodoItem], today: Date) -> (total: Int, remaining: Int) {
-        let todays = todos.filter { $0.date != nil && $0.occurs(on: today) }
-        return (todays.count, todays.filter { !$0.isCompleted(on: today) }.count)
+        // **체크가 없는 일은 애초에 세지 않는다.** 생일이 끼면 전체가 하나 늘고
+        // 남은 것도 하나 늘어서, "오늘을 다 끝낸 순간"이 영영 안 온다 — 리뷰를
+        // 부탁할 자리가 사라진다.
+        let todays = todos.filter { $0.date != nil && $0.isCheckable && $0.occurs(on: today) }
+        return (todays.count, todays.count { !$0.isCompleted(on: today) })
     }
 
     /// 제목과 메모를 함께 본다 — 어느 쪽에 적었는지 기억나지 않아도 찾을 수 있게.

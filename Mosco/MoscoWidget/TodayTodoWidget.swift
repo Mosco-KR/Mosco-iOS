@@ -64,11 +64,15 @@ struct TodayTodoProvider: TimelineProvider {
     private func makeEntry() -> TodayTodoEntry {
         let today = Calendar.current.startOfDay(for: .now)
         let all = WidgetStore.todos(on: today, limit: 50)
+        // 요약 숫자("3/5")는 **체크가 있는 일만** 센다 — 생일이 끼면 분모가 늘어
+        // 다 끝낸 날에도 영영 안 채워진다. 목록에는 그대로 보인다(오늘이 월급날인
+        // 걸 위젯에서 보는 건 값이 있다).
+        let checkable = all.filter(\.isCheckable)
         return TodayTodoEntry(
             date: .now,
             todos: Array(all.prefix(10)),
-            totalCount: all.count,
-            completedCount: all.count { $0.isCompleted }
+            totalCount: checkable.count,
+            completedCount: checkable.count { $0.isCompleted }
         )
     }
 }

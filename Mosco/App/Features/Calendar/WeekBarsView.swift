@@ -127,9 +127,11 @@ struct WeekBarsView: View, Equatable {
         .frame(width: max(spanWidth - 1.5, 0), height: MonthPageMetrics.barHeight, alignment: .leading)
         .background(shape.fill(color.opacity(0.14)))
         .overlay(shape.strokeBorder(color.opacity(0.30), lineWidth: 0.75))
-        // 완료된 항목은 TodoRow와 같은 방식(톤 낮춤)으로 구분한다. 이번 달 밖의
-        // 칸에만 있는 막대도 흐린 날짜 숫자(DayCell의 0.4)와 같은 톤으로 낮춘다.
-        .opacity(bar.isCompleted ? 0.45 : (bar.isDimmed ? 0.4 : 1))
+        // 완료된 항목은 톤을 낮춰 구분하되 **읽히는 선에서 멈춘다.** 목록 셀의
+        // 0.55를 그대로 가져와 0.45까지 내렸더니, 9pt 글자에 취소선까지 붙은
+        // 14pt 막대에서는 "완료"가 아니라 "사라짐"으로 읽혔다. 이번 달 밖의
+        // 칸에만 있는 막대는 흐린 날짜 숫자(DayCell의 0.4)와 같은 톤으로 둔다.
+        .opacity(bar.isCompleted ? 0.7 : (bar.isDimmed ? 0.4 : 1))
         .offset(
             x: metrics.columnWidth * CGFloat(bar.startColumn),
             y: CGFloat(bar.row) * (MonthPageMetrics.barHeight + MonthPageMetrics.barSpacing)

@@ -11,7 +11,7 @@ import SwiftData
 final class TodoCategory {
     var id: UUID = UUID()
     var name: String = ""
-    var colorHex: String = "8B5CF6"
+    var colorHex: String = ThemeColor.defaultHex
     /// 사용자가 만든 순서 — 목록/선택 팝업에서 이 순서 그대로 보여준다.
     var sortOrder: Int = 0
     var createdAt: Date = Date.now
@@ -33,6 +33,22 @@ final class TodoCategory {
     var notifiesBeforeStart: Bool = true
     /// 시작 몇 분 전에 알릴지. notifiesBeforeStart가 false면 의미 없다.
     var notificationLeadMinutes: Int = TodoCategory.defaultLeadMinutes
+    /// 이 카테고리의 할 일에 **완료 체크를 줄지.**
+    ///
+    /// 알림을 카테고리 단위로 켜고 끄는 것과 같은 생각이다 — 할 일마다 정하게
+    /// 하면 매번 신경 써야 하지만, **"기념일에 넣은 것은 체크가 없다"**처럼
+    /// 묶어서 정하면 한 번만 정하면 된다. 생일·월급날·기념일처럼 "하는" 게
+    /// 아니라 "오는" 것들은 대개 한 무리로 묶이기 때문에 이 단위가 맞다.
+    ///
+    /// 제목을 보고 카테고리를 자동으로 고르는 분류기가 있어서(`EmbeddingCategoryClassifier`),
+    /// "어머니 생신"이라고 적으면 기념일로 분류되고 **체크도 저절로 빠진다** —
+    /// 적는 순간에 아무것도 더 안 해도 된다는 것이 이걸 카테고리에 둔 값어치다.
+    ///
+    /// 읽는 쪽은 여전히 할 일 하나의 `isCheckable`만 본다. 이 값은 **할 일이
+    /// 이 카테고리에 들어올 때 거기 적히는 기본값**이고, 들어온 뒤에는 할 일
+    /// 하나만 따로 되돌릴 수도 있다(행 메뉴의 '체크 되살리기'). 한 자리에서만
+    /// 판단해야 달력·위젯·알림이 서로 다른 답을 내지 않는다.
+    var givesCompletionCheck: Bool = true
 
     /// 카테고리를 따로 손대지 않았을 때의 리드타임. **카테고리가 아예 없는 할 일도
     /// 이 값으로 알린다**(`ReminderSource`) — 그래서 숫자를 두 곳에 적지 않고
@@ -50,6 +66,23 @@ final class TodoCategory {
 }
 
 extension TodoCategory {
+    /// 이 카테고리의 '완료 체크' 설정을 **그 안의 할 일들에 내려 준다.**
+    ///
+    /// 읽는 쪽(달력·목록·위젯·알림)은 전부 할 일 하나의 `isCheckable`만 본다 —
+    /// 그래야 한 자리에서만 판단하고 서로 다른 답을 내지 않는다. 그래서 카테고리
+    /// 설정을 바꾸면 그 순간 할 일들에 적어 줘야 한다. 안 하면 "기념일은 체크
+    /// 없음"으로 바꿔놓고도 어제 넣은 생일에는 체크가 남아, 같은 카테고리인데
+    /// 줄마다 다르게 보인다.
+    ///
+    /// **체크를 없애면 완료 기록은 지우지 않고 그대로 둔다** — 다시 켜면 살아난다.
+    static func applyCompletionCheck(of category: TodoCategory, in context: ModelContext) {
+        guard let items = try? context.fetch(FetchDescriptor<TodoItem>()) else { return }
+        let id = category.id
+        for item in items where item.category?.id == id {
+            item.isCheckable = category.givesCompletionCheck
+        }
+    }
+
     /// 카테고리를 지우기 전에 그 안의 할 일들을 먼저 기본 카테고리로 옮긴다.
     /// 기본 카테고리 자신은 이 함수로 지울 수 없다(항상 no-op) — 옮겨 담을 곳이
     /// 없어지는 상태 자체를 만들지 않기 위해서다.
