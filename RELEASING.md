@@ -70,6 +70,124 @@ App Store의 "새로운 기능" 칸에 들어가는 글입니다. 규칙은 넷�
 
 ## 버전별 릴리스 노트
 
+### 1.6.0 (빌드 12) — 2026-11-03
+
+**1.5.1과 1.5.2는 노트가 여기 없다.** 둘 다 할 일 탭의 잔버그를 고친 것이라
+적을 자리를 안 만들었는데, 스토어에는 나갔다. 그래서 이 노트는 **1.5.2를 쓰던
+사람**이 읽는다는 전제로 쓴다.
+
+#### 한국어
+
+```
+할 일 오른쪽 단추가 '메모'가 됐어요.
+고치는 건 할 일을 꾹 눌러 나오는 메뉴의 '수정'에서 해요. 메모가 있는 할 일은
+단추가 진하게, 없으면 옅게 보여요.
+
+새로 생긴 것
+• 메모 탭이에요. 체크도 날짜도 분류도 없는 그냥 메모장이에요. 첫 줄이 제목이 돼요.
+• 완료할 필요가 없는 일을 만들 수 있어요. 생일이나 월급날처럼요. 체크가 안 생기고
+  할 일 목록에도 안 쌓이지만, 달력과 디데이에는 그대로 있어요.
+• 카테고리에 '완료 체크' 스위치가 생겼어요. 끄면 그 카테고리에 들어가는 일에는
+  체크가 안 생겨요.
+• 디데이 위젯이 생겼어요. 가장 가까운 날이 홈 화면에 떠요.
+
+더 편해진 것
+• 한 줄로 적을 때 "내일", "다음 주 금요일", "28일" 같은 말을 날짜로 알아들어요.
+• 줄을 바꾸면 그 아래부터 메모예요. 적는 자리에서 메모까지 같이 남겨요.
+• 하루 화면 위의 주간 띠에서 날짜가 요일 칸에 똑바로 서요.
+• 디데이로 표시한 날에 달력에서 깃발이 떠요.
+
+고친 것
+• 반복 일정을 할 일 탭에서 완료하면 달력에도 완료로 보여요.
+• 반복 일정의 날짜를 옮기면 입력창도 같이 정리돼요. 같은 일이 하나 더 생기지 않아요.
+• 종일로 반복하는 일정도 첫 날을 고를 수 있어요.
+```
+
+#### English
+
+```
+The button on the right of each to-do is now Note.
+To change a to-do, touch and hold it and pick Edit. The button looks solid when
+there's a note and faint when there isn't.
+
+New
+• A Notes tab. No checkboxes, no dates, no categories — just writing. The first
+  line becomes the title.
+• To-dos that don't need finishing, like a birthday or payday. They get no
+  checkbox and never pile up in your list, but they stay on the calendar and
+  in D-Days.
+• A "Completion check" switch on each category. Turn it off and everything in
+  that category comes without a checkbox.
+• A D-Day widget. The nearest one sits on your Home Screen.
+
+Better
+• One line now reads dates: "tomorrow", "next Friday", "the 28th".
+• Start a new line and everything below it is the note.
+• The week strip above a day lines its dates up with the weekday columns.
+• Days you marked as D-Days show a flag on the calendar.
+
+Fixed
+• Finishing a repeating to-do in the To-Dos tab now shows on the calendar too.
+• Moving a repeating to-do's date clears the input bar with it, so you no
+  longer end up with a second copy.
+• All-day repeating events let you pick their first day.
+```
+
+#### 日本語
+
+```
+やることの右のボタンが「メモ」になりました。
+編集は、やることを長押しして出るメニューの「編集」から行います。メモがあると
+ボタンが濃く、ないと薄く表示されます。
+
+新しくなったこと
+• メモタブ。チェックも日付も分類もない、ただのメモ帳です。1行目が見出しになります。
+• 終わらせる必要のないやること。誕生日や給料日などです。チェックが付かず
+  リストにも溜まりませんが、カレンダーとDデーには残ります。
+• カテゴリごとの「完了チェック」スイッチ。オフにすると、そのカテゴリに入る
+  やることにチェックが付きません。
+• Dデーウィジェット。いちばん近い日がホーム画面に出ます。
+
+よくなったこと
+• 一行入力が「明日」「来週の金曜」「28日」などを日付として読み取ります。
+• 改行すると、その下がメモになります。
+• 1日の画面の上にある週の帯で、日付が曜日の列に揃います。
+• Dデーにした日に、カレンダーで旗が立ちます。
+
+修正
+• 「やること」タブで繰り返しの予定を完了すると、カレンダーにも反映されます。
+• 繰り返しの予定の日付を動かすと入力欄も一緒に片付きます。同じものが
+  もう一つできることはありません。
+• 終日で繰り返す予定も、最初の日を選べます。
+```
+
+**1.6.0을 고른 이유**: 기능이 셋 늘었고(메모 탭, 완료 없는 할 일, 디데이 위젯)
+탭이 둘에서 셋으로 바뀌었다. 저장 스키마에 `MemoNote`가 하나 더해졌지만 기존
+데이터를 건드리는 마이그레이션이 아니라 쓰던 사람이 다시 배울 것이 없다 —
+그래서 MAJOR는 아니다. "기능이 하나라도 늘면 MINOR"라는 규칙 그대로 MINOR다.
+
+**첫 줄을 단추로 잡은 이유**: 규칙 1 그대로다. 새로 생긴 것 중에는 메모 탭이
+가장 크지만, 탭이 하나 더 생긴 것은 보면 아는 일이라 당황할 자리가 아니다.
+당황할 자리는 **없어진 것**이다 — 행 오른쪽의 연필(수정)이 사라졌고, 그 단추로
+할 일을 고쳐 오던 사람은 고칠 방법이 없다고 느낀다. 1.3.0에서 스와이프 삭제를
+없앴을 때와 같은 모양이라 같은 자리에 쓴다.
+
+**카테고리 '완료 체크'를 따로 적은 이유**: '완료 없는 할 일'과 같은 기능처럼
+보이지만, 쓰는 사람이 하는 일이 다르다. 하나는 할 일 하나를 꾹 눌러 끄는 것이고
+다른 하나는 한 번 정해두면 그 뒤로 적는 것마다 저절로 적용되는 것이다. 뒤엣것을
+모르면 매번 손으로 끄게 된다.
+
+**압축 캘린더를 '고친 것'이 아니라 '더 편해진 것'에 쓴 이유**: 날짜가 요일 칸에
+안 맞던 것은 버그가 맞지만, 쓰던 사람은 그걸 "고장"이 아니라 "원래 이런 것"으로
+겪었다. 고쳤다고 쓰면 무엇이 고장이었는지부터 설명해야 한다.
+
+**태그 줄에서 카테고리 이름이 빠진 것은 노트에 없다**: 왼쪽 색 막대가 그대로
+있어서 분류가 사라진 것이 아니고, 이름이 필요하면 상세에서 볼 수 있다. 쓰는
+사람이 **해야 할 일이 달라지지 않는 변화**는 적지 않는다.
+
+**분석 쪽은 적지 않는다**(규칙 4): 메모 화면 로깅 하나가 늘었다. 사용자에게
+일어나는 일이 없다.
+
 ### 1.5.0 (빌드 9) — 2026-10-10
 
 **1.4.2와 1.4.3은 스토어에 안 나갔다.** 둘 다 만들다 말고 다음 것이 들어와서,
