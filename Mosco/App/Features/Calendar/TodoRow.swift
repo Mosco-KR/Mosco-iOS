@@ -83,7 +83,7 @@ struct TodoRow: View {
 
             checkMark
 
-            // 1행: 제목 그대로, 2행: 카테고리(항상 맨 앞) + 날짜/시간을 하나로 합친 태그.
+            // 1행: 제목 그대로, 2행: 날짜·시간·캘린더와 상태 표시를 묶은 태그 줄.
             VStack(alignment: .leading, spacing: 6) {
                 Text(todo.title)
                     .font(.moscoBody().weight(.semibold))
@@ -92,8 +92,8 @@ struct TodoRow: View {
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // **한 행에서 카테고리 색이 쓰이는 자리는 체크 동그라미 하나뿐이다.**
-                // 왼쪽 한 열에 모여 있어 목록을 훑을 때 색이 세로로 정렬돼 읽히고,
+                // **한 행에서 카테고리를 말하는 자리는 왼쪽 막대 하나뿐이다.**
+                // 왼쪽 끝 한 열에 있어 목록을 훑을 때 색이 세로로 정렬돼 읽히고,
                 // 나머지는 전부 중립색이라 눈이 쉰다. 예전엔 칩·아이콘·메모 버튼까지
                 // 전부 색을 따라가서 한 행에 색이 여섯 군데씩 흩어졌다.
                 //
@@ -106,16 +106,12 @@ struct TodoRow: View {
                 // 아래에 설명 없는 여백만 남는다.
                 if hasTagLine {
                     WrappingHStack(spacing: 10, lineSpacing: 6) {
-                    // **기본 카테고리는 적지 않는다.** 사람이 따로 만들지 않은
-                    // 분류라 거의 모든 줄에 같은 글자가 반복됐다 — 목록을 훑을 때
-                    // 그건 정보가 아니라 소음이다. 왼쪽 색 막대는 그대로 있으니
-                    // 분류가 사라지는 것도 아니다. 사람이 만든 카테고리만 이름을 쓴다.
-                    //
-                    // 색 점은 끈다 — 왼쪽 막대가 이미 같은 말을 하고 있다.
-                    if showsCategoryName {
-                        CategoryTag(category: todo.category, showsColorDot: false)
-                    }
-
+                    // **카테고리 이름은 적지 않는다.** 왼쪽 막대가 이미 그 말을
+                    // 하고 있어서, 이름까지 쓰면 한 줄에서 같은 사실을 두 번
+                    // 말하는 셈이었다. 게다가 짧은 이름이 날짜 앞에 서면 둘이
+                    // 한 덩어리로 읽혔다 — '일' 카테고리가 `일 11월 8일`이 되어
+                    // 요일처럼 보였다. 이름이 꼭 필요한 자리(상세 시트)에는
+                    // `CategoryTag`가 그대로 있다.
                     if showsCalendarTag, let calendar = todo.calendar {
                         // 캘린더 색은 위쪽 선택기에서만 쓴다(설정 화면이 그렇게
                         // 안내하고 있다). 여기서 또 칠하면 카테고리 색과 경쟁한다.
@@ -225,16 +221,9 @@ struct TodoRow: View {
 
     private var hasMemo: Bool { todo.memo != nil }
 
-    /// 카테고리 이름을 적을 것인가 — **사람이 직접 만든 분류일 때만.**
-    private var showsCategoryName: Bool {
-        guard let category = todo.category else { return false }
-        return !category.isDefault
-    }
-
     /// 태그 줄에 세울 것이 하나라도 있나.
     private var hasTagLine: Bool {
-        showsCategoryName
-            || (showsCalendarTag && todo.calendar != nil)
+        (showsCalendarTag && todo.calendar != nil)
             || scheduleLabel != nil
             || todo.isDDay
             || todo.repeatRule != .none
